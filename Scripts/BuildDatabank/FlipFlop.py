@@ -20,6 +20,8 @@ import MDAnalysis as mda
 sys.path.insert(1, '../BuildDatabank/')
 from databankLibrary import download_link, lipids_dict
 
+
+
 def getLipids(readme):
         lipids = []
         for key in lipids_dict.keys():
@@ -76,15 +78,11 @@ def membraneCentreOfMass(universe, readme):
     R_membrane = membrane.center_of_mass()[2]
     return R_membrane
     
-# check if lipid headgroup switches to other side of the centre of mass of the membrane 
 
 
-    
-    
 
-
-#if (not os.path.isdir('../../Data/Simulations/')): 
-#    os.mkdir('../../Data/Simulations/')
+if (not os.path.isdir('../../Data/FlipFlop/')): 
+    os.mkdir('../../Data/FlipFlop/')
 
 for subdir, dirs, files in os.walk(r'../../Data/Simulations/'): 
     for filename1 in files:
@@ -97,7 +95,7 @@ for subdir, dirs, files in os.walk(r'../../Data/Simulations/'):
                 indexingPath = "/".join(filepath.split("/")[4:8])
                 print(indexingPath)
                 DATAdir = '../../../../tst/FlipFlop/' + indexingPath + '/'                                     #change directory when code works properly!!!
-                
+ 
                 doi = readme['DOI']
                 trj=readme['TRJ'][0][0]
                 tpr=readme['TPR'][0][0]
@@ -127,16 +125,13 @@ for subdir, dirs, files in os.walk(r'../../Data/Simulations/'):
                 dt = u.trajectory.dt
                 start = int(EQtime*dt)
                 flipflops = 0
-                time_diff = 500
-                skip = int(time_diff / dt)
                 
                 frames_lipids = []
                 
                 for lipid in lipids:
                     previous_leaflet = []
-                    #every 500th frame for checking flip flops
-                    for ts in u.trajectory[start:end:skip]:
-                        print('frame ' + str(ts.frame))
+                    for ts in u.trajectory[start:end]:
+                       # print('frame ' + str(ts.frame))
                         headgroup = getHeadgroup(readme, lipid)
                        # print(headgroup)
 
@@ -150,7 +145,7 @@ for subdir, dirs, files in os.walk(r'../../Data/Simulations/'):
                             if hg_z < R_m:
                                 hg_leaflet_fr.append('l1') #in leaflet 1
                             if hg_z > R_m:
-                                hg_leaflet_fr.append('l2') #in leaflet 2
+                               hg_leaflet_fr.append('l2') #in leaflet 2
                                
                         
                         #check if lipid has changed leaflet between frames
@@ -183,5 +178,3 @@ for subdir, dirs, files in os.walk(r'../../Data/Simulations/'):
                 else:
                     print("no flip flops in trajectory")
                     
-                
-                
