@@ -355,3 +355,66 @@ def test_GetEquilibrationTimes_fail(systems):
     sys0 = systems.loc(787)
     from DatabankLib.databankLibrary import GetEquilibrationTimes
     GetEquilibrationTimes(sys0)
+
+def test_run_analysis_wrapper(systems, capsys):
+    """
+    Test the run_analysis wrapper function.
+    """
+    import DatabankLib
+    import DatabankLib.utils as utils
+    import logging
+    from logging import getLogger, StreamHandler
+
+    logger = getLogger("test_run_analysis_wrapper")
+    # create stream variable
+    from io import StringIO
+    mystream1 = StringIO()
+    # configure the logger to write to variable and store
+    handler = StreamHandler(stream=mystream1)
+    logger.addHandler(handler)
+    logger.setLevel(logging.INFO)
+
+    # Mock method to test
+    def mock_method(system, logger):
+        logger.info(f"Mock analysis for system {system['ID']}")
+        r = DatabankLib.RCODE_COMPUTED
+        if system['ID'] == 787:
+            # simulate an error for one system
+            r = DatabankLib.RCODE_ERROR
+        elif system['ID'] == 243:
+            # simulate a skipped system
+            r = DatabankLib.RCODE_SKIPPED
+        return r
+
+    # Run the analysis
+    utils.run_analysis(mock_method, logger, id_range=(None, None))
+    check.equal(
+            mystream1.getvalue().count(
+                "Mock analysis for system"),
+            5, msg=(
+                "Range (None,None) should process all systems \n\n" +
+                mystream1.getvalue())
+            )
+    # check number of errors (ERROR: 1)
+    check.equal(
+        mystream1.getvalue().count("ERROR: 1"),
+        1, msg=("There should be one error in the output \n\n" +
+                mystream1.getvalue())
+        )
+
+    # reset logger output stream
+    mystream2 = StringIO()
+    handler.setStream(mystream2)
+
+    utils.run_analysis(mock_method, logger, id_range=(500, None))
+    check.equal(
+            mystream2.getvalue().count(
+                "Mock analysis for system"),
+            2, msg=(
+                "Range (500,None) should process only systems with ID >= 500 \n\n" +
+                mystream2.getvalue()
+            ))
+
+    with capsys.disabled():
+        print("Captured output from run_analysis:")
+        print(mystream1.getvalue())

@@ -560,8 +560,6 @@ def computeOP(  # noqa: N802 (API)
 def computeMAICOS(  # noqa: N802 (API)
     system: System, logger: Logger, recompute: bool = False
 ) -> int:
-    logger.info("System title: " + system['SYSTEM'])
-    logger.info("System path: " + system['path'])
     software = system['SOFTWARE']
     # download trajectory and gro files
     system_path = os.path.join(NMLDB_SIMU_PATH, system['path'])

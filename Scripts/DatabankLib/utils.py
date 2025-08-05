@@ -30,8 +30,11 @@ def run_analysis(
         list_ids = [s for s in list_ids if s >= id_range[0]]
     if id_range[1] is not None:
         list_ids = [s for s in list_ids if s <= id_range[1]]
-    logger.info("Filtering systems by range: " + str(id_range))
-    logger.info("Number of systems in databank: " + str(len(list_ids)))
+    logger.info(f"""
+==> PREPARING ANALYSIS {method.__name__.upper()} <==
+    ├── Filtering systems by range: {id_range}
+    └── Number of systems in databank: {len(list_ids)}
+    """)
 
     result_dict = {
         RCODE_COMPUTED: 0,
@@ -40,13 +43,23 @@ def run_analysis(
 
     for id in list_ids:
         system = systems.loc(id)
-        logger.info("System title: " + system['SYSTEM'])
-        logger.info("System path: " + system['path'])
+        # printing pre-computational information in a tree-like structure
+        logger.info(f"""
+....Will run analysis called: {method.__name__}
+    ├── ID: {id}
+    ├── System title: {system['SYSTEM']}
+    └── System path: {system['path']}
+        """)
         res = method(system, logger)
+        logger.info(f"""
+....Finished calculating {method.__name__} for system {id}
+    └── Result of analysis: {res}
+        """)
         result_dict[res] += 1
 
-    print(f"""
-    COMPUTED: {result_dict[RCODE_COMPUTED]}
-    SKIPPED: {result_dict[RCODE_SKIPPED]}
-    ERROR: {result_dict[RCODE_ERROR]}
+    logger.info(f"""
+==> RESULTS OF ANALYSIS {method.__name__.upper()} FOR SYSTEMS IN RANGE {id_range} <==
+    ├── COMPUTED: {result_dict[RCODE_COMPUTED]}
+    ├── SKIPPED: {result_dict[RCODE_SKIPPED]}
+    └── ERROR: {result_dict[RCODE_ERROR]}
     """)
