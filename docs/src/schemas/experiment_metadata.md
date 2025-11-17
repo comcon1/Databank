@@ -41,12 +41,12 @@ If the dataset doesn't have DOI, we engage to add some persistent identifier or 
 Temperature (K) of the experiment. If `T_RF_HEATING` is 'no_inromation', the reported temperature from the probe is given. Otherwise, please insert RF-corrected temperature.
 
 4. **T_RF_HEATING**  
-How RF heating is dealt (no_information / measured / guessed)
+How RF heating is dealt (UNKNOWN / measured / guessed)
 
 5. **MEMBRANE_COMPOSITION**  
 Dictionary of molar fractions of bilayer components. For example:
 ```
-MOLAR_FRACTIONS:
+MEMBRANE_COMPOSITION:
   POPC: 0.93
   CHOL: 0.07
 ```
@@ -55,7 +55,7 @@ All the molecules should be registered in the [molecular inventory](molecule_rec
 6. **SOLUTION_COMPOSITION**  
 Dictionary of solution composition of the system (mass %):
 ```
-ION_CONCENTRATIONS:
+SOLUTION_COMPOSITION:
   SOD: 0.5
   CLA: 0.24
   GLUCOSE: 0.1
