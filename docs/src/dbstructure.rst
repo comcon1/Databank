@@ -143,7 +143,7 @@ metadata file and measured OP values for each measured lipid.
 
 1. :file:`README.yaml` contains metadata of the experiment, such as DOI, lamellar phase
    preparation protocol, temperature, B0 field, ions concentration and other relevant
-   information (`explore all ssNMR metadata <readmeexp>`_).
+   information (:ref:`explore all ssNMR metadata <readmeexp>`).
 
 2. :file:`POPC_OrderParameters.json` contains C-H bond order parameters and their
    experimental uncertainties defined for universal atom names.
