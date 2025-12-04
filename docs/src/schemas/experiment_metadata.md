@@ -67,11 +67,14 @@ Do not provide whole salts! Only separated ions. Remember that the counterions o
 Dictionary of additional molecules in the format:
 ```
 ADDITIONAL_MOLECULES:
-    TFA: trifluoroacetic acid
-    DMSO: dimethylsulfoxide
-    DMS: trimethylsilylpropanesulfonate
+    TFA: trifluoroacetic acid, 0.1%
+    DMSO: dimethylsulfoxide, 0.1%
+    DSS: sodium trimethylsilylpropanesulfonate, 0.01%
+    EDTA: ethylenediaminetetraacetic acid, 0.1 mM
 ```
-we can use INCHI-key, CAS number or just IUPAC name. If molecule is important for the composition, it will get the metadata inside the databank.
+we can use INCHI-key, CAS number or just IUPAC name. If molecule is important for
+the composition, it should get the metadata inside the databank and be mentioned under
+`SOLUTION_COMPOSITION` instead.
 
 8. **PH**  
 pH of the system (number or UNKNOWN)
