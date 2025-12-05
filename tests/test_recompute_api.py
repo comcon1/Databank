@@ -115,14 +115,15 @@ def hashFV(x):
 def test_PJangle(systems, systemid, lipid, fvhash):
     from fairmd.lipids.databankLibrary import (
         read_trj_PN_angles,
-        simulation2universal_atomnames,
         system2MDanalysisUniverse,
     )
 
     s = systems.loc(systemid)
     u = system2MDanalysisUniverse(s)
-    a1 = simulation2universal_atomnames(s, lipid, "M_G3P2_M")
-    a2 = simulation2universal_atomnames(s, lipid, "M_G3N6_M")
+    pats = u.select_atoms(s.content[lipid].uan2selection("M_G3P2_M", lipid))
+    nats = u.select_atoms(s.content[lipid].uan2selection("M_G3N6_M", lipid))
+    a1 = pats.atoms.names[0]
+    a2 = nats.atoms.names[0]
 
     a, b, c, d = read_trj_PN_angles(lipid, a1, a2, u)
     # time-molecule arrays

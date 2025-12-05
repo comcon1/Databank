@@ -183,45 +183,6 @@ def test_raises_averageOrderParameters(systems, systemid):
     assert "OrderParameters.json" in str(exc_info.value)
 
 
-@pytest.mark.parametrize(
-    "systemid, lipid, result",
-    [
-        (281, ["POPC/P"], ["M_G3P2_M"]),
-        (566, ["POPC/P31", "CHOL/C1"], ["M_G3P2_M", "M_C1_M"]),
-        (787, ["TOCL/P3", "POPC/P", "POPE/P"], ["M_G13P1_M", "M_G3P2_M", "M_G3P2_M"]),
-        (243, ["DPPC/P8"], ["M_G3P2_M"]),
-        (86, ["POPE/P8"], ["M_G3P2_M"]),
-    ],
-)
-def test_getUniversalAtomName(systems, systemid, lipid, result):
-    from fairmd.lipids.databankLibrary import getUniversalAtomName
-
-    sys0 = systems.loc(systemid)
-    i = 0
-    for i, lipat in enumerate(lipid):
-        lip, atom = tuple(lipat.split("/"))
-        uname = getUniversalAtomName(sys0, atom, lip)
-        check.equal(uname, result[i])
-
-
-# Test fail-behavior of getUniversalAtomName
-
-
-@pytest.mark.parametrize(
-    "systemid, lipat, result",
-    [(243, "DPPC/nonExisting", "Atom was not found"), (243, "nonExisting/P8", "was not found in the system")],
-)
-def test_bad_getUniversalAtomName(systems, systemid, lipat, result, capsys):
-    from fairmd.lipids.databankLibrary import getUniversalAtomName
-
-    sys0 = systems.loc(systemid)
-    lip, atom = tuple(lipat.split("/"))
-    uname = getUniversalAtomName(sys0, atom, lip)
-    output = capsys.readouterr().err.rstrip()
-    assert result in output
-    assert uname is None
-
-
 @pytest.mark.parametrize("systemid, lipid, result", [(243, "DPPC", "44ea5"), (787, "TOCL", "78629")])
 def test_getAtoms(systems, systemid, lipid, result):
     from fairmd.lipids.databankLibrary import getAtoms
@@ -235,57 +196,6 @@ def test_getAtoms(systems, systemid, lipid, result):
     md5_hash.update(atoms.encode("ascii"))
     hx = md5_hash.hexdigest()[:5]
     assert hx == result
-
-
-@pytest.mark.xfail(reason="Completely deprecated function", run=True, raises=NotImplementedError, strict=True)
-@pytest.mark.parametrize("systemid, lipid, result", [(281, ["POPC"], [134])])
-def test_raise_loadMappingFile(systems, systemid, lipid, result):
-    from fairmd.lipids.databankLibrary import loadMappingFile
-
-    sys0 = systems.loc(systemid)
-    i = 0
-    for i, lip in enumerate(lipid):
-        mpf = loadMappingFile(sys0["COMPOSITION"][lip]["MAPPING"])
-        check.equal(len(mpf), result[i])
-
-
-@pytest.mark.parametrize(
-    "systemid, lipid, result",
-    [
-        (281, ["POPC/P"], ["M_G3P2_M"]),
-        (566, ["POPC/P31", "CHOL/C1"], ["M_G3P2_M", "M_C1_M"]),
-        (787, ["TOCL/P3", "POPC/P", "POPE/P"], ["M_G13P1_M", "M_G3P2_M", "M_G3P2_M"]),
-        (243, ["DPPC/P8"], ["M_G3P2_M"]),
-        (86, ["POPE/P8"], ["M_G3P2_M"]),
-    ],
-)
-def test_simulation2universal_atomnames(systems, systemid, lipid, result):
-    from fairmd.lipids.databankLibrary import simulation2universal_atomnames
-
-    sys0 = systems.loc(systemid)
-    i = 0
-    for i, lipat in enumerate(lipid):
-        lip, atom = tuple(lipat.split("/"))
-        sname = simulation2universal_atomnames(sys0, lip, result[i])
-        check.equal(sname, atom)
-
-
-@pytest.mark.parametrize(
-    "systemid, lipat, result",
-    [
-        (243, "DPPC/nonExisting", "was not found from mappingDPPCberger.yaml"),
-        (243, "nonExisting/M_G1_M", "was not found in the system!"),
-    ],
-)
-def test_bad_simulation2universal_atomnames(systems, systemid, lipat, result, capsys):
-    from fairmd.lipids.databankLibrary import simulation2universal_atomnames
-
-    sys0 = systems.loc(systemid)
-    lip, atom = tuple(lipat.split("/"))
-    sname = simulation2universal_atomnames(sys0, lip, atom)
-    output = capsys.readouterr().err.rstrip()
-    assert result in output
-    assert sname is None
 
 
 @pytest.mark.parametrize(

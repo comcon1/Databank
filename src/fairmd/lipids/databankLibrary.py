@@ -9,12 +9,10 @@ import logging
 import math
 import os
 import subprocess
-import sys
 import warnings
 
 import MDAnalysis as mda
 import numpy as np
-from deprecated import deprecated
 
 from fairmd.lipids import FMDL_SIMU_PATH
 from fairmd.lipids.core import System
@@ -187,44 +185,6 @@ def getLipids(system: System, molecules=lipids_set):  # noqa: N802 (API name)
     return lipids
 
 
-def simulation2universal_atomnames(system: System, molname: str, atom: str):
-    """
-    Maps an atomic name from the simulation system to the corresponding universal
-    atomic name based on the provided molecule and atom. This function attempts to
-    retrieve the atomic name using the mapping dictionary or None.
-
-    :param system: The simulation system object
-    :param molname: The name of the molecule
-    :param atom: The specific atom name
-    :return: The universal atomic name or None (if not found)
-    """
-    try:
-        mdict = system.content[molname].mapping_dict
-    except KeyError:
-        sys.stderr.write(f"Molecule '{molname}' was not found in the system!")
-        return None
-    try:
-        m_atom1 = mdict[atom]["ATOMNAME"]
-    except (KeyError, TypeError):
-        sys.stderr.write(
-            f"{atom} was not found from {system['COMPOSITION'][molname]['MAPPING']}!",
-        )
-        return None
-
-    return m_atom1
-
-
-@deprecated(reason="Mapping handling is completely refactored.")
-def loadMappingFile(mapping_file):  # noqa: N802 (API name)
-    """
-    This function is deprecated. Use Molecule.register_mapping() from
-    DatbankLib.settings.molecules instead.
-    """
-    raise NotImplementedError(
-        "This function is deprecated. Use Molecule.register_mapping() instead.",
-    )
-
-
 def getAtoms(system: System, lipid: str):  # noqa: N802 (API name)
     """
     Return system specific atom names of a lipid
@@ -240,36 +200,6 @@ def getAtoms(system: System, lipid: str):  # noqa: N802 (API name)
         atoms = atoms + " " + mdict[key]["ATOMNAME"]
 
     return atoms
-
-
-def getUniversalAtomName(  # noqa: N802 (API name)
-    system: System,
-    atom_name: str,
-    molname: str,
-):
-    """
-    Returns the universal atom name corresponding the simulation specific ``atomName``
-    of a ``lipid`` in a simulation defined by the ``system``.
-
-    :param system: system dictionary
-    :param atom_name: simulation specific atomname
-    :param molname: universal lipid name
-
-    :return: universal atomname (string) or None
-    """
-    try:
-        mdict = system.content[molname].mapping_dict
-    except KeyError:
-        sys.stderr.write(f"Molecule '{molname}' was not found in the system!")
-        return None
-
-    for universal_name in mdict:
-        sim_name = mdict[universal_name]["ATOMNAME"]
-        if sim_name == atom_name:
-            return universal_name
-
-    sys.stderr.write("Atom was not found!\n")
-    return None
 
 
 def calc_angle(atoms, com):
