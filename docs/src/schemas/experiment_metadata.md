@@ -28,7 +28,20 @@
 | SIGN_MEASURED | NONE or S-DROSS |
 | NMR_COMMENT | Description of NMR experiment type |
 
-**Field descriptions**
+**X-ray specific metadata**
+
+|             key           | description                             |
+|---------------------------|-----------------------------------------|
+| XR_SOURCE | Source name |
+| XR_LAMBDA | Source wavelength or range |
+| XR_QRANGE | Scattering detection range (Q-range) |
+| XR_DETECTOR | Detector type |
+| XR_DISTANCE | Distance to detector (mm) |
+| XR_EXPOSITION | Exposition time |
+| SAMPLE_TYPE | 'MLV', 'SUV', 'GUV', 'OS' (oriented sample) |
+| SAMPLE_PROTOCOL | Protocol of liposome (or OS) preparation |
+
+## General fields
 
 1. **ARTICLE_DOI**  
 DOI of the original publication where the experimental data originates.
@@ -121,3 +134,26 @@ Obligatory explanation if **NMR_METHOD** uses "see_comments" for SUBMETHOD.
 
 ## Scattering-specific fields
 
+1. **XR_SOURCE**
+X-ray source description. Name of the core facilities or instrument name if laboratory source was used.
+
+2. **XR_LAMBDA**
+Source wavelength or range. Wavelength (and/or range) of the X-ray beam used, with units (e.g., Angstroms).
+
+3. **XR_QRANGE**
+Scattering detection range (Q-range). The accessible scattering vector range, typically given in 1/Å.
+
+4. **XR_DETECTOR**
+Detector type. The detector installed (e.g., CCD camera, PILATUS, or other detector model).
+
+5. **XR_DISTANCE**
+Distance to detector (mm). The separation between the sample and the detector, in millimeters.
+
+6. **XR_EXPOSITION**
+Exposition time. The total data acquisition time per measurement, usually in seconds.
+
+7. **SAMPLE_TYPE**
+'MLV', 'SUV', 'GUV', 'OS' (oriented sample). The type of sample used, with definitions: MLV (multilamellar vesicles), SUV (small unilamellar vesicles), GUV (giant unilamellar vesicles), OS (oriented sample).
+
+8. **SAMPLE_PROTOCOL**
+Protocol of liposome (or OS) preparation. A description of the preparation steps and conditions used to obtain the sample, such as lipid composition, hydration method, extrusion, alignment procedures, and any buffers used.
