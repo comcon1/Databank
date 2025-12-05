@@ -24,7 +24,9 @@
 | TOTAL_HYDRATION | Total hydration of the system (water mass %) |
 | HYDRATION_METHOD | Method of preparing lamellar phase |
 | NMR_INSTRUMENT | Instrument name (including field) |
-| NMR_EXPERIMENT | Description of NMR experiment type |
+| NMR_METHOD | Method of OP measurement "abbr1:abbr2" (see detailed explaining below) |
+| SIGN_MEASURED | NONE or S-DROSS |
+| NMR_COMMENT | Description of NMR experiment type |
 
 **Field descriptions**
 
@@ -85,16 +87,18 @@ How the pH value is got: measured by pH electrode or indicator paper, measured b
 10. **REAGENT_SOURCES**  
 Which reagents are used for lipids -- should be specified for every lipid.
 
-11. **TOTAL_HYDRATION**  
+## NMR-specific fields
+
+1. **TOTAL_HYDRATION**  
 Mass \% of water. Better if it is measured by <sup>1</sup>H MAS NMR.
 
-12. **HYDRATION_METHOD**  
+2. **HYDRATION_METHOD**  
 Way how the targeted hydration level is reached: lyophilised powder is hydrated, liposome suspension is dehydrated, or liposome suspension is ultracentrifugated to get lipid-rich phase.
 
-13. **NMR_INSTRUMENT**  
+3. **NMR_INSTRUMENT**  
 Name of the instrument and field strength.
 
-14. **NMR_METHOD**  
+4. **NMR_METHOD**  
 A field identifying the NMR method used (string formed as METHOD:SUBMETHOD, e.g., "2H:QE").
     - Variants for METHOD: *"2H", "CDLF", "PDLF"*  
       Two main methods are <sup>2</sup>H-NMR and <sup>1</sup>H-<sup>13</sup>C SLF (separate local field)
@@ -108,9 +112,12 @@ A field identifying the NMR method used (string formed as METHOD:SUBMETHOD, e.g.
       For PDLF method, subvariants could use dipolar recoupling on-axis with scaling and shape preservation (DROSS),
       or R-type recoupling (recoupling using symmetry-based pulse sequences)
 
-15. **SIGN_MEASURED**  
+5. **SIGN_MEASURED**  
 Method name  (e.g. S-DROSS) if order parameter sign was measured, NONE otherwise.
 
-16. **NMR_COMMENTS**  
+6. **NMR_COMMENTS**  
 Links to the pulse sequence, corresponding paper and precise parameters if important.
 Obligatory explanation if **NMR_METHOD** uses "see_comments" for SUBMETHOD.
+
+## Scattering-specific fields
+
