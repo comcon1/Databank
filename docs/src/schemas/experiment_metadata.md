@@ -36,9 +36,14 @@
 | XR_LAMBDA | Source wavelength or range |
 | XR_QRANGE | Scattering detection range (Q-range) |
 | XR_DETECTOR | Detector type |
-| XR_DISTANCE | Distance to detector (mm) |
-| XR_EXPOSITION | Exposition time |
+| XR_DISTANCE | Distance to detector (m) |
+| XR_DATATYPE | Data type (batch or SEC) |
+| XR_EXPOSURE | Exposure time per frame (s) |
+| XR_FRAMES | Number of frames |
+| XR_TEMP | Measurement temperature (K) |
 | SAMPLE_TYPE | 'MLV', 'SUV', 'GUV', 'OS' (oriented sample) |
+| SAMPLE_CONC | Sample lipid concentration |
+| SAMPLE_BUFFER | Sample buffer composition |
 | SAMPLE_PROTOCOL | Protocol of liposome (or OS) preparation |
 
 ## General fields
@@ -135,25 +140,40 @@ Obligatory explanation if **NMR_METHOD** uses "see_comments" for SUBMETHOD.
 ## Scattering-specific fields
 
 1. **XR_SOURCE**
-X-ray source description. Name of the core facilities or instrument name if laboratory source was used.
+X-ray source description. Name of the core facilities or instrument name if laboratory source was used. Name of beamline and source if synchrotron data (e.g. EMBL P12, PETRA III).
 
 2. **XR_LAMBDA**
-Source wavelength or range. Wavelength (and/or range) of the X-ray beam used, with units (e.g., Angstroms).
+Source wavelength or range. Wavelength (and/or range) of the X-ray beam used, with units (e.g., Ångstroms).
 
 3. **XR_QRANGE**
 Scattering detection range (Q-range). The accessible scattering vector range, typically given in 1/Å.
 
 4. **XR_DETECTOR**
-Detector type. The detector installed (e.g., CCD camera, PILATUS, or other detector model).
+Detector type (e.g., CCD camera, PILATUS, or other detector model).
 
 5. **XR_DISTANCE**
-Distance to detector (mm). The separation between the sample and the detector, in millimeters.
+Distance to detector (m). The separation between the sample and the detector, in meters.
 
-6. **XR_EXPOSITION**
-Exposition time. The total data acquisition time per measurement, usually in seconds.
+6. **XR_DATATYPE**
+Measurement data type. Batch mode or size-exclusion chromatography (SEC) mode.
 
-7. **SAMPLE_TYPE**
+7. **XR_EXPOSURE**
+Exposure time per frame. The total data acquisition time per measurement frame, usually given in seconds.
+
+8. **XR_FRAMES**
+Number of frames collected for dataset.
+
+9. **XR_TEMP**
+Measurement temperature in Kelvins.
+
+10. **SAMPLE_TYPE**
 'MLV', 'SUV', 'GUV', 'OS' (oriented sample). The type of sample used, with definitions: MLV (multilamellar vesicles), SUV (small unilamellar vesicles), GUV (giant unilamellar vesicles), OS (oriented sample).
 
-8. **SAMPLE_PROTOCOL**
+11. **SAMPLE_CONC**
+Molar concentration of lipids in sample.
+
+12. **SAMPLE_BUFFER**
+Sample background buffer and solvent composition.
+
+13. **SAMPLE_PROTOCOL**
 Protocol of liposome (or OS) preparation. A description of the preparation steps and conditions used to obtain the sample, such as lipid composition, hydration method, extrusion, alignment procedures, and any buffers used.
