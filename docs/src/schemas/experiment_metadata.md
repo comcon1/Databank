@@ -96,27 +96,32 @@ we can use INCHI-key, CAS number or just IUPAC name. If molecule is important fo
 the composition, it should get the metadata inside the databank and be mentioned under
 `SOLUTION_COMPOSITION` instead.
 
-8. **PH**  
+8. **TOTAL_HYDRATION**  
+Mass \% of water in the sample. For NMR experiment, it is better if measured by <sup>1</sup>H MAS NMR.
+
+9. **PH**  
 pH of the system (number or UNKNOWN)
 
-9. **PH_METHOD**  
+10. **PH_METHOD**  
 How the pH value is got: measured by pH electrode or indicator paper, measured by NMR, set by buffer.
 
-10. **REAGENT_SOURCES**  
+11. **REAGENT_SOURCES**  
 Which reagents are used for lipids -- should be specified for every lipid.
+
+12. **SAMPLE_PROTOCOL**
+Protocol of liposome (or OS) preparation. A description of the preparation steps and
+conditions used to obtain the sample, such as lipid composition, hydration method, extrusion,
+alignment procedures, and any buffers used.
+For NMR sample, it is important to mention how the targeted hydration level is reached:
+lyophilised powder is hydrated, liposome suspension is dehydrated, or liposome suspension
+is ultracentrifugated to get lipid-rich phase.
 
 ## NMR-specific fields
 
-1. **TOTAL_HYDRATION**  
-Mass \% of water. Better if it is measured by <sup>1</sup>H MAS NMR.
-
-2. **HYDRATION_METHOD**  
-Way how the targeted hydration level is reached: lyophilised powder is hydrated, liposome suspension is dehydrated, or liposome suspension is ultracentrifugated to get lipid-rich phase.
-
-3. **NMR_INSTRUMENT**  
+1. **NMR_INSTRUMENT**  
 Name of the instrument and field strength.
 
-4. **NMR_METHOD**  
+2. **NMR_METHOD**  
 A field identifying the NMR method used (string formed as METHOD:SUBMETHOD, e.g., "2H:QE").
     - Variants for METHOD: *"2H", "CDLF", "PDLF"*  
       Two main methods are <sup>2</sup>H-NMR and <sup>1</sup>H-<sup>13</sup>C SLF (separate local field)
@@ -130,10 +135,10 @@ A field identifying the NMR method used (string formed as METHOD:SUBMETHOD, e.g.
       For PDLF method, subvariants could use dipolar recoupling on-axis with scaling and shape preservation (DROSS),
       or R-type recoupling (recoupling using symmetry-based pulse sequences)
 
-5. **SIGN_MEASURED**  
+3. **SIGN_MEASURED**  
 Method name  (e.g. S-DROSS) if order parameter sign was measured, NONE otherwise.
 
-6. **NMR_COMMENTS**  
+4. **NMR_COMMENTS**  
 Links to the pulse sequence, corresponding paper and precise parameters if important.
 Obligatory explanation if **NMR_METHOD** uses "see_comments" for SUBMETHOD.
 
@@ -163,17 +168,6 @@ Exposure time per frame. The total data acquisition time per measurement frame, 
 8. **XR_FRAMES**
 Number of frames collected for dataset.
 
-9. **XR_TEMP**
-Measurement temperature in Kelvins.
-
-10. **SAMPLE_TYPE**
+9. **SAMPLE_TYPE**
 'MLV', 'SUV', 'GUV', 'OS' (oriented sample). The type of sample used, with definitions: MLV (multilamellar vesicles), SUV (small unilamellar vesicles), GUV (giant unilamellar vesicles), OS (oriented sample).
 
-11. **SAMPLE_CONC**
-Molar concentration of lipids in sample.
-
-12. **SAMPLE_BUFFER**
-Sample background buffer and solvent composition.
-
-13. **SAMPLE_PROTOCOL**
-Protocol of liposome (or OS) preparation. A description of the preparation steps and conditions used to obtain the sample, such as lipid composition, hydration method, extrusion, alignment procedures, and any buffers used.
