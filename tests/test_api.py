@@ -69,7 +69,7 @@ def test_print_README(systems, capsys):
     ],
 )
 def test_CalcAreaPerMolecule(systems, systemid, result):
-    from fairmd.lipids.databankLibrary import CalcAreaPerMolecule
+    from fairmd.lipids.api import CalcAreaPerMolecule
 
     sys0 = systems.loc(systemid)
     apm = CalcAreaPerMolecule(sys0)
@@ -81,7 +81,7 @@ def test_CalcAreaPerMolecule(systems, systemid, result):
     [(281, 4142.234), (566, 3923.568), (787, 4694.191), (243, 2241.920), (86, 3869.417)],
 )
 def test_calcArea(systems, systemid, result):
-    from fairmd.lipids.databankLibrary import calcArea
+    from fairmd.lipids.api import calcArea
 
     sys0 = systems.loc(systemid)
     area = calcArea(sys0)
@@ -90,7 +90,7 @@ def test_calcArea(systems, systemid, result):
 
 @pytest.mark.parametrize("systemid, result", [(281, 128), (566, 128), (787, 120), (243, 72), (86, 128)])
 def test_GetNLipids(systems, systemid, result):
-    from fairmd.lipids.databankLibrary import GetNlipids
+    from fairmd.lipids.api import GetNlipids
 
     sys0 = systems.loc(systemid)
     nlip = GetNlipids(sys0)
@@ -109,7 +109,7 @@ def test_GetNLipids(systems, systemid, result):
 def test_GetFormFactorMin(systems, systemid, result):
     import numpy as np
 
-    from fairmd.lipids.databankLibrary import GetFormFactorMin
+    from fairmd.lipids.api import GetFormFactorMin
 
     sys0 = systems.loc(systemid)
     ffl = GetFormFactorMin(sys0)
@@ -123,7 +123,7 @@ def test_GetFormFactorMin(systems, systemid, result):
 
 @pytest.mark.parametrize("systemid, result", [(281, 31.5625), (566, 31.0), (787, 75.0), (243, 39.7778), (86, 27.75)])
 def test_getHydrationLevel(systems, systemid, result):
-    from fairmd.lipids.databankLibrary import getHydrationLevel
+    from fairmd.lipids.api import getHydrationLevel
 
     sys0 = systems.loc(systemid)
     hl = getHydrationLevel(sys0)
@@ -141,7 +141,7 @@ def test_getHydrationLevel(systems, systemid, result):
     ],
 )
 def test_calcLipidFraction(systems, systemid, lipid, result):
-    from fairmd.lipids.databankLibrary import calcLipidFraction
+    from fairmd.lipids.api import calcLipidFraction
 
     sys0 = systems.loc(systemid)
     assert calcLipidFraction(sys0, "SOPC") == 0  # absent lipid
@@ -162,7 +162,7 @@ def test_calcLipidFraction(systems, systemid, lipid, result):
     ],
 )
 def test_averageOrderParameters(systems, systemid, result):
-    from fairmd.lipids.databankLibrary import averageOrderParameters
+    from fairmd.lipids.api import averageOrderParameters
 
     sys0 = systems.loc(systemid)
     sn1, sn2 = averageOrderParameters(sys0)
@@ -174,7 +174,7 @@ def test_averageOrderParameters(systems, systemid, result):
 
 @pytest.mark.parametrize("systemid", [787])
 def test_raises_averageOrderParameters(systems, systemid):
-    from fairmd.lipids.databankLibrary import averageOrderParameters
+    from fairmd.lipids.api import averageOrderParameters
 
     sys0 = systems.loc(systemid)
     with pytest.raises(FileNotFoundError) as exc_info:
@@ -185,7 +185,7 @@ def test_raises_averageOrderParameters(systems, systemid):
 
 @pytest.mark.parametrize("systemid, lipid, result", [(243, "DPPC", "44ea5"), (787, "TOCL", "78629")])
 def test_getAtoms(systems, systemid, lipid, result):
-    from fairmd.lipids.databankLibrary import getAtoms
+    from fairmd.lipids.api import getAtoms
 
     sys0 = systems.loc(systemid)
     atoms = getAtoms(sys0, lipid).split()
@@ -209,7 +209,7 @@ def test_getAtoms(systems, systemid, lipid, result):
     ],
 )
 def test_getLipids(systems, systemid, result):
-    from fairmd.lipids.databankLibrary import getLipids
+    from fairmd.lipids.api import getLipids
 
     sys0 = systems.loc(systemid)
     gl = getLipids(sys0)
@@ -252,7 +252,7 @@ def test_analyze_th(systems, systemid, result, wipeth, thickres, logger):
 
 @pytest.mark.parametrize("systemid, result", [(281, None), (243, None), (566, 4.2576), (787, None), (86, 4.1327)])
 def test_GetThickness(systems, systemid, result):
-    from fairmd.lipids.databankLibrary import GetThickness
+    from fairmd.lipids.api import GetThickness
 
     sys0 = systems.loc(systemid)
     th = GetThickness(sys0)
@@ -270,7 +270,7 @@ def test_GetThickness(systems, systemid, result):
     ],
 )
 def test_GetEquilibrationTimes(systems, systemid, result):
-    from fairmd.lipids.databankLibrary import GetEquilibrationTimes
+    from fairmd.lipids.api import GetEquilibrationTimes
     from fairmd.lipids.molecules import lipids_set
 
     sys0 = systems.loc(systemid)
@@ -287,7 +287,7 @@ def test_GetEquilibrationTimes(systems, systemid, result):
 @pytest.mark.xfail(reason="EQtimes were not computed", run=True, raises=FileNotFoundError, strict=True)
 def test_GetEquilibrationTimes_fail(systems):
     sys0 = systems.loc(787)
-    from fairmd.lipids.databankLibrary import GetEquilibrationTimes
+    from fairmd.lipids.api import GetEquilibrationTimes
 
     GetEquilibrationTimes(sys0)
 
@@ -300,7 +300,7 @@ def test_GetEquilibrationTimes_fail(systems):
     ],
 )
 def test_GetOP_reads_valid_json(systems, systemid, lipid):
-    from fairmd.lipids.databankLibrary import GetOP
+    from fairmd.lipids.api import GetOP
 
     sys0 = systems.loc(systemid)
     resdic = GetOP(sys0)
@@ -315,7 +315,7 @@ def test_GetOP_reads_valid_json(systems, systemid, lipid):
     ],
 )
 def test_GetOP_missing_file_warns(systems, systemid, testmol, result):
-    from fairmd.lipids.databankLibrary import GetOP
+    from fairmd.lipids.api import GetOP
 
     sys0 = systems.loc(systemid)
 

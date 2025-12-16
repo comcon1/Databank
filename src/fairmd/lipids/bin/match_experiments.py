@@ -24,8 +24,8 @@ import yaml
 from tqdm import tqdm
 
 from fairmd.lipids import FMDL_EXP_PATH, FMDL_SIMU_PATH
+from fairmd.lipids.api import lipids_set
 from fairmd.lipids.core import System, initialize_databank
-from fairmd.lipids.databankLibrary import lipids_set
 
 logger = logging.getLogger("__name__")
 

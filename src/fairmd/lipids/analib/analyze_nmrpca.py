@@ -50,9 +50,9 @@ from MDAnalysis.analysis.base import AnalysisFromFunction
 from scipy import signal
 
 from fairmd.lipids import FMDL_SIMU_PATH
+from fairmd.lipids.api import lipids_set
 from fairmd.lipids.core import System
 from fairmd.lipids.databankio import download_resource_from_uri, resolve_file_url
-from fairmd.lipids.databankLibrary import lipids_set
 from fairmd.lipids.molecules import Lipid
 
 # suppress some MDAnalysis warnings issued from mda.analysis.align

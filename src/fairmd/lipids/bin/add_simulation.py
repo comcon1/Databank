@@ -47,6 +47,7 @@ from MDAnalysis import Universe
 
 # import databank dictionaries
 from fairmd.lipids import FMDL_SIMU_PATH
+from fairmd.lipids.api import lipids_set, molecules_set, parse_valid_config_settings
 from fairmd.lipids.core import System, initialize_databank
 
 # helpers
@@ -56,7 +57,6 @@ from fairmd.lipids.databankio import (
     download_resource_from_uri,
     resolve_file_url,
 )
-from fairmd.lipids.databankLibrary import lipids_set, molecules_set, parse_valid_config_settings
 from fairmd.lipids.molecules import Lipid, MoleculeMappingError, NonLipid
 from fairmd.lipids.SchemaValidation.engines import get_struc_top_traj_fnames, software_dict
 from fairmd.lipids.SchemaValidation.ValidateYAML import validate_info_dict

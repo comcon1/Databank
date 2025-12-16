@@ -40,11 +40,11 @@ from fairmd.lipids.analib.maicos import (
     is_system_suitable_4_maicos,
     traj_centering_for_maicos,
 )
+from fairmd.lipids.api import GetNlipids, getLipids, system2MDanalysisUniverse
 from fairmd.lipids.auxiliary import elements
 from fairmd.lipids.auxiliary.jsonEncoders import CompactJSONEncoder
 from fairmd.lipids.core import System
 from fairmd.lipids.databankio import download_resource_from_uri, resolve_file_url
-from fairmd.lipids.databankLibrary import GetNlipids, getLipids, system2MDanalysisUniverse
 from fairmd.lipids.molecules import lipids_set
 from fairmd.lipids.SchemaValidation.engines import get_struc_top_traj_fnames
 

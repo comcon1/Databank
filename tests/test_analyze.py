@@ -86,7 +86,7 @@ def systems():
 @pytest.fixture(scope="module")
 def systemLoadTraj(systems):
     import fairmd.lipids as fmdl
-    from fairmd.lipids.databankLibrary import system2MDanalysisUniverse
+    from fairmd.lipids.api import system2MDanalysisUniverse
 
     logger.info("Downloading trajectory data.")
     for s in systems:
