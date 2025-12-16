@@ -47,7 +47,6 @@ from MDAnalysis import Universe
 
 # import databank dictionaries
 from fairmd.lipids import FMDL_SIMU_PATH
-from fairmd.lipids.api import lipids_set, molecules_set, parse_valid_config_settings
 from fairmd.lipids.core import System, initialize_databank
 
 # helpers
@@ -57,8 +56,9 @@ from fairmd.lipids.databankio import (
     download_resource_from_uri,
     resolve_file_url,
 )
-from fairmd.lipids.molecules import Lipid, MoleculeMappingError, NonLipid
+from fairmd.lipids.molecules import Lipid, MoleculeMappingError, NonLipid, lipids_set, molecules_set
 from fairmd.lipids.SchemaValidation.engines import get_struc_top_traj_fnames, software_dict
+from fairmd.lipids.SchemaValidation.validate_info_dict import parse_valid_config_settings
 from fairmd.lipids.SchemaValidation.ValidateYAML import validate_info_dict
 
 pd.set_option("display.max_rows", 500)
@@ -159,7 +159,7 @@ Returns error codes:
 
     # validate yaml entries and return updated sim dict
     try:
-        sim_dict, files = parse_valid_config_settings(info_yaml)
+        sim_dict, files = parse_valid_config_settings(info_yaml, logger)
     except KeyError:
         logger.exception("Missing entry key in yaml config, aborting..")
         sys.exit(1)
