@@ -40,10 +40,7 @@
 | XR_DATATYPE | Data type (batch or SEC) |
 | XR_EXPOSURE | Exposure time per frame (s) |
 | XR_FRAMES | Number of frames |
-| XR_TEMP | Measurement temperature (K) |
-| SAMPLE_TYPE | 'MLV', 'SUV', 'GUV', 'OS' (oriented sample) |
-| SAMPLE_CONC | Sample lipid concentration |
-| SAMPLE_BUFFER | Sample buffer composition |
+| SAMPLE_TYPE | 'MLV', 'SUV', 'GUV', 'OS' (oriented sample), 'BIC' |
 | SAMPLE_PROTOCOL | Protocol of liposome (or OS) preparation |
 
 ## General fields
@@ -169,5 +166,5 @@ Exposure time per frame. The total data acquisition time per measurement frame, 
 Number of frames collected for dataset.
 
 9. **SAMPLE_TYPE**
-'MLV', 'SUV', 'GUV', 'OS' (oriented sample). The type of sample used, with definitions: MLV (multilamellar vesicles), SUV (small unilamellar vesicles), GUV (giant unilamellar vesicles), OS (oriented sample).
+'MLV', 'SUV', 'GUV', 'OS' (oriented sample), 'BIC'. The type of sample used, with definitions: MLV (multilamellar vesicles), SUV (small unilamellar vesicles), GUV (giant unilamellar vesicles), OS (oriented sample), BIC (bicelles).
 
