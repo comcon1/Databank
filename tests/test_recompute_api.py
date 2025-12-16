@@ -59,7 +59,7 @@ def systems():
     ],
 )
 def test_system2MDAnalysisUniverse(systems, systemid, natoms, nframes):
-    from fairmd.lipids.databankLibrary import system2MDanalysisUniverse
+    from fairmd.lipids.api import system2MDanalysisUniverse
 
     s = systems.loc(systemid)
     u = system2MDanalysisUniverse(s)
@@ -89,7 +89,7 @@ def failSys():
 
 @pytest.mark.xfail(reason="Localhost with non-downloaded files", raises=FileNotFoundError)
 def test_fail1_system2MDAnalysisUniverse(failSys):
-    from fairmd.lipids.databankLibrary import system2MDanalysisUniverse
+    from fairmd.lipids.api import system2MDanalysisUniverse
 
     _ = system2MDanalysisUniverse(failSys)
 
@@ -113,7 +113,7 @@ def hashFV(x):
     ],
 )
 def test_PJangle(systems, systemid, lipid, fvhash):
-    from fairmd.lipids.databankLibrary import (
+    from fairmd.lipids.api import (
         read_trj_PN_angles,
         system2MDanalysisUniverse,
     )
