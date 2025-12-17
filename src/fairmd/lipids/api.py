@@ -46,6 +46,29 @@ def get_thickness(system: System) -> float:
         return thickness_v
 
 
+def get_eqtimes(system: System) -> dict:
+    """
+    Return relative equilibration time for each lipid of ``system``.
+
+    :param system: Simulation object.
+
+    :return: dictionary of relative equilibration times for each lipid
+    """
+    eq_times_path = os.path.join(FMDL_SIMU_PATH, system["path"], "eq_times.json")
+
+    try:
+        with open(eq_times_path) as f:
+            eq_time_dict = json.load(f)
+    except FileNotFoundError:
+        print("No thickness information for system#{}.".format(system["ID"]), file=sys.stderr)
+        raise
+    except json.JSONDecodeError:
+        print("Equilibration times information for system#{} is invalid.".format(system["ID"]), file=sys.stderr)
+        raise
+
+    return eq_time_dict
+
+
 def CalcAreaPerMolecule(system) -> None | float:  # noqa: N802 (API name)
     """
     Calculate average area per lipid for a system.
@@ -95,27 +118,6 @@ def ShowEquilibrationTimes(system: System):  # noqa: N802 (API name)
 
     for i in eq_time_dict:
         print(i + ":", eq_time_dict[i])
-
-
-def GetEquilibrationTimes(system: System):  # noqa: N802 (API name)
-    """
-    Returns relative equilibration time for each lipid within a simulation defined
-    by ``system``. Relative equilibration times are calculated with
-    ``NMRPCA_timerelax.py`` and stored in ``eq_times.json`` files.
-
-    :param system: FAIRMD Lipids dictionary defining a simulation.
-
-    :return: dictionary of relative equilibration times for each lipid
-    """
-    eq_times_path = os.path.join(FMDL_SIMU_PATH, system["path"], "eq_times.json")
-
-    try:
-        with open(eq_times_path) as f:
-            eq_time_dict = json.load(f)
-    except Exception as err:
-        raise FileNotFoundError(f"eq_times.json not found for {system['ID']}") from err
-
-    return eq_time_dict
 
 
 def GetOP(system):  # noqa: N802 (API name)
