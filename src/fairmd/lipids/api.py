@@ -226,20 +226,6 @@ def calc_angle(atoms, com):
     return angle
 
 
-def calc_z_dim(gro):
-    """
-    :meta private:
-    Returns the simulation box dimension in z-direction from coordinate file.
-
-    :param gro: coordinate in ``gro``, ``pdb`` or corresponding format.
-
-    :return: size of box z-direction.
-    """
-    u = mda.Universe(gro)
-    z = u.dimensions[2]
-    return z
-
-
 def system2MDanalysisUniverse(system):  # noqa: N802 (API name)
     """
     Takes the ``system`` dictionary as an input, downloads the required files to
