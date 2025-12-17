@@ -181,21 +181,6 @@ def test_raises_averageOrderParameters(systems, systemid):
     assert "OrderParameters.json" in str(exc_info.value)
 
 
-@pytest.mark.parametrize("systemid, lipid, result", [(243, "DPPC", "44ea5"), (787, "TOCL", "78629")])
-def test_getAtoms(systems, systemid, lipid, result):
-    from fairmd.lipids.api import getAtoms
-
-    sys0 = systems.loc(systemid)
-    atoms = getAtoms(sys0, lipid).split()
-    atoms = ",".join(sorted(atoms))
-    import hashlib
-
-    md5_hash = hashlib.md5()
-    md5_hash.update(atoms.encode("ascii"))
-    hx = md5_hash.hexdigest()[:5]
-    assert hx == result
-
-
 @pytest.mark.parametrize(
     "systemid, result",
     [

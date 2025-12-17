@@ -161,23 +161,6 @@ def getLipids(system: System, molecules=lipids_set):  # noqa: N802 (API name)
     return lipids
 
 
-def getAtoms(system: System, lipid: str):  # noqa: N802 (API name)
-    """
-    Return system specific atom names of a lipid
-
-    :param system: System simulation object
-    :param lipid: universal lipid name
-
-    :return: string of system specific atom names
-    """
-    atoms = ""
-    mdict = system.content[lipid].mapping_dict
-    for key in mdict:
-        atoms = atoms + " " + mdict[key]["ATOMNAME"]
-
-    return atoms
-
-
 def calc_angle(atoms, com):
     """
     :meta private:
