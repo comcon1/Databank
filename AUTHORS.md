@@ -8,8 +8,9 @@ Since June 2025 (v.1.1.0), FAIRMD Lipids separates codespace from [Data](https:/
 
  Alphabetical list of contributors:
 
-- @MelbourneFL
+- Alexander Vogel (@MelbourneFL)
 - Alexey M. Nesterenko (@comcon1)
+- Arne Samuel Raasakka (@yesthisisarne)
 - Anika Wurl (@awurl)
 - Anne Kiirikki (@akiirik)
 - Batuhan Kav (@batukav)
