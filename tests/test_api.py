@@ -80,11 +80,11 @@ def test_get_mean_apl(systems, systemid, result):
     "systemid, result",
     [(281, 4142.234), (566, 3923.568), (787, 4694.191), (243, 2241.920), (86, 3869.417)],
 )
-def test_calcArea(systems, systemid, result):
-    from fairmd.lipids.api import calcArea
+def test_get_total_area(systems, systemid, result):
+    from fairmd.lipids.api import get_total_area
 
     sys0 = systems.loc(systemid)
-    area = calcArea(sys0)
+    area = get_total_area(sys0)
     assert area == pytest.approx(result, abs=6e-4)
 
 
