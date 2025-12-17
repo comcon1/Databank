@@ -81,6 +81,15 @@ class System(MutableMapping):
         """Returns dictionary of molecule objects."""
         return self._content
 
+    @property
+    def n_lipids(self) -> int:
+        """Returns total number of lipid molecules in the system."""
+        total = 0
+        for k, v in self["COMPOSITION"].items():
+            if k in lipids_set:
+                total += sum(v["COUNT"])
+        return total
+
     def __repr__(self) -> str:
         return f"System({self._store['ID']}): {self._store['path']}"
 

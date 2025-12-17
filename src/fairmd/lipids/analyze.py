@@ -40,7 +40,7 @@ from fairmd.lipids.analib.maicos import (
     is_system_suitable_4_maicos,
     traj_centering_for_maicos,
 )
-from fairmd.lipids.api import GetNlipids, getLipids, system2MDanalysisUniverse
+from fairmd.lipids.api import getLipids, system2MDanalysisUniverse
 from fairmd.lipids.auxiliary import elements
 from fairmd.lipids.auxiliary.jsonEncoders import CompactJSONEncoder
 from fairmd.lipids.core import System
@@ -166,9 +166,6 @@ def computeAPL(  # noqa: N802 (API)
     print("Will write into: ", outfilename)
 
     try:
-        # calculates the total number of lipids
-        n_lipid = GetNlipids(system)
-
         # makes MDAnalysis universe from the system. This also downloads the data if not
         # yet locally available
         u = system2MDanalysisUniverse(system)
@@ -180,10 +177,11 @@ def computeAPL(  # noqa: N802 (API)
         # this calculates the area per lipid as a function of time and stores it
         # in the databank
         apl = {}
+        nlipids = system.n_lipids
         for _ts in tqdm(u.trajectory, desc="Scanning the trajectory"):
             if u.trajectory.time >= system["TIMELEFTOUT"] * 1000:
                 dims = u.dimensions
-                apl_frame = dims[0] * dims[1] * 2 / n_lipid
+                apl_frame = dims[0] * dims[1] * 2 / nlipids
                 apl[u.trajectory.time] = apl_frame
 
         with open(outfilename, "w") as f:
