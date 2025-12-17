@@ -4,21 +4,13 @@ from fairmd.lipids.molecules import lipids_set, molecule_ff_set, molecules_set
 from fairmd.lipids.SchemaValidation.engines import software_dict
 
 
-class YamlBadConfigException(Exception):
-    """
-    :meta private:
-    Custom Exception class for parsing the yaml configuration
-    """
-
-    def __init__(self, *args, **kwargs) -> None:
-        Exception.__init__(self, *args, **kwargs)
-
+class YamlBadConfigError(Exception):
+    """Custom Exception class for parsing the yaml configuration"""
 
 
 def parse_valid_config_settings(info_yaml: dict, logger) -> tuple[dict, list[str]]:
     """
-    :meta private:
-    Parses, validates and updates dict entries from yaml configuration file.
+    Parse, validate and update dict entries from yaml configuration file.
 
     Args:
         info_yaml (dict): info.yaml of database to add
@@ -33,14 +25,14 @@ def parse_valid_config_settings(info_yaml: dict, logger) -> tuple[dict, list[str
 
     # STEP 1 - check supported simulation software
     if "SOFTWARE" not in sim:
-        raise KeyError("'SOFTWARE' Parameter missing in yaml")
+        msg = "'SOFTWARE' Parameter missing in yaml"
+        raise KeyError(msg)
 
-    if sim["SOFTWARE"].upper() in software_dict.keys():
+    if sim["SOFTWARE"].upper() in software_dict:
         logger.info(f"Simulation uses supported software '{sim['SOFTWARE'].upper()}'")
     else:
-        raise YamlBadConfigException(
-            f"Simulation uses unsupported software '{sim['SOFTWARE'].upper()}'",
-        )
+        msg = f"Simulation uses unsupported software '{sim['SOFTWARE'].upper()}'"
+        raise YamlBadConfigError(msg)
 
     software_sim = software_dict[sim["SOFTWARE"].upper()]  # related to dicts in this file
 
@@ -49,11 +41,12 @@ def parse_valid_config_settings(info_yaml: dict, logger) -> tuple[dict, list[str
 
     # are ALL required keys are present in sim dict and defined (not of NoneType) ?
     if not all((k in list(sim.keys())) and (sim[k] is not None) for k in software_required_keys):
-        missing_keys = [k for k in software_required_keys if k not in list(sim.keys())]
-        raise YamlBadConfigException(
+        missing_keys = [k for k in software_required_keys if k not in sim]
+        msg = (
             f"Required '{sim['SOFTWARE'].upper()}' sim keys missing or "
-            f"not defined in conf file: {', '.join(missing_keys)}",
+            f"not defined in conf file: {', '.join(missing_keys)}"
         )
+        raise YamlBadConfigError(msg)
 
     logger.debug(
         f"all {len(software_required_keys)} required '{sim['SOFTWARE'].upper()}' sim keys are present",
@@ -66,36 +59,32 @@ def parse_valid_config_settings(info_yaml: dict, logger) -> tuple[dict, list[str
     for key_sim, value_sim in sim.items():
         logger.debug(f"processing entry: sim['{key_sim}'] = {value_sim!s}")
 
-        if key_sim.upper() in "SOFTWARE":  # skip 'SOFTWARE' entry
+        if key_sim.upper() == "SOFTWARE":
             continue
 
         # STEP 4.1.
         # Anne: check if key is in molecules_dict, molecule_numbers_dict or
         # molecule_ff_dict too
         if (
-            (key_sim.upper() not in software_sim.keys())
+            (key_sim.upper() not in software_sim)
             and (key_sim.upper() not in molecules_set)
             and (key_sim.upper() not in lipids_set)
             and (key_sim.upper() not in molecule_ff_set)
         ):
-            logger.error(
-                f"key_sim '{key_sim}' in {sim['SOFTWARE'].lower()}_dict' : {key_sim.upper() in software_sim.keys()}",
-            )
-            logger.error(
+            _es = (
+                f"key_sim '{key_sim}' in {sim['SOFTWARE'].lower()}_dict' : {key_sim.upper() in software_sim}",
                 f"key_sim '{key_sim}' in molecules_dict : {key_sim.upper() in molecules_set}",
-            )
-            logger.error(
                 f"key_sim '{key_sim}' in lipids_dict : {key_sim.upper() in lipids_set}",
-            )
-            logger.error(
                 f"key_sim '{key_sim}' in molecule_ff_dict : {key_sim.upper() in molecule_ff_set}",
             )
-            raise YamlBadConfigException(
+            logger.error(_es)
+            msg = (
                 f"'{key_sim}' not supported: Not found in "
                 f"'{sim['SOFTWARE'].lower()}_dict', 'molecules_dict',"
-                f" 'lipids_dict' and 'molecule_ff_dict'",
+                f" 'lipids_dict' and 'molecule_ff_dict'"
             )
-        if key_sim.upper() not in software_sim.keys():  # hotfix for unkown yaml keys. TODO improve check 4.1?
+            raise YamlBadConfigError(msg)
+        if key_sim.upper() not in software_sim:  # hotfix for unkown yaml keys. TODO improve check 4.1?
             logger.warning(
                 f"ignoring yaml entry '{key_sim}', not found in '{sim['SOFTWARE'].lower()}_dict'",
             )
@@ -119,22 +108,17 @@ def parse_valid_config_settings(info_yaml: dict, logger) -> tuple[dict, list[str
                     value_sim_splitted = value_sim.split(";")
 
                     if len(value_sim_splitted) == 0:
-                        raise YamlBadConfigException(
-                            f"found no file to download for entry '{key_sim}:{software_sim[key_sim]}'",
-                        )
+                        msg = f"found no file to download for entry '{key_sim}:{software_sim[key_sim]}'"
+                        raise YamlBadConfigError(msg)
                     # in case there are multiple files for one entry
                     if len(value_sim_splitted) > 1:
-                        files_list = []
-                        for file_provided in value_sim.split(";"):
-                            files_list.append([file_provided.strip()])
+                        files_list = [x.strip() for x in value_sim.split(";")]
                         sim[key_sim] = files_list  # replace ; separated string with list
                     else:
-                        # print(f"value_sim_splitted = {value_sim_splitted}")
                         sim[key_sim] = [
                             [f.strip()] for f in value_sim_splitted
                         ]  # IMPORTANT: Needs to be list of lists for now
                     files_tbd.extend(f[0] for f in sim[key_sim])
-                    # print(f"sim[{key_sim}] = {sim[key_sim]}")
 
                 # STEP 4.3.
                 # Batuhan: In conf file only one psf/tpr/pdb file allowed each
@@ -142,9 +126,8 @@ def parse_valid_config_settings(info_yaml: dict, logger) -> tuple[dict, list[str
                 # TODO true for all sim software?
                 # TODO add dict entry param "unique" instead?
                 if key_sim.upper() in ["PSF", "TPR", "PDB"] and len(sim[key_sim]) > 1:
-                    raise YamlBadConfigException(
-                        f"only one '{key_sim}' entry file allowed, but got {len(sim[key_sim])}: {sim[key_sim]}",
-                    )
+                    msg = f"only one '{key_sim}' entry file allowed, but got {len(sim[key_sim])}: {sim[key_sim]}"
+                    raise YamlBadConfigError(msg)
 
         else:
             logger.warning(
