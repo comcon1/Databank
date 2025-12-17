@@ -6,6 +6,9 @@ Functions are organized into few groups:
     - get_OP
     - get_thickness
     - get_eqtimes
+2. Functions that extract processed properties:
+    - get_mean_ApL
+    - get_total_area
 """
 
 import json
@@ -131,6 +134,18 @@ def get_mean_ApL(system: System) -> float:  # noqa: N802 (API name)
         raise
     vals = np.array(list(data.values()))
     return vals.mean()
+
+
+def get_total_area(system: System) -> float:  # noqa: N802 (API name)
+    """
+    Return area of the membrane in the simulation box.
+
+    :param system: a system dictionary
+
+    :return: area of the system (Å^2)
+    """
+    apl = get_mean_ApL(system)
+    return system.n_lipids * apl / 2
 
 
 def getLipids(system: System, molecules=lipids_set):  # noqa: N802 (API name)
@@ -350,23 +365,6 @@ def read_trj_PN_angles(  # noqa: N802 (API name)
 
 
 # -------------------------------------- SEPARATED PART (??) ----------------------
-
-
-def calcArea(system) -> float:  # noqa: N802 (API name)
-    """
-    Return area of the calculated based on the area per lipid stored in the databank.
-
-    :param system: a system dictionary
-
-    :return: area of the system (Å^2)
-    """
-    APL = get_mean_ApL(system)  # noqa: N806
-    n_lipid = 0
-    for molecule in system["COMPOSITION"]:
-        if molecule in lipids_set:
-            n_lipid += np.sum(system["COMPOSITION"][molecule]["COUNT"])
-    print(n_lipid, APL)
-    return n_lipid * APL / 2
 
 
 def GetFormFactorMin(system):  # noqa: N802 (API name)
