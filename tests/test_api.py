@@ -68,11 +68,11 @@ def test_print_README(systems, capsys):
         (86, 60.460),
     ],
 )
-def test_CalcAreaPerMolecule(systems, systemid, result):
-    from fairmd.lipids.api import CalcAreaPerMolecule
+def test_get_mean_apl(systems, systemid, result):
+    from fairmd.lipids.api import get_mean_ApL
 
     sys0 = systems.loc(systemid)
-    apm = CalcAreaPerMolecule(sys0)
+    apm = get_mean_ApL(sys0)
     assert apm == pytest.approx(result, abs=6e-4)
 
 

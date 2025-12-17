@@ -111,30 +111,26 @@ def get_OP(system: System) -> dict:  # noqa: N802 (API name)
     return sim_op_data
 
 
-def CalcAreaPerMolecule(system) -> None | float:  # noqa: N802 (API name)
+def get_mean_ApL(system: System) -> float:  # noqa: N802 (API name)
     """
     Calculate average area per lipid for a system.
-
-    It is using the ``apl.json`` file where area per lipid as a function of time
-    calculated by the ``calcAPL.py`` is stored.
 
     :param system: FAIRMD Lipids dictionary defining a simulation.
 
     :return: area per lipid (Å^2)
     """
     path = os.path.join(FMDL_SIMU_PATH, system["path"], "apl.json")
+    if not os.path.isfile(path):
+        msg = "apl.json not found from" + path
+        raise FileNotFoundError(msg)
     try:
         with open(path) as f:
             data = json.load(f)
-    except Exception:
-        print("apl.json not found from" + path)
-        return None
-    sum_apl = 0
-    sum_ind = 0
-    for j in data.values():
-        sum_apl += j
-        sum_ind += 1
-    return sum_apl / sum_ind
+    except json.JSONDecodeError:
+        print("Area per lipid data for system #{} in {} is invalid.".format(system["ID"], path), file=sys.stderr)
+        raise
+    vals = np.array(list(data.values()))
+    return vals.mean()
 
 
 def getLipids(system: System, molecules=lipids_set):  # noqa: N802 (API name)
@@ -364,7 +360,7 @@ def calcArea(system) -> float:  # noqa: N802 (API name)
 
     :return: area of the system (Å^2)
     """
-    APL = CalcAreaPerMolecule(system)  # noqa: N806
+    APL = get_mean_ApL(system)  # noqa: N806
     n_lipid = 0
     for molecule in system["COMPOSITION"]:
         if molecule in lipids_set:
