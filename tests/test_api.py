@@ -311,11 +311,11 @@ def test_get_eqtimes(systems, systemid, result):
         (281, "POPC"),
     ],
 )
-def test_GetOP_reads_valid_json(systems, systemid, lipid):
-    from fairmd.lipids.api import GetOP
+def test_get_OP_reads_valid_json(systems, systemid, lipid):
+    from fairmd.lipids.api import get_OP
 
     sys0 = systems.loc(systemid)
-    resdic = GetOP(sys0)
+    resdic = get_OP(sys0)
 
     assert lipid in resdic
 
@@ -327,13 +327,13 @@ def test_GetOP_reads_valid_json(systems, systemid, lipid):
     ],
 )
 def test_GetOP_missing_file_warns(systems, systemid, testmol, result):
-    from fairmd.lipids.api import GetOP
+    from fairmd.lipids.api import get_OP
 
     sys0 = systems.loc(systemid)
 
     with warnings.catch_warnings(record=True) as w:
         warnings.simplefilter("always")
-        resdic = GetOP(sys0)
+        resdic = get_OP(sys0)
         # Check the result is None for missing file
         assert testmol in resdic
         assert resdic[testmol] is result
