@@ -1,6 +1,11 @@
 """
-Library contains all API functions and many functions used in building and
-analyzing the FAIRMD Lipids
+API functions for analyzing the FAIRMD Lipids Databank.
+
+Functions are organized into few groups:
+1. Functions that extract computed properties:
+    - get_OP
+    - get_thickness
+    - get_eqtimes
 """
 
 import json
@@ -155,21 +160,6 @@ def ShowEquilibrationTimes(system: System):  # noqa: N802 (API name)
 
     for i in eq_time_dict:
         print(i + ":", eq_time_dict[i])
-
-
-def GetNlipids(system: System):  # noqa: N802 (API name)
-    """
-    Returns the total number of lipids in a simulation defined by ``system``.
-
-    :param system: FAIRMD Lipids dictionary defining a simulation.
-
-    :return: the total number of lipids in the ``system``.
-    """
-    n_lipid = 0
-    for molecule in system["COMPOSITION"]:
-        if molecule in lipids_set:
-            n_lipid += np.sum(system["COMPOSITION"][molecule]["COUNT"])
-    return n_lipid
 
 
 def getLipids(system: System, molecules=lipids_set):  # noqa: N802 (API name)

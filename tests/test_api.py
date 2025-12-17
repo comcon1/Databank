@@ -89,11 +89,9 @@ def test_calcArea(systems, systemid, result):
 
 
 @pytest.mark.parametrize("systemid, result", [(281, 128), (566, 128), (787, 120), (243, 72), (86, 128)])
-def test_GetNLipids(systems, systemid, result):
-    from fairmd.lipids.api import GetNlipids
-
+def test_n_lipids(systems, systemid, result):
     sys0 = systems.loc(systemid)
-    nlip = GetNlipids(sys0)
+    nlip = sys0.n_lipids
     assert nlip == result
 
 
