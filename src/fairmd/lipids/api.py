@@ -69,6 +69,43 @@ def get_eqtimes(system: System) -> dict:
     return eq_time_dict
 
 
+def get_OP(system: System) -> dict:  # noqa: N802 (API name)
+    """
+    Return a dictionary with the order parameter data for each lipid in ``system``.
+
+    :param system: NMRlipids databank dictionary defining a simulation.
+
+    :return: dictionary contaning, for each lipid, the order parameter data:
+             average OP, standard deviation, and standard error of mean. Contains
+             None if ``LipidNameOrderParameters.json`` missing.
+    """
+    sim_op_data = {}  # order parameter data for each type of lipid
+    for mol in system["COMPOSITION"]:
+        if mol not in lipids_set:
+            continue
+        fname = os.path.join(
+            FMDL_SIMU_PATH,
+            system["path"],
+            mol + "OrderParameters.json",
+        )
+        if not os.path.isfile(fname):
+            warnings.warn(f"{fname} not found for {system['ID']}", stacklevel=2)
+            sim_op_data[mol] = None
+            continue
+        op_data = {}
+        try:
+            with open(fname) as json_file:
+                op_data = json.load(json_file)
+        except json.JSONDecodeError:
+            print(
+                f"Order parameter data in {fname} is invalid for {system['ID']}",
+                file=sys.stderr,
+            )
+            raise
+        sim_op_data[mol] = op_data
+    return sim_op_data
+
+
 def CalcAreaPerMolecule(system) -> None | float:  # noqa: N802 (API name)
     """
     Calculate average area per lipid for a system.
@@ -118,39 +155,6 @@ def ShowEquilibrationTimes(system: System):  # noqa: N802 (API name)
 
     for i in eq_time_dict:
         print(i + ":", eq_time_dict[i])
-
-
-def GetOP(system):  # noqa: N802 (API name)
-    """
-    Returns a dictionary containing the order parameter data time for each lipid in the
-    ``system``, stored in ``LipidNameOrderParameters.json`` files.
-
-    :param system: NMRlipids databank dictionary defining a simulation.
-
-    :return: dictionary contaning, for each lipid, the order parameter data: average OP, standard deviation,
-     and standard error of mean. Contains None if ``LipidNameOrderParameters.json`` missing.
-    """
-    SimOPdata = {}  # order parameter data for each type of lipid
-    for mol in system["COMPOSITION"]:
-        if mol not in lipids_set:
-            continue
-        fname = os.path.join(
-            FMDL_SIMU_PATH,
-            system["path"],
-            mol + "OrderParameters.json",
-        )
-        OPdata = {}
-        try:
-            with open(fname) as json_file:
-                OPdata = json.load(json_file)
-        except FileNotFoundError:
-            missingName = mol + "OrderParameters.json"
-            warnings.warn(f"{missingName} not found for {system['ID']}", stacklevel=2)
-
-            OPdata = None
-
-        SimOPdata[mol] = OPdata
-    return SimOPdata
 
 
 def GetNlipids(system: System):  # noqa: N802 (API name)
