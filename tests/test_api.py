@@ -280,14 +280,21 @@ def test_get_thickness(systems, systemid, result):
         (243, 0.7212884475213442),
         (86, 1.5018596337724872),
         (566, 1.1740608659926115),
+        (787, None),
     ],
 )
-def test_GetEquilibrationTimes(systems, systemid, result):
-    from fairmd.lipids.api import GetEquilibrationTimes
+def test_get_eqtimes(systems, systemid, result):
+    from fairmd.lipids.api import get_eqtimes
     from fairmd.lipids.molecules import lipids_set
 
     sys0 = systems.loc(systemid)
-    eq_times = GetEquilibrationTimes(sys0)
+
+    if result is None:
+        with pytest.raises(FileNotFoundError):
+            get_eqtimes(sys0)
+        return
+
+    eq_times = get_eqtimes(sys0)
     print("\n========\n", eq_times, "\n=========\n")
     lips = list(set(sys0["COMPOSITION"].keys()).intersection(lipids_set.names))
     for lip in lips:
@@ -295,14 +302,6 @@ def test_GetEquilibrationTimes(systems, systemid, result):
             continue  # for them eq_times are not computed
         check.is_in(lip, eq_times.keys())
         check.equal(result, eq_times[lip])
-
-
-@pytest.mark.xfail(reason="EQtimes were not computed", run=True, raises=FileNotFoundError, strict=True)
-def test_GetEquilibrationTimes_fail(systems):
-    sys0 = systems.loc(787)
-    from fairmd.lipids.api import GetEquilibrationTimes
-
-    GetEquilibrationTimes(sys0)
 
 
 # Test that a valid JSON file is read correctly, left out full comparison of the OP-dictionary
