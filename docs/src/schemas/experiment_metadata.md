@@ -12,16 +12,17 @@
 | MEMBRANE_COMPOSITION | Dictionary of molar fractions of membrane phase |
 | SOLUTION_COMPOSITION | Dictionary of ion concentrations in the system |
 | ADDITIONAL_MOLECULES| Dictionary of molecules which are not in the databank |
+| TOTAL_HYDRATION | Total hydration of the system (water mass %) |
 | PH | pH of the system |
 | PH_METHOD | Method of pH setting or measurement (buffer / measurement) |
 | REAGENT_SOURCES | Description of lipid reagents. Source, purity, etc. |
+| SAMPLE_PROTOCOL | Protocol for sample preparation (in free format, references are welcome). |
 
 **NMR specific metadata**
 
 |             key           | description                             |
 |---------------------------|-----------------------------------------|
 | T_RF_HEATING | Correction of the temperature according to RF heating |
-| TOTAL_HYDRATION | Total hydration of the system (water mass %) |
 | HYDRATION_METHOD | Method of preparing lamellar phase |
 | NMR_INSTRUMENT | Instrument name (including field) |
 | NMR_METHOD | Method of OP measurement "abbr1:abbr2" (see detailed explaining below) |
@@ -41,7 +42,6 @@
 | XR_EXPOSURE | Exposure time per frame (s) |
 | XR_FRAMES | Number of frames |
 | SAMPLE_TYPE | 'MLV', 'SUV', 'GUV', 'OS' (oriented sample), 'BIC' |
-| SAMPLE_PROTOCOL | Protocol of liposome (or OS) preparation |
 
 ## General fields
 
