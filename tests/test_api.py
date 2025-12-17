@@ -250,15 +250,28 @@ def test_analyze_th(systems, systemid, result, wipeth, thickres, logger):
     assert data == pytest.approx(thickres, abs=1e-5)
 
 
-@pytest.mark.parametrize("systemid, result", [(281, None), (243, None), (566, 4.2576), (787, None), (86, 4.1327)])
-def test_GetThickness(systems, systemid, result):
-    from fairmd.lipids.api import GetThickness
+@pytest.mark.parametrize(
+    "systemid, result",
+    [
+        (281, None),
+        (243, None),
+        (787, None),  # exceptions are expected
+        (566, 4.2576),
+        (86, 4.1327),
+    ],
+)
+def test_get_thickness(systems, systemid, result):
+    from fairmd.lipids.api import get_thickness
+    import numbers
 
     sys0 = systems.loc(systemid)
-    th = GetThickness(sys0)
-    if th is None and result is None:
+    if result is None:
+        with pytest.raises(FileNotFoundError):
+            get_thickness(sys0)
         return
-    assert float(th) == pytest.approx(float(result), abs=1e-4)
+    th = get_thickness(sys0)
+    check.is_true(isinstance(th, numbers.Real))
+    check.almost_equal(th, result, abs=1e-4)
 
 
 @pytest.mark.parametrize(
