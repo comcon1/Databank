@@ -137,31 +137,6 @@ def CalcAreaPerMolecule(system) -> None | float:  # noqa: N802 (API name)
     return sum_apl / sum_ind
 
 
-def ShowEquilibrationTimes(system: System):  # noqa: N802 (API name)
-    """
-    Prints relative equilibration time for each lipid within a simulation defined
-    by ``system``. Relative equilibration times are calculated with
-    ``NMRPCA_timerelax.py`` and stored in ``eq_times.json`` files.
-
-    :param system: FAIRMD Lipids dictionary defining a simulation.
-    """
-    warnings.warn(
-        "This function is deprecated. Use GetEquilibrationTimes instead.",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    eq_times_path = os.path.join(FMDL_SIMU_PATH, system["path"], "eq_times.json")
-
-    try:
-        with open(eq_times_path) as f:
-            eq_time_dict = json.load(f)
-    except Exception as err:
-        raise FileNotFoundError(f"eq_times.json not found for {system['ID']}") from err
-
-    for i in eq_time_dict:
-        print(i + ":", eq_time_dict[i])
-
-
 def getLipids(system: System, molecules=lipids_set):  # noqa: N802 (API name)
     """
     Returns a string using MDAnalysis notation that can used to select all lipids from
