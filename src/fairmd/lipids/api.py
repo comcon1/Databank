@@ -8,6 +8,7 @@ import logging
 import math
 import os
 import subprocess
+import sys
 import warnings
 
 import MDAnalysis as mda
@@ -20,6 +21,29 @@ from fairmd.lipids.molecules import lipids_set
 from fairmd.lipids.SchemaValidation.engines import get_struc_top_traj_fnames
 
 logger = logging.getLogger(__name__)
+
+
+def get_thickness(system: System) -> float:
+    """
+    Get thickness for a simulation defined with ``system`` from the ``thickness.json``.
+
+    :param system: FAIRMD Lipids dictionary defining a simulation.
+
+    :return: membrane thickess (nm) or raise exception
+    """
+    thickness_path = os.path.join(FMDL_SIMU_PATH, system["path"], "thickness.json")
+    try:
+        with open(thickness_path) as f:
+            thickness = json.load(f)
+        thickness_v = float(thickness)
+    except FileNotFoundError:
+        print("No thickness information for system#{}.".format(system["ID"]), file=sys.stderr)
+        raise
+    except ValueError:
+        print("Thickness information for system#{} is invalid.".format(system["ID"]), file=sys.stderr)
+        raise
+    else:
+        return thickness_v
 
 
 def CalcAreaPerMolecule(system) -> None | float:  # noqa: N802 (API name)
@@ -46,24 +70,6 @@ def CalcAreaPerMolecule(system) -> None | float:  # noqa: N802 (API name)
         sum_apl += j
         sum_ind += 1
     return sum_apl / sum_ind
-
-
-def GetThickness(system):  # noqa: N802 (API name)
-    """
-    Gets thickness for a simulation defined with ``system`` from the ``thickness.json``
-    file where thickness calculated by the ``calc_thickness.py`` is stored.
-
-    :param system: FAIRMD Lipids dictionary defining a simulation.
-
-    :return: membrane thickess (nm) or None
-    """
-    thickness_path = os.path.join(FMDL_SIMU_PATH, system["path"], "thickness.json")
-    try:
-        with open(thickness_path) as f:
-            thickness = json.load(f)
-        return thickness
-    except Exception:
-        return None
 
 
 def ShowEquilibrationTimes(system: System):  # noqa: N802 (API name)
@@ -408,6 +414,7 @@ def read_trj_PN_angles(  # noqa: N802 (API name)
 
 
 # -------------------------------------- SEPARATED PART (??) ----------------------
+
 
 def calcArea(system) -> float:  # noqa: N802 (API name)
     """
