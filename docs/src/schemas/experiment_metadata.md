@@ -23,24 +23,23 @@
 |             key           | description                             |
 |---------------------------|-----------------------------------------|
 | T_RF_HEATING | Correction of the temperature according to RF heating |
-| HYDRATION_METHOD | Method of preparing lamellar phase |
-| NMR_INSTRUMENT | Instrument name (including field) |
-| NMR_METHOD | Method of OP measurement "abbr1:abbr2" (see detailed explaining below) |
+| INSTRUMENT | Instrument name (including field) |
+| METHOD | Method of OP measurement "abbr1:abbr2" (see detailed explaining below) |
 | SIGN_MEASURED | NONE or S-DROSS |
-| NMR_COMMENT | Description of NMR experiment type |
+| DETAILS | Description of NMR experiment type |
 
 **X-ray specific metadata**
 
 |             key           | description                             |
 |---------------------------|-----------------------------------------|
-| XR_SOURCE | Source name |
-| XR_LAMBDA | Source wavelength or range |
-| XR_QRANGE | Scattering detection range (Q-range) |
-| XR_DETECTOR | Detector type |
-| XR_DISTANCE | Distance to detector (m) |
-| XR_DATATYPE | Data type (batch or SEC) |
-| XR_EXPOSURE | Exposure time per frame (s) |
-| XR_FRAMES | Number of frames |
+| SOURCE | Source name |
+| LAMBDA | Source wavelength or range |
+| QRANGE | Scattering detection range (Q-range) |
+| DETECTOR | Detector type |
+| DISTANCE | Distance to detector (m) |
+| DATATYPE | Data type (batch or SEC) |
+| EXPOSURE | Exposure time per frame (s) |
+| FRAMES | Number of frames |
 | SAMPLE_TYPE | 'MLV', 'SUV', 'GUV', 'OS' (oriented sample), 'BIC' |
 
 ## General fields
@@ -55,10 +54,7 @@ DOI of the dataset deposition with raw NMR data (e.g., nmrXive).
 If the dataset doesn't have DOI, we engage to add some persistent identifier or even URL if the first doesn't exist.
 
 3. **TEMPERATURE**  
-Temperature (K) of the experiment. If `T_RF_HEATING` is 'no_inromation', the reported temperature from the probe is given. Otherwise, please insert RF-corrected temperature.
-
-4. **T_RF_HEATING**  
-How RF heating is dealt (UNKNOWN / measured / guessed)
+Temperature (K) of the experiment. For NMR experiment, if `NMR:T_RF_HEATING` is 'unknown' (or not given), the reported temperature from the probe is settet here. Otherwise, please insert RF-corrected temperature.
 
 5. **MEMBRANE_COMPOSITION**  
 Dictionary of molar fractions of bilayer components. For example:
@@ -115,10 +111,12 @@ is ultracentrifugated to get lipid-rich phase.
 
 ## NMR-specific fields
 
-1. **NMR_INSTRUMENT**  
+All the following fields are subfields of `NMR:` block.
+
+1. **INSTRUMENT**  
 Name of the instrument and field strength.
 
-2. **NMR_METHOD**  
+2. **METHOD**  
 A field identifying the NMR method used (string formed as METHOD:SUBMETHOD, e.g., "2H:QE").
     - Variants for METHOD: *"2H", "CDLF", "PDLF"*  
       Two main methods are <sup>2</sup>H-NMR and <sup>1</sup>H-<sup>13</sup>C SLF (separate local field)
@@ -135,34 +133,39 @@ A field identifying the NMR method used (string formed as METHOD:SUBMETHOD, e.g.
 3. **SIGN_MEASURED**  
 Method name  (e.g. S-DROSS) if order parameter sign was measured, NONE otherwise.
 
-4. **NMR_COMMENTS**  
+4. **T_RF_HEATING**  
+How RF heating is dealt (UNKNOWN / measured / guessed)
+
+5. **DETAILS**  
 Links to the pulse sequence, corresponding paper and precise parameters if important.
-Obligatory explanation if **NMR_METHOD** uses "see_comments" for SUBMETHOD.
+Obligatory explanation if **NMR:METHOD** uses "see_comments" for SUBMETHOD.
 
 ## Scattering-specific fields
 
-1. **XR_SOURCE**
+All the following fields are subfields of `XRAY:` block.
+
+1. **SOURCE**
 X-ray source description. Name of the core facilities or instrument name if laboratory source was used. Name of beamline and source if synchrotron data (e.g. EMBL P12, PETRA III).
 
-2. **XR_LAMBDA**
+2. **LAMBDA**
 Source wavelength or range. Wavelength (and/or range) of the X-ray beam used, with units (e.g., Ångstroms).
 
-3. **XR_QRANGE**
+3. **QRANGE**
 Scattering detection range (Q-range). The accessible scattering vector range, typically given in 1/Å.
 
-4. **XR_DETECTOR**
+4. **DETECTOR**
 Detector type (e.g., CCD camera, PILATUS, or other detector model).
 
-5. **XR_DISTANCE**
+5. **DISTANCE**
 Distance to detector (m). The separation between the sample and the detector, in meters.
 
-6. **XR_DATATYPE**
+6. **DATATYPE**
 Measurement data type. Batch mode or size-exclusion chromatography (SEC) mode.
 
-7. **XR_EXPOSURE**
+7. **EXPOSURE**
 Exposure time per frame. The total data acquisition time per measurement frame, usually given in seconds.
 
-8. **XR_FRAMES**
+8. **FRAMES**
 Number of frames collected for dataset.
 
 9. **SAMPLE_TYPE**
