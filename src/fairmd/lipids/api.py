@@ -9,6 +9,7 @@ Functions are organized into few groups:
 2. Functions that extract processed properties:
     - get_mean_ApL
     - get_total_area
+    - get_formfactor_mins
 """
 
 import json
@@ -136,7 +137,7 @@ def get_mean_ApL(system: System) -> float:  # noqa: N802 (API name)
     return vals.mean()
 
 
-def get_total_area(system: System) -> float:  # noqa: N802 (API name)
+def get_total_area(system: System) -> float:
     """
     Return area of the membrane in the simulation box.
 
@@ -146,6 +147,33 @@ def get_total_area(system: System) -> float:  # noqa: N802 (API name)
     """
     apl = get_mean_ApL(system)
     return system.n_lipids * apl / 2
+
+
+def get_formfactor_mins(system: System) -> list:
+    """
+    Return list of minima of form factor of ``system``.
+
+    :param system: a system dictionary
+
+    :return: list of form factor minima or raise exception
+    """
+    form_factor_path = os.path.join(FMDL_SIMU_PATH, system["path"], "FormFactor.json")
+    if not os.path.isfile(form_factor_path):
+        msg = "{} not found for system #{}".format(form_factor_path, system["ID"])
+        raise FileNotFoundError(msg)
+    with open(form_factor_path) as f:
+        form_factor = json.load(f)
+    iprev = form_factor[0][1]
+    iprev_d = 0
+    min_x = []
+    for i in form_factor:
+        i_d = i[1] - iprev
+        if i_d > 0 and iprev_d < 0 and i[0] > 0.1:
+            min_x.append(i[0])
+        iprev_d = i[1] - iprev
+        iprev = i[1]
+
+    return min_x
 
 
 def getLipids(system: System, molecules=lipids_set):  # noqa: N802 (API name)
@@ -365,30 +393,6 @@ def read_trj_PN_angles(  # noqa: N802 (API name)
 
 
 # -------------------------------------- SEPARATED PART (??) ----------------------
-
-
-def GetFormFactorMin(system):  # noqa: N802 (API name)
-    """
-    Return list of minima of form factor of ``system``.
-
-    :param system: a system dictionary
-
-    :return: list of form factor minima
-    """
-    form_factor_path = os.path.join(FMDL_SIMU_PATH, system["path"], "FormFactor.json")
-    with open(form_factor_path) as f:
-        form_factor = json.load(f)
-    iprev = form_factor[0][1]
-    iprev_d = 0
-    min_x = []
-    for i in form_factor:
-        i_d = i[1] - iprev
-        if i_d > 0 and iprev_d < 0 and i[0] > 0.1:
-            min_x.append(i[0])
-        iprev_d = i[1] - iprev
-        iprev = i[1]
-
-    return min_x
 
 
 def averageOrderParameters(system):  # noqa: N802 (API name)

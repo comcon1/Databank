@@ -102,15 +102,21 @@ def test_n_lipids(systems, systemid, result):
         (566, [0.260, 0.405, 0.597]),
         (243, [0.281, 0.423, 0.638]),
         (86, [0.264, 0.419, 0.623]),
+        (787, None),
     ],
 )
 def test_GetFormFactorMin(systems, systemid, result):
     import numpy as np
 
-    from fairmd.lipids.api import GetFormFactorMin
+    from fairmd.lipids.api import get_formfactor_mins
 
     sys0 = systems.loc(systemid)
-    ffl = GetFormFactorMin(sys0)
+    if result is None:
+        with pytest.raises(FileNotFoundError) as exc_info:
+            get_formfactor_mins(sys0)
+        check.is_in("FormFactor.json", str(exc_info.value))
+        return
+    ffl = get_formfactor_mins(sys0)
     np.testing.assert_allclose(
         np.array(ffl[:3]),
         np.array(result),
