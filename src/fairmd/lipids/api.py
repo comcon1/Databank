@@ -395,43 +395,6 @@ def read_trj_PN_angles(  # noqa: N802 (API name)
 # -------------------------------------- SEPARATED PART (??) ----------------------
 
 
-def averageOrderParameters(system):  # noqa: N802 (API name)
-    """
-    Returns average order paramaters of *sn*-1 and *sn*-2 acyl chains based on universal
-    atom names. The names starting with M_G1C will be assigned to sn-1 and names
-    starting M_G2C to *sn*-2.
-
-    :parameters system: a system dictionary
-
-    :return: average of *sn*-1 and *sn*-2 order parameters
-    """
-    path = os.path.join(FMDL_SIMU_PATH, system["path"])
-
-    sn1sum = 0
-    sn1count = 0
-    sn2sum = 0
-    sn2count = 0
-
-    for lipid in system["COMPOSITION"]:
-        if lipid in lipids_set and "CHOL" not in lipid:
-            OP_path_sim = os.path.join(  # noqa: N806
-                path,
-                lipid + "OrderParameters.json",
-            )
-            with open(OP_path_sim) as json_file:
-                OP_sim = json.load(json_file)  # noqa: N806
-
-            for key in OP_sim:
-                if "M_G1C" in key:
-                    sn1sum += float(OP_sim[key][0][0])
-                    sn1count += 1
-                elif "M_G2C" in key:
-                    sn2sum += float(OP_sim[key][0][0])
-                    sn2count += 1
-
-    return sn1sum / sn1count, sn2sum / sn2count
-
-
 def calcLipidFraction(system, lipid):  # noqa: N802 (API name)
     """
     Return the number fraction of ``lipid`` with respect to total number of lipids.

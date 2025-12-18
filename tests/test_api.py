@@ -159,37 +159,6 @@ def test_calcLipidFraction(systems, systemid, lipid, result):
 @pytest.mark.parametrize(
     "systemid, result",
     [
-        (281, [-0.1610, -0.1217]),  # 1
-        (566, [-0.1714, -0.1142]),  # 2
-        (243, [-0.1764, -0.1784]),  # 3
-        (86, [-0.1933, -0.1568]),
-    ],
-)
-def test_averageOrderParameters(systems, systemid, result):
-    from fairmd.lipids.api import averageOrderParameters
-
-    sys0 = systems.loc(systemid)
-    sn1, sn2 = averageOrderParameters(sys0)
-    assert (sn1 - result[0]) ** 2 + (sn2 - result[1]) ** 2 == pytest.approx(0, abs=1e-5)
-
-
-# Tests behavior when averageOrderParameters cannot find calculated OP data
-
-
-@pytest.mark.parametrize("systemid", [787])
-def test_raises_averageOrderParameters(systems, systemid):
-    from fairmd.lipids.api import averageOrderParameters
-
-    sys0 = systems.loc(systemid)
-    with pytest.raises(FileNotFoundError) as exc_info:
-        # sn1, sn2 = ..
-        averageOrderParameters(sys0)
-    assert "OrderParameters.json" in str(exc_info.value)
-
-
-@pytest.mark.parametrize(
-    "systemid, result",
-    [
         (281, "resname POPC"),
         (566, "resname CHL or resname OL or resname PA or resname PC"),
         (787, "resname POPC or resname POPE or resname TOCL2"),
