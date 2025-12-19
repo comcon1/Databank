@@ -176,6 +176,24 @@ def get_formfactor_mins(system: System) -> list:
     return min_x
 
 
+def getHydrationLevel(system) -> float:  # noqa: N802 (API name)
+    """
+    Return hydration level of the system.
+
+    Hydration level is defined as the number of water molecules divided by number of lipid molecules.
+
+    :param system: a system dictionary
+
+    :return: number of water molecules divided by number of lipid molecules
+    """
+    n_lipid = 0
+    for molecule in system["COMPOSITION"]:
+        if molecule in lipids_set:
+            n_lipid += np.sum(system["COMPOSITION"][molecule]["COUNT"])
+    n_water = system["COMPOSITION"]["SOL"]["COUNT"]
+    return n_water / n_lipid
+
+
 def getLipids(system: System, molecules=lipids_set):  # noqa: N802 (API name)
     """
     Returns a string using MDAnalysis notation that can used to select all lipids from
@@ -198,29 +216,6 @@ def getLipids(system: System, molecules=lipids_set):  # noqa: N802 (API name)
     lipids = "resname " + " or resname ".join(sorted(list(res_set)))
 
     return lipids
-
-
-def calc_angle(atoms, com):
-    """
-    :meta private:
-    calculates the angle between the vector and z-axis in degrees
-    no PBC check!
-    Calculates the center of mass of the selected atoms to invert bottom leaflet vector
-    """
-    vec = atoms[1].position - atoms[0].position
-    d = math.sqrt(np.square(vec).sum())
-    cos = vec[2] / d
-    # values for the bottom leaflet are inverted so that
-    # they have the same nomenclature as the top leaflet
-    cos *= math.copysign(1.0, atoms[0].position[2] - com)
-    try:
-        angle = math.degrees(math.acos(cos))
-    except ValueError:
-        if abs(cos) >= 1.0:
-            print(f"Cosine is too large = {cos} --> truncating it to +/-1.0")
-            cos = math.copysign(1.0, cos)
-            angle = math.degrees(math.acos(cos))
-    return angle
 
 
 def system2MDanalysisUniverse(system):  # noqa: N802 (API name)
@@ -339,6 +334,28 @@ def system2MDanalysisUniverse(system):  # noqa: N802 (API name)
     return u
 
 
+def calc_angle(atoms, com):
+    """
+    calculates the angle between the vector and z-axis in degrees
+    no PBC check!
+    Calculates the center of mass of the selected atoms to invert bottom leaflet vector
+    """
+    vec = atoms[1].position - atoms[0].position
+    d = math.sqrt(np.square(vec).sum())
+    cos = vec[2] / d
+    # values for the bottom leaflet are inverted so that
+    # they have the same nomenclature as the top leaflet
+    cos *= math.copysign(1.0, atoms[0].position[2] - com)
+    try:
+        angle = math.degrees(math.acos(cos))
+    except ValueError:
+        if abs(cos) >= 1.0:
+            print(f"Cosine is too large = {cos} --> truncating it to +/-1.0")
+            cos = math.copysign(1.0, cos)
+            angle = math.degrees(math.acos(cos))
+    return angle
+
+
 def read_trj_PN_angles(  # noqa: N802 (API name)
     molname: str,
     atom1: str,
@@ -393,43 +410,3 @@ def read_trj_PN_angles(  # noqa: N802 (API name)
 
 
 # -------------------------------------- SEPARATED PART (??) ----------------------
-
-
-def calcLipidFraction(system, lipid):  # noqa: N802 (API name)
-    """
-    Return the number fraction of ``lipid`` with respect to total number of lipids.
-
-    :param system: a system dictionary
-    :param lipid: universal molecule name of lipid
-
-    :return: number fraction of ``lipid`` with respect total number of lipids
-    """
-    n_lipid_tot = 0
-    for molecule in system["COMPOSITION"]:
-        if molecule in lipids_set:
-            n_lipid_tot += np.sum(system["COMPOSITION"][molecule]["COUNT"])
-
-    n_lipid = 0
-    for molecule in system["COMPOSITION"]:
-        if lipid in molecule:
-            n_lipid += np.sum(system["COMPOSITION"][molecule]["COUNT"])
-
-    return n_lipid / n_lipid_tot
-
-
-def getHydrationLevel(system) -> float:  # noqa: N802 (API name)
-    """
-    Return hydration level of the system.
-
-    Hydration level is defined as the number of water molecules divided by number of lipid molecules.
-
-    :param system: a system dictionary
-
-    :return: number of water molecules divided by number of lipid molecules
-    """
-    n_lipid = 0
-    for molecule in system["COMPOSITION"]:
-        if molecule in lipids_set:
-            n_lipid += np.sum(system["COMPOSITION"][molecule]["COUNT"])
-    n_water = system["COMPOSITION"]["SOL"]["COUNT"]
-    return n_water / n_lipid

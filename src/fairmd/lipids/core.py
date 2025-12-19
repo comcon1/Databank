@@ -90,6 +90,29 @@ class System(MutableMapping):
                 total += sum(v["COUNT"])
         return total
 
+    def membrane_composition(self, which: str = "molar") -> dict[str, float]:
+        """Return the composition of the membrane in system.
+
+        :param which: Type of composition to return. Options are:
+                      - "molar": compute molar fraction
+                      - "mass": compute mass fraction
+        :return: dictionary (universal molecule name -> value)
+        """
+        comp: dict[str, float] = {}
+        total_count = 0
+        for k, v in self["COMPOSITION"].items():
+            if k not in lipids_set:
+                continue
+            count = sum(v["COUNT"])
+            comp[k] = count
+            total_count += count
+
+        if which == "molar":
+            for k in comp:
+                comp[k] /= total_count
+
+        return comp
+
     def __repr__(self) -> str:
         return f"System({self._store['ID']}): {self._store['path']}"
 
