@@ -45,6 +45,39 @@ def test_initialize_n(systems):
     assert len(systems) == N_SYSTEMS_IN_TESTSET
 
 
+def test_content(systems):
+    from fairmd.lipids.molecules import Lipid, Molecule
+
+    for s in systems:
+        check.is_instance(s.content, dict)
+        check.is_instance(s.lipids, dict)
+        check.is_instance(s.n_lipids, int)
+        check.equal(len(s.content), len(s["COMPOSITION"]))  # incl. water
+        for k, v in s.content.items():
+            check.is_in(k, s["COMPOSITION"])
+            check.is_instance(v, Molecule)
+        for k, v in s.lipids.items():
+            check.is_in(k, s["COMPOSITION"])
+            check.is_instance(v, Lipid)
+
+
+def test_mda_gen_selection_mols(systems):
+    from fairmd.lipids.api import mda_gen_selection_mols
+    from fairmd.lipids.molecules import lipids_set
+
+    sys566 = systems.loc(566)
+    alllips = mda_gen_selection_mols(sys566)
+    check.equal(alllips, "resname CHL or resname OL or resname PA or resname PC")
+    pconly = mda_gen_selection_mols(sys566, molecules=[lipids_set.get("POPC")])
+    check.equal(pconly, "resname OL or resname PA or resname PC")
+
+    sys787 = systems.loc(787)
+    alllips = mda_gen_selection_mols(sys787)
+    check.equal(alllips, "resname POPC or resname POPE or resname TOCL2")
+    pconly = mda_gen_selection_mols(sys787, molecules=[lipids_set.get("POPC")])
+    check.equal(pconly, "resname POPC")
+
+
 def test_print_README(systems, capsys):
     from fairmd.lipids.core import print_README
 
@@ -173,10 +206,10 @@ def test_membrane_composition(systems, systemid, lipid, result_molar, result_mas
     ],
 )
 def test_getLipids(systems, systemid, result):
-    from fairmd.lipids.api import getLipids
+    from fairmd.lipids.api import mda_gen_selection_mols
 
     sys0 = systems.loc(systemid)
-    gl = getLipids(sys0)
+    gl = mda_gen_selection_mols(sys0)
     assert gl == result
 
 
