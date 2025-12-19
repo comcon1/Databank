@@ -82,6 +82,11 @@ class System(MutableMapping):
         return self._content
 
     @property
+    def lipids(self) -> dict[str, Lipid]:
+        """Returns dictionary of lipid molecule objects."""
+        return {k: v for k, v in self._content.items() if k in lipids_set}
+
+    @property
     def n_lipids(self) -> int:
         """Returns total number of lipid molecules in the system."""
         total = 0

@@ -40,7 +40,7 @@ from fairmd.lipids.analib.maicos import (
     is_system_suitable_4_maicos,
     traj_centering_for_maicos,
 )
-from fairmd.lipids.api import getLipids, system2MDanalysisUniverse
+from fairmd.lipids.api import mda_gen_selection_mols, system2MDanalysisUniverse
 from fairmd.lipids.auxiliary import elements
 from fairmd.lipids.auxiliary.jsonEncoders import CompactJSONEncoder
 from fairmd.lipids.core import System
@@ -736,7 +736,7 @@ def computeMAICOS(  # noqa: N802 (API)
 
         # Adjust the group selection to be general for analysis
         water = u.select_atoms(f"resname {system['COMPOSITION']['SOL']['NAME']}")
-        lipid = u.select_atoms(getLipids(system))
+        lipid = u.select_atoms(mda_gen_selection_mols(system))
         # TODO: Maybe add group for ions and compute densities for them as well?
 
         # fixed `zmin` and `zmax` for profiles are deduced from smallest box dimension

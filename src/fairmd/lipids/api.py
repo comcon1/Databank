@@ -19,6 +19,7 @@ import os
 import subprocess
 import sys
 import warnings
+from collections.abc import Container
 
 import MDAnalysis as mda
 import numpy as np
@@ -26,7 +27,7 @@ import numpy as np
 from fairmd.lipids import FMDL_SIMU_PATH
 from fairmd.lipids.core import System
 from fairmd.lipids.databankio import download_resource_from_uri, resolve_file_url
-from fairmd.lipids.molecules import lipids_set
+from fairmd.lipids.molecules import Molecule, lipids_set
 from fairmd.lipids.SchemaValidation.engines import get_struc_top_traj_fnames
 
 logger = logging.getLogger(__name__)
@@ -194,28 +195,27 @@ def getHydrationLevel(system) -> float:  # noqa: N802 (API name)
     return n_water / n_lipid
 
 
-def getLipids(system: System, molecules=lipids_set):  # noqa: N802 (API name)
+def mda_gen_selection_mols(system: System, molecules: Container[Molecule] | None = None) -> str:
     """
-    Returns a string using MDAnalysis notation that can used to select all lipids from
-    the ``system``.
+    Return a MDAnalysis selection string covering all the molecules (default None means "lipids").
 
     :param system: FAIRMD Lipids dictionary defining a simulation.
+    :param molecules: container of molecule objects to be included in the selection.
 
     :return: a string using MDAnalysis notation that can used to select all lipids from
              the ``system``.
     """
     res_set = set()
+    molecules = system.lipids.values() if molecules is None else molecules
     for key, mol in system.content.items():
-        if key in molecules:
+        if mol in molecules:
             try:
                 for atom in mol.mapping_dict:
                     res_set.add(mol.mapping_dict[atom]["RESIDUE"])
             except (KeyError, TypeError):
                 res_set.add(system["COMPOSITION"][key]["NAME"])
-
-    lipids = "resname " + " or resname ".join(sorted(list(res_set)))
-
-    return lipids
+    sorted_res = sorted(res_set)
+    return "resname " + " or resname ".join(sorted_res)
 
 
 def system2MDanalysisUniverse(system):  # noqa: N802 (API name)
