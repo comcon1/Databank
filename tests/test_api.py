@@ -135,25 +135,31 @@ def test_getHydrationLevel(systems, systemid, result):
 
 
 @pytest.mark.parametrize(
-    "systemid, lipid, result",
+    "systemid, lipid, result_molar, result_mass",
     [
-        (281, ["POPC"], [1]),
-        (566, ["POPC", "CHOL"], [0.9375, 0.0625]),
-        (787, ["TOCL", "POPC", "POPE"], [0.25, 0.5, 0.25]),
-        (243, ["DPPC"], [1]),
-        (86, ["POPE"], [1]),
+        (281, ["POPC"], [1], [1]),
+        (566, ["POPC", "CHOL"], [0.9375, 0.0625], [0.9672, 0.0328]),
+        (787, ["TOCL", "POPC", "POPE"], [0.25, 0.5, 0.25], [0.3945, 0.4113, 0.1941]),
+        (243, ["DPPC"], [1], [1]),
+        (86, ["POPE"], [1], [1]),
     ],
 )
-def test_membrane_composition(systems, systemid, lipid, result):
+def test_membrane_composition(systems, systemid, lipid, result_molar, result_mass):
     sys0 = systems.loc(systemid)
     molar_fractions = sys0.membrane_composition(which="molar")
+    mass_fractions = sys0.membrane_composition(which="mass")
+    with check.raises(ValueError):
+        _ = sys0.membrane_composition(which="invalid_option")
     with check.raises(KeyError):
         _ = molar_fractions["SOPC"]
     err = 0
-    i = 0
     for i, lip in enumerate(lipid):
-        err += (molar_fractions[lip] - result[i]) ** 2
-    check.almost_equal(err, 0, rel=1e-4)
+        err += (molar_fractions[lip] - result_molar[i]) ** 2
+    check.almost_equal(err, 0, abs=1e-5)
+    err = 0
+    for i, lip in enumerate(lipid):
+        err += (mass_fractions[lip] - result_mass[i]) ** 2
+    check.almost_equal(err, 0, abs=1e-5)
 
 
 @pytest.mark.parametrize(

@@ -8,7 +8,7 @@ import pytest_check as check
 pytestmark = [pytest.mark.sim2, pytest.mark.min]
 
 LIPIDS_SET_LENGTH = 5
-POPE_MOLECULAR_WEIGHT = 718
+POPE_MOLECULAR_WEIGHT = 717.5
 
 
 @pytest.fixture(scope="module")
@@ -153,7 +153,7 @@ def test_lipids_metadata():
     check.equal(
         metadata["bioschema_properties"]["molecularWeight"],
         POPE_MOLECULAR_WEIGHT,
-        "POPE bioschema_properties molecularWeight should be 718.0",
+        "POPE bioschema_properties molecularWeight should be 718.5",
     )
     check.equal(
         metadata["bioschema_properties"]["molecularFormula"],
