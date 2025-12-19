@@ -98,19 +98,28 @@ class System(MutableMapping):
                       - "mass": compute mass fraction
         :return: dictionary (universal molecule name -> value)
         """
+        if which not in ["molar", "mass"]:
+            msg = "Which must be 'molar' or 'mass'"
+            raise ValueError(msg)
         comp: dict[str, float] = {}
-        total_count = 0
         for k, v in self["COMPOSITION"].items():
             if k not in lipids_set:
                 continue
             count = sum(v["COUNT"])
             comp[k] = count
-            total_count += count
-
+        n_lipids = self.n_lipids
         if which == "molar":
             for k in comp:
-                comp[k] /= total_count
-
+                comp[k] /= n_lipids
+        elif which == "mass":
+            total_mass = 0.0
+            for k in comp:  # noqa: PLC0206 (modify dict while iterating)
+                mol: Lipid = self._content[k]
+                mw = mol.metadata["bioschema_properties"]["molecularWeight"]
+                comp[k] *= mw
+                total_mass += comp[k]
+            for k in comp:
+                comp[k] /= total_mass
         return comp
 
     def __repr__(self) -> str:
