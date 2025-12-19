@@ -144,16 +144,16 @@ def test_getHydrationLevel(systems, systemid, result):
         (86, ["POPE"], [1]),
     ],
 )
-def test_calcLipidFraction(systems, systemid, lipid, result):
-    from fairmd.lipids.api import calcLipidFraction
-
+def test_membrane_composition(systems, systemid, lipid, result):
     sys0 = systems.loc(systemid)
-    assert calcLipidFraction(sys0, "SOPC") == 0  # absent lipid
+    molar_fractions = sys0.membrane_composition(which="molar")
+    with check.raises(KeyError):
+        _ = molar_fractions["SOPC"]
     err = 0
     i = 0
     for i, lip in enumerate(lipid):
-        err += (calcLipidFraction(sys0, lip) - result[i]) ** 2
-    assert err == pytest.approx(0, rel=1e-4)
+        err += (molar_fractions[lip] - result[i]) ** 2
+    check.almost_equal(err, 0, rel=1e-4)
 
 
 @pytest.mark.parametrize(
