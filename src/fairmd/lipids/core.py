@@ -7,7 +7,8 @@ Can be imported without additional libraries to scan Databank system file tree!
 
 import os
 import sys
-from collections.abc import Iterable, Iterator, Mapping, MutableMapping, Sequence
+import typing
+from collections.abc import MutableMapping, Sequence
 
 import yaml
 
@@ -22,7 +23,7 @@ class System(MutableMapping):
     It is an extension of a dictionary with additional functionality.
     """
 
-    def __init__(self, data: dict | Mapping) -> None:
+    def __init__(self, data: dict | typing.Mapping) -> None:
         """
         Initialize the container for storing simulation record.
 
@@ -34,7 +35,7 @@ class System(MutableMapping):
         self._store: dict = {}
         if isinstance(data, dict):
             self._store.update(data)
-        elif isinstance(data, Mapping):
+        elif isinstance(data, typing.Mapping):
             self._store.update(dict(data))
         else:
             expect_type_msg = "Expected dict or Mapping"
@@ -62,7 +63,7 @@ class System(MutableMapping):
     def __delitem__(self, key: str) -> None:
         del self._store[key]
 
-    def __iter__(self) -> Iterator:
+    def __iter__(self) -> typing.Iterator:
         return iter(self._store)
 
     def __len__(self) -> int:
@@ -148,7 +149,7 @@ class System(MutableMapping):
 class SystemsCollection(Sequence[System]):
     """Immutable collection of system dicts. Can be accessed by ID using loc()."""
 
-    def __init__(self, iterable: Iterable[System] = []) -> None:
+    def __init__(self, iterable: typing.Sequence[System] = []) -> None:
         self._data = iterable
         self.__get_index_byid()
 
@@ -158,8 +159,8 @@ class SystemsCollection(Sequence[System]):
             if "ID" in self[i]:
                 self._idx[self[i]["ID"]] = i
 
-    def __getitem__(self, i: int) -> System:
-        return self._data[i]
+    def __getitem__(self, key):
+        return self._data[key]
 
     def __len__(self) -> int:
         return len(self._data)
@@ -242,7 +243,7 @@ def initialize_databank() -> SystemsCollection:
 
 
 # TODO: is not used at all in the project!!
-def print_README(system: str | Mapping) -> None:  # noqa: N802
+def print_README(system: str | typing.Mapping) -> None:  # noqa: N802
     """
     Print the content of ``system`` dictionary in human readable format.
 
