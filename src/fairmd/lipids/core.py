@@ -127,6 +127,20 @@ class System(MutableMapping):
                 comp[k] /= total_mass
         return comp
 
+    def get_hydration(self, which: str = "number") -> float:
+        """Get system hydration."""
+        if which == "number":
+            if "SOL" not in self["COMPOSITION"]:
+                msg = "Cannot compute hydration for implicit water (system #{}).".format(self["ID"])
+                raise ValueError(msg)
+            return self["COMPOSITION"]["SOL"]["COUNT"] / self.n_lipids
+        elif which == "mass":
+            msg = "Mass hydration is not implemented yet."
+            raise NotImplementedError(msg)
+        else:
+            msg = "Use number|mass for `which`."
+            raise ValueError(msg)
+
     def __repr__(self) -> str:
         return f"System({self._store['ID']}): {self._store['path']}"
 

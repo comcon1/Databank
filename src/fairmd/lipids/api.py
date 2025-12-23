@@ -6,10 +6,12 @@ Functions are organized into few groups:
     - get_OP
     - get_thickness
     - get_eqtimes
-2. Functions that extract processed properties:
+2. Functions that extract post-processed properties:
     - get_mean_ApL
     - get_total_area
     - get_formfactor_mins
+3. Auxiliary functions for better interface with MDAnalysis
+    - mda_gen_selection_mols
 """
 
 import json
@@ -175,24 +177,6 @@ def get_formfactor_mins(system: System) -> list:
         iprev = i[1]
 
     return min_x
-
-
-def getHydrationLevel(system) -> float:  # noqa: N802 (API name)
-    """
-    Return hydration level of the system.
-
-    Hydration level is defined as the number of water molecules divided by number of lipid molecules.
-
-    :param system: a system dictionary
-
-    :return: number of water molecules divided by number of lipid molecules
-    """
-    n_lipid = 0
-    for molecule in system["COMPOSITION"]:
-        if molecule in lipids_set:
-            n_lipid += np.sum(system["COMPOSITION"][molecule]["COUNT"])
-    n_water = system["COMPOSITION"]["SOL"]["COUNT"]
-    return n_water / n_lipid
 
 
 def mda_gen_selection_mols(system: System, molecules: Container[Molecule] | None = None) -> str:

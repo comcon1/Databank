@@ -159,11 +159,9 @@ def test_GetFormFactorMin(systems, systemid, result):
 
 
 @pytest.mark.parametrize("systemid, result", [(281, 31.5625), (566, 31.0), (787, 75.0), (243, 39.7778), (86, 27.75)])
-def test_getHydrationLevel(systems, systemid, result):
-    from fairmd.lipids.api import getHydrationLevel
-
+def test_get_hydration(systems, systemid, result):
     sys0 = systems.loc(systemid)
-    hl = getHydrationLevel(sys0)
+    hl = sys0.get_hydration()
     assert hl == pytest.approx(result, 1e-4)
 
 
