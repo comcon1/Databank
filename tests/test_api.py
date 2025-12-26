@@ -12,6 +12,7 @@ NOTE: globally import of fairmd-lipids is **STRICTLY FORBIDDEN** because it
       breaks the substitution of global path folders
 """
 
+import copy
 import os
 import sys
 import warnings
@@ -59,6 +60,14 @@ def test_content(systems):
         for k, v in s.lipids.items():
             check.is_in(k, s["COMPOSITION"])
             check.is_instance(v, Lipid)
+
+
+def test_copy_system(systems):
+    s1 = systems.loc(566)
+    s2 = copy.deepcopy(s1)
+    s2._store["GRO"] = None
+    assert(s2["GRO"] is None)
+    assert(s1["GRO"] is not None)
 
 
 def test_mda_gen_selection_mols(systems):

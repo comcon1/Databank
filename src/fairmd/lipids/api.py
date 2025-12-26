@@ -202,41 +202,81 @@ def mda_gen_selection_mols(system: System, molecules: Container[Molecule] | None
     return "resname " + " or resname ".join(sorted_res)
 
 
-def system2MDanalysisUniverse(system):  # noqa: N802 (API name)
-    """
-    Takes the ``system`` dictionary as an input, downloads the required files to
-    the FAIRMD Lipids directory and retuns MDAnalysis universe corressponding
-    the ``system``.
+class UniverseConstructor:
 
-    :param system: FAIRMD Lipids dictionary describing the simulation.
+    def __init__(self, s: System):
+        self._s = s
+        self._paths = {
+            'struc': None,
+            'top': None,
+            'traj': None,
+            'energy': None,
+        }
 
-    :return: MDAnalysis universe
-    """
-    system_path = os.path.join(FMDL_SIMU_PATH, system["path"])
-    doi = system.get("DOI")
+    @property
+    def system(self):
+        return self._s
+
+    @property
+    def paths(self):
+        return self._paths
+
+    def download_mddata(self, skip_traj=False) -> None:
+        gpath = os.path.join(FMDL_SIMU_PATH, self._s["path"])
+        struc, top, trj = get_struc_top_traj_fnames(self._s)
+
+        def _resolve_dwnld(fname):
+            fpath = os.path.join(gpath, fname)
+            if self._s["DOI"] == "localhost":
+                if not os.path.isfile(fpath):
+                    msg = f"File {fpath} must be predownloaded for {self._s}"
+                    raise FileNotFoundError(msg)
+                return fpath
+            if os.path.isfile(fpath):
+                # do not download if exists
+                return fpath
+            url = resolve_download_file_url(self._s["DOI"], fname)
+            _ = download_resource_from_uri(url, fpath)
+            return fpath
+
+        if struc is not None: 
+            self._paths["struc"] = _resolve_dwnld(struc)
+        if top is not None:
+            self._paths["top"] = _resolve_dwnld(top)
+        if trj is not None and not skip_traj:
+            self._paths["traj"] = _resolve_dwnld(trj)
+
+    def clear_mddata(self) -> None:
+        if self._s["DOI"] == "localhost":
+            for k in self._paths:
+                self._paths[k] = None
+            return
+        for k,v in self._paths.items():
+            if v is None:
+                continue
+            print(f"Clearing {k}-file..", end="", flush=True)
+            os.remove(v)
+            print("OK")
+            self._paths[k] = None
+
+
+"""
+    ### DRAFTS ###
+    doi: str = s.get("DOI")
     skip_downloading: bool = doi == "localhost"
     if skip_downloading:
         print("NOTE: The system with 'localhost' DOI should be downloaded by the user.")
 
-    try:
-        struc, top, trj = get_struc_top_traj_fnames(system)
-        trj_name = os.path.join(system_path, trj)
-        if struc is None:
-            struc_name = None
-        else:
-            struc_name = os.path.join(system_path, struc)
-        if top is None:
-            top_name = None
-        else:
-            top_name = os.path.join(system_path, top)
-    except Exception:
-        logger.exception(f"Error getting structure/topology/trajectory filenames for system {system['ID']}.")
-        raise
+    if trj is None:
+        msg = f"Error getting structure/topology/trajectory filenames for system {system['ID']}."
+        raise ValueError(msg)
+    trj_name = os.path.join(system_path, trj)
+    top_name = None if top is None else os.path.join(system_path, top)
 
     # downloading trajectory (obligatory)
     if skip_downloading:
         if not os.path.isfile(trj_name):
-            msg = (f"Trajectory should be downloaded [{trj_name}] by user",)
+            msg = f"Trajectory should be downloaded [{trj_name}] by user"
             raise FileNotFoundError(msg)
     else:
         trj_url = resolve_file_url(doi, trj)
@@ -271,6 +311,20 @@ def system2MDanalysisUniverse(system):  # noqa: N802 (API name)
             if not os.path.isfile(struc_name):
                 _ = download_resource_from_uri(struc_url, struc_name)
 
+    return res_dict
+"""
+
+def system2MDanalysisUniverse(system):  # noqa: N802 (API name)
+    """
+    Takes the ``system`` dictionary as an input, downloads the required files to
+    the FAIRMD Lipids directory and retuns MDAnalysis universe corressponding
+    the ``system``.
+
+    :param system: FAIRMD Lipids dictionary describing the simulation.
+
+    :return: MDAnalysis universe
+    """
+    raise NotImplementedError("here is blub")
     made_from_top = False
     try:
         u = mda.Universe(top_name, trj_name)
