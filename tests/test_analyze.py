@@ -86,13 +86,14 @@ def systems():
 @pytest.fixture(scope="module")
 def systemLoadTraj(systems):
     import fairmd.lipids as fmdl
-    from fairmd.lipids.api import system2MDanalysisUniverse
+    from fairmd.lipids.api import UniverseConstructor
 
     logger.info("Downloading trajectory data.")
     for s in systems:
         logger.debug(f"Processing system: {s.get('id', 'unknown')}")
-        u = system2MDanalysisUniverse(s)
-        del u
+        uc = UniverseConstructor(s)
+        uc.download_mddata()
+        del uc
     yield
     # TEARDOWN SYSTEM-LOADING
     if "FMDL_TEST_NOWIPE" in os.environ:
