@@ -1,17 +1,24 @@
 """
 API functions for analyzing the FAIRMD Lipids Databank.
 
-Functions are organized into few groups:
-1. Functions that extract computed properties:
-    - get_OP
-    - get_thickness
-    - get_eqtimes
-2. Functions that extract post-processed properties:
-    - get_mean_ApL
-    - get_total_area
-    - get_formfactor_mins
-3. Auxiliary functions for better interface with MDAnalysis
-    - mda_gen_selection_mols
+Functionality are organized into few groups:
+
+1. Class :class:`UniverseConstructor`, which help one to create MDAnalysis.Universe from Databank's
+   :class:`System <fairmd.lipids.core.System>`
+2. Functions that extract computed properties:
+
+   - :func:`get_OP`
+   - :func:`get_thickness`
+   - :func:`get_eqtimes`
+3. Functions that extract post-processed properties:
+
+   - :func:`get_mean_ApL`
+   - :func:`get_total_area`
+   - :func:`get_formfactor_mins`
+4. Auxiliary functions for better interface with *MDAnalysis*
+
+   - :func:`mda_gen_selection_mols`
+   - :func:`mda_read_trj_tilt_angles`
 """
 
 import json
@@ -38,7 +45,7 @@ def get_thickness(system: System) -> float:
     """
     Get thickness for a simulation defined with ``system`` from the ``thickness.json``.
 
-    :param system: FAIRMD Lipids dictionary defining a simulation.
+    :param system: Simulation object.
 
     :return: membrane thickess (nm) or raise exception
     """
@@ -84,7 +91,7 @@ def get_OP(system: System) -> dict:  # noqa: N802 (API name)
     """
     Return a dictionary with the order parameter data for each lipid in ``system``.
 
-    :param system: NMRlipids databank dictionary defining a simulation.
+    :param system: Simulation object.
 
     :return: dictionary contaning, for each lipid, the order parameter data:
              average OP, standard deviation, and standard error of mean. Contains
@@ -121,7 +128,7 @@ def get_mean_ApL(system: System) -> float:  # noqa: N802 (API name)
     """
     Calculate average area per lipid for a system.
 
-    :param system: FAIRMD Lipids dictionary defining a simulation.
+    :param system: Simulation object.
 
     :return: area per lipid (Å^2)
     """
@@ -143,7 +150,7 @@ def get_total_area(system: System) -> float:
     """
     Return area of the membrane in the simulation box.
 
-    :param system: a system dictionary
+    :param system: Simulation object.
 
     :return: area of the system (Å^2)
     """
@@ -155,7 +162,7 @@ def get_formfactor_mins(system: System) -> list:
     """
     Return list of minima of form factor of ``system``.
 
-    :param system: a system dictionary
+    :param system: Simulation object.
 
     :return: list of form factor minima or raise exception
     """
@@ -178,50 +185,32 @@ def get_formfactor_mins(system: System) -> list:
     return min_x
 
 
-def mda_gen_selection_mols(system: System, molecules: Container[Molecule] | None = None) -> str:
-    """
-    Return a MDAnalysis selection string covering all the molecules (default None means "lipids").
-
-    :param system: FAIRMD Lipids dictionary defining a simulation.
-    :param molecules: container of molecule objects to be included in the selection.
-
-    :return: a string using MDAnalysis notation that can used to select all lipids from
-             the ``system``.
-    """
-    res_set = set()
-    molecules = system.lipids.values() if molecules is None else molecules
-    for key, mol in system.content.items():
-        if mol in molecules:
-            try:
-                for atom in mol.mapping_dict:
-                    res_set.add(mol.mapping_dict[atom]["RESIDUE"])
-            except (KeyError, TypeError):
-                res_set.add(system["COMPOSITION"][key]["NAME"])
-    sorted_res = sorted(res_set)
-    return "resname " + " or resname ".join(sorted_res)
-
-
 class UniverseConstructError(Exception):
     """Specific error for UniverseConstructor"""
-
-    pass
 
 
 class UniverseConstructor:
     """
-    Class operating with downloading and constructing Universe for the Databank `System`.
+    Class operating with downloading and constructing Universe for the :class:`System <fairmd.lipids.core.System>`.
 
     To use this class, one instantinate it with a particular system, and then download.
 
-    :: code
+    .. code-block:: python
+
         s = systems.loc(120)
         uc = UniverseConstructor(s)
         uc.download_mddata()
 
-    After this, the pointer `uc.path` will show which files are available to work with.
+    After this, the pointer :attr:`uc.paths <paths>` will show which files are available to work with.
+    Finally, you can run :meth:`uc.build_universe() <build_universe>` to get the ``MDAnalysis.Universe`` object.
     """
 
-    def __init__(self, s: System):
+    def __init__(self, s: System) -> None:
+        """
+        Create an empty instance. No auto-download or auto-universe.
+
+        :param s: Simulation object.
+        """
         self._s = s
         self._paths = {
             "struc": None,
@@ -231,15 +220,20 @@ class UniverseConstructor:
         }
 
     @property
-    def system(self):
+    def system(self) -> System:
+        """Link to simulation object."""
         return self._s
 
     @property
-    def paths(self):
-        """Return dicts of absolute paths of downloaded files: struc, traj, top, energy."""
+    def paths(self) -> dict[str, str | None]:
+        """Return dicts of absolute paths of downloaded files.
+
+        Allowed fields are: *struc*, *traj*, *top*, *energy*. If they are not ``None``, then
+        the corresponding file is downloaded and the full path is the value.
+        """
         return self._paths
 
-    def download_mddata(self, skip_traj=False) -> None:
+    def download_mddata(self, *, skip_traj: bool = False) -> None:
         """
         Download all the files. Previously downloaded are skipped.
 
@@ -248,7 +242,7 @@ class UniverseConstructor:
         gpath = os.path.join(FMDL_SIMU_PATH, self._s["path"])
         struc, top, trj = get_struc_top_traj_fnames(self._s)
 
-        def _resolve_dwnld(fname):
+        def _resolve_dwnld(fname: str) -> str:
             fpath = os.path.join(gpath, fname)
             if self._s["DOI"] == "localhost":
                 if not os.path.isfile(fpath):
@@ -286,102 +280,129 @@ class UniverseConstructor:
     def build_universe(self) -> mda.Universe:
         """Build MDAnalysis Universe.
 
-        Replaces outdated `system2MDanalysisUniverse`."""
+        Replaces outdated `system2MDanalysisUniverse`.
+        """
         if not any(self._paths.values()):
             msg = "You **MUST** run `download_mddata` before `build_universe`"
             raise UniverseConstructError(msg)
 
         if self._paths["top"] is None:
-            if self._paths["traj"] is None:
-                u = mda.Universe(self._paths["struc"])
-            else:
-                u = mda.Universe(self._paths["struc"], self._paths["traj"])
+            u = (
+                mda.Universe(self._paths["struc"])
+                if self._paths["traj"] is None
+                else mda.Universe(self._paths["struc"], self._paths["traj"])
+            )
         else:
             try:
                 if self._paths["traj"] is None:
-                    if self._paths["struc"] is None:
-                        u = mda.Universe(self._paths["top"])
-                    else:
-                        u = mda.Universe(self._paths["top"], self._paths["struc"])
+                    u = (
+                        mda.Universe(self._paths["top"])
+                        if self._paths["struc"] is None
+                        else mda.Universe(self._paths["top"], self._paths["struc"])
+                    )
                 else:
                     u = mda.Universe(self._paths["top"], self._paths["traj"])
-            except IOError as e:
+            except OSError as e:
                 print(
                     f"We got exception.. == \n{e}\n == ..and assume that TOPOLOGY is file is corrupted", file=sys.stderr
                 )
                 if self._paths["struc"] is None:
-                    raise UniverseConstructError("TOPOLOGY is corrupted, and no STRUCTURE is given") from e
-                if self._paths["traj"] is None:
-                    u = mda.Universe(self._paths["struc"])
-                else:
-                    u = mda.Universe(self._paths["struc"], self._paths["traj"])
+                    msg = "TOPOLOGY is corrupted, and no STRUCTURE is given"
+                    raise UniverseConstructError(msg) from e
+                u = (
+                    mda.Universe(self._paths["struc"])
+                    if self._paths["traj"] is None
+                    else mda.Universe(self._paths["struc"], self._paths["traj"])
+                )
         return u
 
 
-def calc_angle(atoms, com):
+def mda_gen_selection_mols(system: System, molecules: Container[Molecule] | None = None) -> str:
     """
-    calculates the angle between the vector and z-axis in degrees
-    no PBC check!
-    Calculates the center of mass of the selected atoms to invert bottom leaflet vector
+    Return a MDAnalysis selection string covering all the molecules (default None means "lipids").
+
+    :param system: FAIRMD Lipids dictionary defining a simulation.
+    :param molecules: container of molecule objects to be included in the selection.
+
+    :return: a string using MDAnalysis notation that can used to select all lipids from
+             the ``system``.
     """
-    vec = atoms[1].position - atoms[0].position
-    d = math.sqrt(np.square(vec).sum())
-    cos = vec[2] / d
-    # values for the bottom leaflet are inverted so that
-    # they have the same nomenclature as the top leaflet
-    cos *= math.copysign(1.0, atoms[0].position[2] - com)
-    try:
-        angle = math.degrees(math.acos(cos))
-    except ValueError:
-        if abs(cos) >= 1.0:
-            print(f"Cosine is too large = {cos} --> truncating it to +/-1.0")
-            cos = math.copysign(1.0, cos)
-            angle = math.degrees(math.acos(cos))
-    return angle
+    res_set = set()
+    molecules = system.lipids.values() if molecules is None else molecules
+    for key, mol in system.content.items():
+        if mol in molecules:
+            try:
+                for atom in mol.mapping_dict:
+                    res_set.add(mol.mapping_dict[atom]["RESIDUE"])
+            except (KeyError, TypeError):
+                res_set.add(system["COMPOSITION"][key]["NAME"])
+    sorted_res = sorted(res_set)
+    return "resname " + " or resname ".join(sorted_res)
 
 
-def read_trj_PN_angles(  # noqa: N802 (API name)
-    molname: str,
-    atom1: str,
-    atom2: str,
-    mda_universe: mda.Universe,
+def mda_read_trj_tilt_angles(
+    resname: str,
+    a_name: str,
+    b_name: str,
+    universe: mda.Universe,
 ):
     """
-    Calculate the P-N vector angles with respect to membrane normal from the
-    simulation defined by the MDAnalysis universe.
+    Calculate the AB vector angles with respect to membrane normal from the simulation.
 
-    :param molname: residue name of the molecule for which the P-N vector angle will
-                    be calculated
-    :param atom1: name of the P atom in the simulation
-    :param atom2: name of the N atom in the simulation
-    :param MDAuniverse: MDAnalysis universe of the simulation to be analyzed
+    :param resname: residue name of the molecule for which the P-N vector angle will be calculated
+    :param a_name: name of the A atom in the simulation
+    :param b_name: name of the B atom in the simulation
+    :param universe: MDAnalysis universe of the simulation to be analyzed
 
     :return: tuple (angles of all molecules as a function of time,
                     time averages for each molecule,
                     the average angle over time and molecules,
                     the error of the mean calculated over molecules)
     """
-    mol = mda_universe
-    selection = mol.select_atoms(
-        "resname " + molname + " and (name " + atom1 + ")",
-        "resname " + molname + " and (name " + atom2 + ")",
+
+    # Auxiliary internal function
+    def _calc_angle(atoms, com) -> float:
+        """
+        :meta private:
+        Calculate the angle between the vector and z-axis in degrees.
+
+        No PBC check! Calculates the center of mass of the selected atoms to invert bottom leaflet vector
+        """
+        vec = atoms[1].position - atoms[0].position
+        d = math.sqrt(np.square(vec).sum())
+        cos = vec[2] / d
+        # values for the bottom leaflet are inverted so that
+        # they have the same nomenclature as the top leaflet
+        cos *= math.copysign(1.0, atoms[0].position[2] - com)
+        try:
+            angle = math.degrees(math.acos(cos))
+        except ValueError:
+            if abs(cos) >= 1.0:
+                print(f"Cosine is too large = {cos} --> truncating it to +/-1.0")
+                cos = math.copysign(1.0, cos)
+                angle = math.degrees(math.acos(cos))
+        return angle
+
+    selection = universe.select_atoms(
+        "resname " + resname + " and (name " + a_name + ")",
+        "resname " + resname + " and (name " + b_name + ")",
     ).atoms.split("residue")
-    com = mol.select_atoms(
-        "resname " + molname + " and (name " + atom1 + " or name " + atom2 + ")",
+    com = universe.select_atoms(
+        "resname " + resname + " and (name " + a_name + " or name " + b_name + ")",
     ).center_of_mass()
 
     n_res = len(selection)
-    n_frames = len(mol.trajectory)
+    n_frames = len(universe.trajectory)
     angles = np.zeros((n_res, n_frames))
 
     res_aver_angles = [0] * n_res
     res_std_error = [0] * n_res
     j = 0
 
-    for _ in mol.trajectory:
+    for _ in universe.trajectory:
         for i in range(n_res):
             residue = selection[i]
-            angles[i, j] = calc_angle(residue, com[2])
+            angles[i, j] = _calc_angle(residue, com[2])
         j = j + 1
     for i in range(n_res):
         res_aver_angles[i] = sum(angles[i, :]) / n_frames

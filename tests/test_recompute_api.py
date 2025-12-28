@@ -70,7 +70,7 @@ def hashFV(x):
     ],
 )
 def test_PJangle(systems, systemid, lipid, fvhash):
-    from fairmd.lipids.api import read_trj_PN_angles, UniverseConstructor
+    from fairmd.lipids.api import mda_read_trj_tilt_angles, UniverseConstructor
 
     s = systems.loc(systemid)
     uc = UniverseConstructor(s)
@@ -81,7 +81,7 @@ def test_PJangle(systems, systemid, lipid, fvhash):
     a1 = pats.atoms.names[0]
     a2 = nats.atoms.names[0]
 
-    a, b, c, d = read_trj_PN_angles(lipid, a1, a2, u)
+    a, b, c, d = mda_read_trj_tilt_angles(lipid, a1, a2, u)
     # time-molecule arrays
     assert len(a) == sum(s["COMPOSITION"][lipid]["COUNT"])
     # time-averaged list

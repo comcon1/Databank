@@ -17,7 +17,7 @@ def main():
     excluded_patterns = ["*tests*", "*init*"]
 
     runs = [
-        (scripts_dir, "fairmd"),
+        (scripts_dir, "fairmd.lipids"),
         (developer_dir, "developer"),
     ]
 
