@@ -577,8 +577,18 @@ def computeMAICOS(  # noqa: N802 (API)
         elif os.path.isfile(os.path.join(spath, file)) and not recompute:
             set_maicos_files.remove(file)
 
+    if not set_maicos_files:
+        logger.info("All available MAICoS files are found. Skipping.")
+        return RCODE_SKIPPED
+
+    socket.setdefaulttimeout(15)
+
     uc = UniverseConstructor(system)
-    uc.download_mddata()
+    try:
+        uc.download_mddata()
+    except Exception:
+        logger.error(f"Problem with downloading system {system} from {system['DOI']}.")
+        return RCODE_ERROR
 
     if uc.paths["top"] is None:
         # No topology => no charge inforamtion
@@ -590,12 +600,7 @@ def computeMAICOS(  # noqa: N802 (API)
                 # TODO: impute charges!
                 set_maicos_files.remove(file)
 
-    if not set_maicos_files:
-        logger.info("All available MAICoS files are found. Skipping.")
-        return RCODE_SKIPPED
-
     logger.info("Files to be computed: %s", "|".join(set_maicos_files))
-    socket.setdefaulttimeout(15)
 
     try:
         eq_time = float(system["TIMELEFTOUT"]) * 1000

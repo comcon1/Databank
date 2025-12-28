@@ -1,20 +1,22 @@
 """
 `test_misc` contains unit tests of auxiliary functions.
 
-Test data is stored in `./ToyData/Simulations.2`
+Test data is stored in `./ToyData/Simulations.1`
 
 -------------------------------------------------------------------------------
 NOTE: globally import of fairmd-lipids is **STRICTLY FORBIDDEN** because it
       breaks the substitution of global path folders
 """
 
+from contextlib import contextmanager
 import os
+import shutil
 
 import pytest
 import pytest_check as check
 
 # run only on sim2 mocking data
-pytestmark = [pytest.mark.nodata, pytest.mark.min]
+pytestmark = [pytest.mark.sim1, pytest.mark.min]
 
 
 def test_uname2element():
@@ -108,18 +110,31 @@ def test_maicos_interface(tip4p_trajectory):
 def test_maicos_what_to_compute(caplog, logger):
     import logging
 
-    from fairmd.lipids import RCODE_ERROR
+    from fairmd.lipids import RCODE_ERROR, FMDL_SIMU_PATH
     from fairmd.lipids.analyze import computeMAICOS
     from fairmd.lipids.core import System
+
+    @contextmanager
+    def temporary_dir():
+        _p = os.path.join(FMDL_SIMU_PATH, "tempsy")
+        os.mkdir(_p)
+        open(os.path.join(_p, "file.xtc"), "w").close()
+        open(os.path.join(_p, "file.tpr"), "w").close()
+        open(os.path.join(_p, "file.pdb"), "w").close()
+        try:
+            yield _p
+        finally:
+            shutil.rmtree(_p)
 
     s = System(
         data={
             "DOI": "00.0000/abcd",
-            "path": "does-not-matter",
+            "path": "tempsy",
             "TYPEOFSYSTEM": "lipid bilayer",
             "SOFTWARE": "GROMACS",
             "TPR": [["file.tpr"]],
             "TRJ": [["file.xtc"]],
+            "ID": 9999,
             "COMPOSITION": {
                 "SOL": {
                     "NAME": "SPC",
@@ -135,41 +150,43 @@ def test_maicos_what_to_compute(caplog, logger):
         },
     )
     caplog.clear()
-    logger.info("Testing MAICOS interface against GROMACS-like setup")
-    with caplog.at_level(logging.INFO):
-        rcode = computeMAICOS(s, logging.getLogger("test_logger"), ffonly=False)
-    for line in caplog.text.splitlines():
-        if "Files to be computed:" in line:
-            break
-    check.is_in("TotalDensity", line)
-    check.is_in("DiporderWater", line)
-    check.equal(rcode, RCODE_ERROR)
-    # Testing maicos-default ffonly=True
-    caplog.clear()
-    logger.info("Testing MAICOS default-mode interface against GROMACS-like setup")
-    with caplog.at_level(logging.INFO):
-        rcode = computeMAICOS(s, logging.getLogger("test_logger"))
-    for line in caplog.text.splitlines():
-        if "Files to be computed:" in line:
-            break
-    check.is_in("TotalDensity", line)
-    check.is_not_in("DiporderWater", line)
-    check.equal(rcode, RCODE_ERROR)
-    # Now it will be NAMD-like setup
-    logger.info("Testing MAICOS interface against NAMD-like setup")
-    del s["TPR"]
-    s["PDB"] = [["file.pdb"]]
-    s["SOFTWARE"] = "NAMD"
-    # and we will not compute DiporderWater, Dielectric and ChargeDensity
+    # temporary create a dir for system
+    with temporary_dir() as _p:
+        logger.info("Testing MAICOS interface against GROMACS-like setup")
+        with caplog.at_level(logging.INFO):
+            rcode = computeMAICOS(s, logging.getLogger("test_logger"), ffonly=False)
+        for line in caplog.text.splitlines():
+            if "Files to be computed:" in line:
+                break
+        check.is_in("TotalDensity", line)
+        check.is_in("DiporderWater", line)
+        check.equal(rcode, RCODE_ERROR)
+        # Testing maicos-default ffonly=True
+        caplog.clear()
+        logger.info("Testing MAICOS default-mode interface against GROMACS-like setup")
+        with caplog.at_level(logging.INFO):
+            rcode = computeMAICOS(s, logging.getLogger("test_logger"))
+        for line in caplog.text.splitlines():
+            if "Files to be computed:" in line:
+                break
+        check.is_in("TotalDensity", line)
+        check.is_not_in("DiporderWater", line)
+        check.equal(rcode, RCODE_ERROR)
+        # Now it will be NAMD-like setup
+        logger.info("Testing MAICOS interface against NAMD-like setup")
+        del s["TPR"]
+        s["PDB"] = [["file.pdb"]]
+        s["SOFTWARE"] = "NAMD"
+        # and we will not compute DiporderWater, Dielectric and ChargeDensity
 
-    caplog.clear()
-    with caplog.at_level(logging.INFO):
-        rcode = computeMAICOS(s, logging.getLogger("test_logger"), ffonly=False)
-    for line in caplog.text.splitlines():
-        if "Files to be computed:" in line:
-            break
-    check.is_in("TotalDensity", line)
-    check.is_not_in("DiporderWater", line)
-    check.is_not_in("Dielectric", line)
-    check.is_not_in("ChargeDensity", line)
-    check.equal(rcode, RCODE_ERROR)
+        caplog.clear()
+        with caplog.at_level(logging.INFO):
+            rcode = computeMAICOS(s, logging.getLogger("test_logger"), ffonly=False)
+        for line in caplog.text.splitlines():
+            if "Files to be computed:" in line:
+                break
+        check.is_in("TotalDensity", line)
+        check.is_not_in("DiporderWater", line)
+        check.is_not_in("Dielectric", line)
+        check.is_not_in("ChargeDensity", line)
+        check.equal(rcode, RCODE_ERROR)
