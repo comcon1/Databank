@@ -18,7 +18,6 @@ import json
 import logging
 import math
 import os
-import subprocess
 import sys
 import warnings
 from collections.abc import Container
@@ -202,15 +201,33 @@ def mda_gen_selection_mols(system: System, molecules: Container[Molecule] | None
     return "resname " + " or resname ".join(sorted_res)
 
 
+class UniverseConstructError(Exception):
+    """Specific error for UniverseConstructor"""
+
+    pass
+
+
 class UniverseConstructor:
+    """
+    Class operating with downloading and constructing Universe for the Databank `System`.
+
+    To use this class, one instantinate it with a particular system, and then download.
+
+    :: code
+        s = systems.loc(120)
+        uc = UniverseConstructor(s)
+        uc.download_mddata()
+
+    After this, the pointer `uc.path` will show which files are available to work with.
+    """
 
     def __init__(self, s: System):
         self._s = s
         self._paths = {
-            'struc': None,
-            'top': None,
-            'traj': None,
-            'energy': None,
+            "struc": None,
+            "top": None,
+            "traj": None,
+            "energy": None,
         }
 
     @property
@@ -219,9 +236,15 @@ class UniverseConstructor:
 
     @property
     def paths(self):
+        """Return dicts of absolute paths of downloaded files: struc, traj, top, energy."""
         return self._paths
 
     def download_mddata(self, skip_traj=False) -> None:
+        """
+        Download all the files. Previously downloaded are skipped.
+
+        :param skip_traj: Download only TOP&struc for further constructing single-frame universe
+        """
         gpath = os.path.join(FMDL_SIMU_PATH, self._s["path"])
         struc, top, trj = get_struc_top_traj_fnames(self._s)
 
@@ -235,11 +258,11 @@ class UniverseConstructor:
             if os.path.isfile(fpath):
                 # do not download if exists
                 return fpath
-            url = resolve_download_file_url(self._s["DOI"], fname)
+            url = resolve_file_url(self._s["DOI"], fname)
             _ = download_resource_from_uri(url, fpath)
             return fpath
 
-        if struc is not None: 
+        if struc is not None:
             self._paths["struc"] = _resolve_dwnld(struc)
         if top is not None:
             self._paths["top"] = _resolve_dwnld(top)
@@ -247,11 +270,12 @@ class UniverseConstructor:
             self._paths["traj"] = _resolve_dwnld(trj)
 
     def clear_mddata(self) -> None:
+        """Clear downloaded MD data. For DOI=localhost, do nothing."""
         if self._s["DOI"] == "localhost":
             for k in self._paths:
                 self._paths[k] = None
             return
-        for k,v in self._paths.items():
+        for k, v in self._paths.items():
             if v is None:
                 continue
             print(f"Clearing {k}-file..", end="", flush=True)
@@ -259,117 +283,39 @@ class UniverseConstructor:
             print("OK")
             self._paths[k] = None
 
+    def build_universe(self) -> mda.Universe:
+        """Build MDAnalysis Universe.
 
-"""
-    ### DRAFTS ###
-    doi: str = s.get("DOI")
-    skip_downloading: bool = doi == "localhost"
-    if skip_downloading:
-        print("NOTE: The system with 'localhost' DOI should be downloaded by the user.")
+        Replaces outdated `system2MDanalysisUniverse`."""
+        if not any(self._paths.values()):
+            msg = "You **MUST** run `download_mddata` before `build_universe`"
+            raise UniverseConstructError(msg)
 
-    if trj is None:
-        msg = f"Error getting structure/topology/trajectory filenames for system {system['ID']}."
-        raise ValueError(msg)
-    trj_name = os.path.join(system_path, trj)
-    top_name = None if top is None else os.path.join(system_path, top)
-
-    # downloading trajectory (obligatory)
-    if skip_downloading:
-        if not os.path.isfile(trj_name):
-            msg = f"Trajectory should be downloaded [{trj_name}] by user"
-            raise FileNotFoundError(msg)
-    else:
-        trj_url = resolve_file_url(doi, trj)
-        if not os.path.isfile(trj_name):
-            print(
-                "Downloading trajectory with the size of ",
-                system["TRAJECTORY_SIZE"],
-                " to ",
-                system["path"],
-            )
-            _ = download_resource_from_uri(trj_url, trj_name)
-
-    # downloading topology (if exists)
-    if top is not None:
-        if skip_downloading:
-            if not os.path.isfile(top_name):
-                msg = f"TPR should be downloaded [{top_name}]"
-                raise FileNotFoundError(msg)
-        else:
-            top_url = resolve_file_url(doi, top)
-            if not os.path.isfile(top_name):
-                _ = download_resource_from_uri(top_url, top_name)
-
-    # downloading structure (if exists)
-    if struc is not None:
-        if skip_downloading:
-            if not os.path.isfile(struc_name):
-                msg = f"GRO should be downloaded [{struc_name}]"
-                raise FileNotFoundError(msg)
-        else:
-            struc_url = resolve_file_url(doi, struc)
-            if not os.path.isfile(struc_name):
-                _ = download_resource_from_uri(struc_url, struc_name)
-
-    return res_dict
-"""
-
-def system2MDanalysisUniverse(system):  # noqa: N802 (API name)
-    """
-    Takes the ``system`` dictionary as an input, downloads the required files to
-    the FAIRMD Lipids directory and retuns MDAnalysis universe corressponding
-    the ``system``.
-
-    :param system: FAIRMD Lipids dictionary describing the simulation.
-
-    :return: MDAnalysis universe
-    """
-    raise NotImplementedError("here is blub")
-    made_from_top = False
-    try:
-        u = mda.Universe(top_name, trj_name)
-        made_from_top = True
-    except Exception as e:
-        logger.warning(f"Couldn't make Universe from {top_name} and {trj_name}.")
-        logger.warning(str(e))
-
-    if not made_from_top and struc is not None:
-        made_from_struc = False
-        try:
-            u = mda.Universe(struc_name, trj_name)
-            made_from_struc = True
-        except Exception as e:
-            logger.warning(f"Couldn't make Universe from {struc_name} and {trj_name}.")
-            logger.warning(str(e))
-
-        if not made_from_struc:
-            if system["SOFTWARE"].upper() == "GROMACS":
-                # rewrite struc_fname!
-                struc_fname = os.path.join(system_path, "conf.gro")
-
-                print(
-                    "Generating conf.gro because MDAnalysis cannot (probably!) read tpr version",
-                )
-                if (
-                    "WARNINGS" in system
-                    and "GROMACS_VERSION" in system["WARNINGS"]
-                    and system["WARNINGS"]["GROMACS_VERSION"] == "gromacs3"
-                ):
-                    command = ["editconf", "-f", top_name, "-o", struc_fname]
-                else:
-                    command = ["gmx", "trjconv", "-s", top_name, "-f", trj_name, "-dump", "0", "-o", struc_fname]
-                try:
-                    subprocess.run(command, input="System\n", text=True, check=True, capture_output=True)
-                except subprocess.CalledProcessError as e:
-                    raise RuntimeError(
-                        f"Command 'echo System | {' '.join(command)}' failed with error: {e.stderr}",
-                    ) from e
-                # the last try!
-                u = mda.Universe(struc_fname, trj_name)
+        if self._paths["top"] is None:
+            if self._paths["traj"] is None:
+                u = mda.Universe(self._paths["struc"])
             else:
-                raise RuntimeError("There is no way to build up your system!")
-
-    return u
+                u = mda.Universe(self._paths["struc"], self._paths["traj"])
+        else:
+            try:
+                if self._paths["traj"] is None:
+                    if self._paths["struc"] is None:
+                        u = mda.Universe(self._paths["top"])
+                    else:
+                        u = mda.Universe(self._paths["top"], self._paths["struc"])
+                else:
+                    u = mda.Universe(self._paths["top"], self._paths["traj"])
+            except IOError as e:
+                print(
+                    f"We got exception.. == \n{e}\n == ..and assume that TOPOLOGY is file is corrupted", file=sys.stderr
+                )
+                if self._paths["struc"] is None:
+                    raise UniverseConstructError("TOPOLOGY is corrupted, and no STRUCTURE is given") from e
+                if self._paths["traj"] is None:
+                    u = mda.Universe(self._paths["struc"])
+                else:
+                    u = mda.Universe(self._paths["struc"], self._paths["traj"])
+        return u
 
 
 def calc_angle(atoms, com):

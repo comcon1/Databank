@@ -13,7 +13,7 @@ import os
 import re
 import socket
 import subprocess
-import urllib.request
+import sys
 from logging import Logger
 
 import buildh
@@ -40,13 +40,11 @@ from fairmd.lipids.analib.maicos import (
     is_system_suitable_4_maicos,
     traj_centering_for_maicos,
 )
-from fairmd.lipids.api import mda_gen_selection_mols, system2MDanalysisUniverse
+from fairmd.lipids.api import UniverseConstructor, mda_gen_selection_mols
 from fairmd.lipids.auxiliary import elements
 from fairmd.lipids.auxiliary.jsonEncoders import CompactJSONEncoder
 from fairmd.lipids.core import System
-from fairmd.lipids.databankio import download_resource_from_uri, resolve_file_url
 from fairmd.lipids.molecules import lipids_set
-from fairmd.lipids.SchemaValidation.engines import get_struc_top_traj_fnames
 
 
 def computeNMRPCA(  # noqa: N802 (API)
@@ -97,7 +95,7 @@ def computeNMRPCA(  # noqa: N802 (API)
         return RCODE_ERROR
 
     try:
-        # Download files
+        # TODO: REPLACE WTIH UNIVERSE_CONSTRUCTOR
         parser.download_traj()
         # Prepare trajectory
         parser.prepare_traj()
@@ -166,13 +164,9 @@ def computeAPL(  # noqa: N802 (API)
     print("Will write into: ", outfilename)
 
     try:
-        # makes MDAnalysis universe from the system. This also downloads the data if not
-        # yet locally available
-        u = system2MDanalysisUniverse(system)
-
-        if u is None:
-            print("Generation of MDAnalysis universe failed in folder", path)
-            return RCODE_ERROR
+        uc = UniverseConstructor(system)
+        uc.download_mddata()
+        u = uc.build_universe()
 
         # this calculates the area per lipid as a function of time and stores it
         # in the databank
@@ -270,90 +264,51 @@ def computeOP(  # noqa: N802 (API)
     # If order parameters are not calculated and system ok, then continue to
     # calculating order parameters
     print("Analyzing: ", path)
-
-    # Download the simulations and create MDAnalysis universe (the universe is not used
-    # here but this script downloads the data)
-    _ = system2MDanalysisUniverse(system)
+    uc = UniverseConstructor(system)
+    uc.download_mddata()
 
     # Software and time for equilibration period
     software = system["SOFTWARE"]
     eq_time = float(system["TIMELEFTOUT"]) * 1000
 
     # Check if all or united atom simulation
-    try:
-        united_atom = system["UNITEDATOM_DICT"]
-    except KeyError:
-        united_atom = False
-
-    # Check relevant warnings
-    g3switch = (
-        "WARNINGS" in system
-        and type(system["WARNINGS"]) is dict
-        and "GROMACS_VERSION" in system["WARNINGS"]
-        and system["WARNINGS"]["GROMACS_VERSION"] == "gromacs3"
-    )
-
-    cur_path = os.path.join(FMDL_SIMU_PATH, path)
-
-    try:
-        struc_fname, top_fname, trj_fname = get_struc_top_traj_fnames(
-            system,
-            join_path=cur_path,
-        )
-    except (ValueError, KeyError):
-        logger.exception("Error reading filenames from system dictionary.")
-        return RCODE_ERROR
+    united_atom = system.get("UNITEDATOM_DICT", False)
 
     try:
         # Set topology file names and make Gromacs trajectories whole
         if "gromacs" in software:
-            if top_fname is None:
+            if uc.paths["top"] is None:
                 raise ValueError("TPR is required for OP calculations!")
             xtcwhole = os.path.join(FMDL_SIMU_PATH, path, "whole.xtc")
             if not os.path.isfile(xtcwhole):
                 try:
                     echo_proc = b"System\n"
-                    if g3switch:
-                        cmd_args = [
-                            "trjconv",
-                            "-f",
-                            trj_fname,
-                            "-s",
-                            top_fname,
-                            "-o",
-                            xtcwhole,
-                            "-pbc",
-                            "mol",
-                            "-b",
-                            str(eq_time),
-                        ]
-                    else:
-                        cmd_args = [
-                            "gmx",
-                            "trjconv",
-                            "-f",
-                            trj_fname,
-                            "-s",
-                            top_fname,
-                            "-o",
-                            xtcwhole,
-                            "-pbc",
-                            "mol",
-                            "-b",
-                            str(eq_time),
-                        ]
+                    cmd_args = [
+                        "gmx",
+                        "trjconv",
+                        "-f",
+                        uc.paths["traj"],
+                        "-s",
+                        uc.paths["top"],
+                        "-o",
+                        xtcwhole,
+                        "-pbc",
+                        "mol",
+                        "-b",
+                        str(eq_time),
+                    ]
                     if united_atom and system["TRAJECTORY_SIZE"] > 15e9:
                         cmd_args.extend(["-skip", "3"])
                     subprocess.run(cmd_args, input=echo_proc, check=True)
                 except subprocess.CalledProcessError as e:
                     raise RuntimeError("trjconv exited with error (see above)") from e
         elif "openMM" in software or "NAMD" in software:
-            if not os.path.isfile(struc_fname):
-                pdb_url = resolve_file_url(system.get("DOI"), struc_fname)
-                _ = urllib.request.urlretrieve(pdb_url, struc_fname)
+            # we should do nothing here. uc.download should have already downloaded stuff
+            pass
         else:
             print(
                 "Order parameter calculation for other than gromacs, openMM and NAMD are yet to be implemented.",
+                file=sys.stderr,
             )
             return RCODE_ERROR
 
@@ -363,32 +318,17 @@ def computeOP(  # noqa: N802 (API)
         echo_proc = b"System\n"
         if united_atom:
             if "gromacs" not in software:
-                raise ValueError("UNITED_ATOMS is supported only for GROMACS engine!")
+                msg = "UNITED_ATOMS is supported only for GROMACS engine!"
+                raise ValueError(msg)
             frame0struc = os.path.join(FMDL_SIMU_PATH, path, "frame0.gro")
-
-            if g3switch:
-                try:
-                    subprocess.run(["editconf", "-f", top_fname, "-o", frame0struc], input=echo_proc, check=True)
-                except subprocess.CalledProcessError as e:
-                    raise RuntimeError("editconf exited with error (see above)") from e
-            else:
-                try:
-                    if g3switch:
-                        subprocess.run(
-                            ["trjconv", "-f", xtcwhole, "-s", top_fname, "-dump", "0", "-o", frame0struc],
-                            input=echo_proc,
-                            check=True,
-                        )
-                    else:
-                        subprocess.run(
-                            ["gmx", "trjconv", "-f", xtcwhole, "-s", top_fname, "-dump", "0", "-o", frame0struc],
-                            input=echo_proc,
-                            check=True,
-                        )
-                except subprocess.CalledProcessError as e:
-                    raise RuntimeError(
-                        f"trjconv ({'trjconv' if g3switch else 'gmx trjconv'}) exited with error (see above)",
-                    ) from e
+            try:
+                subprocess.run(
+                    ["gmx", "trjconv", "-f", xtcwhole, "-s", uc.paths["top"], "-dump", "0", "-o", frame0struc],
+                    input=echo_proc,
+                    check=True,
+                )
+            except subprocess.CalledProcessError as e:
+                raise RuntimeError("trjconv exited with error (see above)") from e
 
             for key in system["UNITEDATOM_DICT"]:
                 # construct order parameter definition file for CH bonds from
@@ -503,20 +443,14 @@ def computeOP(  # noqa: N802 (API)
                 gro = os.path.join(FMDL_SIMU_PATH, path, "conf.gro")
 
                 print("\n Making gro file")
-                if g3switch:
-                    try:
-                        subprocess.run(["editconf", "-f", top_fname, "-o", gro], input=echo_proc, check=True)
-                    except subprocess.CalledProcessError as e:
-                        raise RuntimeError("editconf exited with error (see above)") from e
-                else:
-                    try:
-                        subprocess.run(
-                            ["gmx", "trjconv", "-f", trj_fname, "-s", top_fname, "-dump", "0", "-o", gro],
-                            input=echo_proc,
-                            check=True,
-                        )
-                    except subprocess.CalledProcessError as e:
-                        raise RuntimeError("trjconv exited with error (see above)") from e
+                try:
+                    subprocess.run(
+                        ["gmx", "trjconv", "-f", uc.paths["traj"], "-s", uc.paths["top"], "-dump", "0", "-o", gro],
+                        input=echo_proc,
+                        check=True,
+                    )
+                except subprocess.CalledProcessError as e:
+                    raise RuntimeError("trjconv exited with error (see above)") from e
 
             for key in system["COMPOSITION"]:
                 if (
@@ -551,7 +485,7 @@ def computeOP(  # noqa: N802 (API)
                         try:
                             op_obj = find_OP(
                                 system.content[key].mapping_dict,
-                                top_fname,
+                                uc.paths["top"],
                                 xtcwhole,
                                 resname,
                             )
@@ -570,8 +504,8 @@ def computeOP(  # noqa: N802 (API)
                     if "openMM" in software or "NAMD" in software:
                         op_obj = find_OP(
                             system.content[key].mapping_dict,
-                            struc_fname,
-                            trj_fname,
+                            uc.paths["struc"],
+                            uc.paths["traj"],
                             resname,
                         )
 
@@ -608,14 +542,7 @@ def computeMAICOS(  # noqa: N802 (API)
 ) -> int:
     if not is_system_suitable_4_maicos(system):
         return RCODE_SKIPPED
-    # otherwise continue
-    software = system["SOFTWARE"]
-    # download trajectory and gro files
-    system_path = os.path.join(FMDL_SIMU_PATH, system["path"])
-    doi = system.get("DOI")
-    skip_downloading: bool = doi == "localhost"
-    if skip_downloading:
-        print("NOTE: The system with 'localhost' DOI should be downloaded by the user.")
+    spath = os.path.join(FMDL_SIMU_PATH, system["path"])
 
     set_maicos_files = {
         "WaterDensity.json",
@@ -642,24 +569,18 @@ def computeMAICOS(  # noqa: N802 (API)
     for file in set_maicos_files.copy():
         if "Dielectric" in file:
             if (
-                os.path.isfile(os.path.join(system_path, file + "_par.json"))
-                and os.path.isfile(os.path.join(system_path, file + "_perp.json"))
+                os.path.isfile(os.path.join(spath, file + "_par.json"))
+                and os.path.isfile(os.path.join(spath, file + "_perp.json"))
                 and not recompute
             ):
                 set_maicos_files.remove(file)
-        elif os.path.isfile(os.path.join(system_path, file)) and not recompute:
+        elif os.path.isfile(os.path.join(spath, file)) and not recompute:
             set_maicos_files.remove(file)
 
-    try:
-        struc, top, trj = get_struc_top_traj_fnames(system)
-        trj_name = os.path.join(system_path, trj)
-        struc_name = None if struc is None else os.path.join(system_path, struc)
-        top_name = None if top is None else os.path.join(system_path, top)
-    except Exception:
-        logger.exception("Error getting structure/topology/trajectory filenames.")
-        return RCODE_ERROR
+    uc = UniverseConstructor(system)
+    uc.download_mddata()
 
-    if top is None:
+    if uc.paths["top"] is None:
         # No topology => no charge inforamtion
         logger.info("Dielectric properties and charge densities are not accessible without topology.")
         for file in set_maicos_files.copy():
@@ -676,54 +597,27 @@ def computeMAICOS(  # noqa: N802 (API)
     logger.info("Files to be computed: %s", "|".join(set_maicos_files))
     socket.setdefaulttimeout(15)
 
-    def _not_skip_dwnld(f: str) -> bool:
-        if skip_downloading and not os.path.isfile(f):
-            msg = f"File [{trj_name}] should be downloaded by user"
-            raise FileNotFoundError(msg)
-        return not skip_downloading
-
     try:
-        if _not_skip_dwnld(trj_name):
-            trj_url = resolve_file_url(doi, trj)
-            if not os.path.isfile(trj_name):
-                print("Downloading trajectory with the size of ", system["TRAJECTORY_SIZE"], " to ", system["path"])
-                _ = download_resource_from_uri(trj_url, trj_name)
-
-        # make a function like this
-        # TODO TPR should not be obligatory for GROMACS
-        if "gromacs" in software:
-            tpr_name = top_name
-            if _not_skip_dwnld(tpr_name):
-                tpr_url = resolve_file_url(doi, top)
-                if not os.path.isfile(tpr_name):
-                    _ = urllib.request.urlretrieve(tpr_url, tpr_name)
-        elif "openMM" in software or "NAMD" in software:
-            if _not_skip_dwnld(struc_name):
-                pdb_url = resolve_file_url(doi, struc)
-                if not os.path.isfile(struc_name):
-                    _ = urllib.request.urlretrieve(pdb_url, struc_name)
-
         eq_time = float(system["TIMELEFTOUT"]) * 1000
         last_atom, g3_atom = first_last_carbon(system, logger)
 
         # Center around one lipid tail CH3 to guarantee all lipids in the same box
-        if "gromacs" in system["SOFTWARE"]:
+        if "gromacs" in system["SOFTWARE"] and uc.paths["top"] is not None:
             # xtccentered
             xtccentered = traj_centering_for_maicos(
-                system_path,
-                trj_name,
-                tpr_name,
+                spath,
+                uc.paths["traj"],
+                uc.paths["top"],
                 last_atom,
                 g3_atom,
                 eq_time,
                 recompute=recompute,
             )
-            u = mda.Universe(tpr_name, xtccentered)
+            u = mda.Universe(uc.paths["top"], xtccentered)
         else:
             logger.warning("Centering for other than Gromacs is currently not implemented.")
-            xtccentered = trj_name
             # it may not work w/o TPR if there are jumps over periodic boundary conditions in z-direction.
-            u = mda.Universe(struc_name, xtccentered)
+            u = uc.build_universe()
 
         # -- PHILIP code starts here --
         # We us a hardoced bin width
@@ -748,8 +642,6 @@ def computeMAICOS(  # noqa: N802 (API)
         base_options = {"unwrap": False, "bin_width": bin_width, "pack": False}
         zlim = {"zmin": -L_min / 2, "zmax": L_min / 2}
         dens_options = {**zlim, **base_options}
-
-        spath = os.path.join(FMDL_SIMU_PATH, system["path"])
 
         request_analysis = {}
 
@@ -902,9 +794,9 @@ def computeMAICOS(  # noqa: N802 (API)
                 print(f"Dielectric profiles not available for this system: {e}")
                 # create stub json-s to avoid recompute tries
                 for dfile in ["DielectricTotal", "DielectricWater", "DielectricLipid"]:
-                    with open(os.path.join(system_path, dfile + "_per.json"), "w") as f:
+                    with open(os.path.join(spath, dfile + "_per.json"), "w") as f:
                         f.write("{}")
-                    with open(os.path.join(system_path, dfile + "_par.json"), "w") as f:
+                    with open(os.path.join(spath, dfile + "_par.json"), "w") as f:
                         f.write("{}")
                     logger.info(f"Created empty dielectric profile JSONs for {dfile}.")
                 for k in ["DielectricTotal", "DielectricWater", "DielectricLipid"]:

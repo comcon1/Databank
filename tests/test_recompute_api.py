@@ -51,49 +51,6 @@ def systems():
 # about which system actually fails in a test function.
 
 
-@pytest.mark.parametrize(
-    "systemid, natoms, nframes",
-    [
-        (243, 12208, 121),  # with TPR, united-atom, local
-        (787, 46290, 1141),  # with GRO only, aa, network
-    ],
-)
-def test_system2MDAnalysisUniverse(systems, systemid, natoms, nframes):
-    from fairmd.lipids.api import system2MDanalysisUniverse
-
-    s = systems.loc(systemid)
-    u = system2MDanalysisUniverse(s)
-    assert len(u.atoms) == natoms
-    assert u.trajectory.n_frames == nframes
-    with does_not_raise() as _:
-        # check that it doesn't fail iterating over the trajectory
-        for _ in u.trajectory:
-            pass
-
-
-@pytest.fixture(scope="function")
-def failSys():
-    from fairmd.lipids import FMDL_SIMU_PATH
-
-    with TemporaryDirectory(prefix=FMDL_SIMU_PATH + os.sep) as tmpd:
-        s = {
-            "DOI": "localhost",
-            "GRO": [["md.gro"]],
-            "TRJ": [["md.trr"]],
-            "path": os.path.relpath(FMDL_SIMU_PATH, tmpd),
-            "SOFTWARE": "gromacs",
-        }
-        yield s
-    # TEARDOWN
-
-
-@pytest.mark.xfail(reason="Localhost with non-downloaded files", raises=FileNotFoundError)
-def test_fail1_system2MDAnalysisUniverse(failSys):
-    from fairmd.lipids.api import system2MDanalysisUniverse
-
-    _ = system2MDanalysisUniverse(failSys)
-
-
 def hashFV(x):
     import numpy as np
 
@@ -113,13 +70,12 @@ def hashFV(x):
     ],
 )
 def test_PJangle(systems, systemid, lipid, fvhash):
-    from fairmd.lipids.api import (
-        read_trj_PN_angles,
-        system2MDanalysisUniverse,
-    )
+    from fairmd.lipids.api import read_trj_PN_angles, UniverseConstructor
 
     s = systems.loc(systemid)
-    u = system2MDanalysisUniverse(s)
+    uc = UniverseConstructor(s)
+    uc.download_mddata()
+    u = uc.build_universe()
     pats = u.select_atoms(s.content[lipid].uan2selection("M_G3P2_M", lipid))
     nats = u.select_atoms(s.content[lipid].uan2selection("M_G3N6_M", lipid))
     a1 = pats.atoms.names[0]
