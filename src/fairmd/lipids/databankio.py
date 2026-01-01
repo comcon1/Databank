@@ -9,17 +9,18 @@ Input/Output auxilary module with some small usefull functions. It includes:
 - Calculating file hashes.
 """
 
-import functools
 import hashlib
 import logging
 import math
 import os
-import time
 import urllib.error
-import urllib.request
-from collections.abc import Callable, Mapping
+from collections.abc import Mapping
+from contextlib import contextmanager
 
+import requests
+from requests.adapters import HTTPAdapter
 from tqdm import tqdm
+from urllib3.util.retry import Retry
 
 logger = logging.getLogger(__name__)
 MAX_DRYRUN_SIZE = 50 * 1024 * 1024  # 50 MB, max size for dry-run download
@@ -32,72 +33,43 @@ SOFTWARE_CONFIG = {
 }
 
 
-def retry_with_exponential_backoff(max_attempts: int = 3, delay_seconds: int = 1) -> Callable:
-    """Retry a function with exponential backoff.
+def requests_session_with_retry(
+    retries: int = 5,
+    backoff: float = 10,
+) -> requests.Session:
+    retry = Retry(
+        total=retries,
+        backoff_factor=backoff,
+        status_forcelist=[429, 500, 502, 503, 504],
+        allowed_methods=None,
+    )
+    adapter = HTTPAdapter(max_retries=retry)
 
-    :param max_attempts: (int) The maximum number of attempts. Defaults to 3.
-    :param delay_seconds: (int) The initial delay between retries in seconds.
-                          The delay doubles after each failed attempt. Defaults to 1.
-    """
-
-    def decorator(func: Callable) -> Callable:
-        @functools.wraps(func)
-        def wrapper(*args, **kwargs):  # noqa: ANN002,ANN003,ANN202
-            attempts = 0
-            current_delay = delay_seconds
-            while attempts < max_attempts:
-                try:
-                    return func(*args, **kwargs)
-
-                # --- New logic to handle non-retriable HTTP client errors ---
-                except urllib.error.HTTPError as e:
-                    # Check if the error is a client error (4xx) which is not likely to be resolved by a retry.
-                    if 400 <= e.code < 500 and e.code != 429:
-                        logger.exception("Function %s failed with non-retriable client error.", func.__name__)
-                        raise  # Re-raise the HTTPError immediately
-
-                    # For other errors (like 5xx server errors or 429), proceed with retry logic.
-                    logger.warning(f"Caught retriable HTTPError {e.code}. Proceeding with retry...")
-                    # Fall through to the generic exception handling below.
-
-                except (urllib.error.URLError, TimeoutError):
-                    # This block now primarily handles non-HTTP errors or retriable HTTP errors.
-                    pass  # Fall through to the retry logic below
-
-                logger.warning(
-                    f"Attempt {(attempts + 1)}/{max_attempts} for {func.__name__} failed. "
-                    f"Retrying in {current_delay:.1f} seconds...",
-                )
-                time.sleep(current_delay)
-                current_delay *= 2
-                attempts += 1
-
-            msg = f"Function {func.__name__} failed after {max_attempts} attempts."
-            logger.error(msg)
-            # Re-raise the last exception caught to be handled by the caller
-            raise ConnectionError(msg)
-
-        return wrapper
-
-    return decorator
-
+    session = requests.Session()
+    session.mount("https://", adapter)
+    session.mount("http://", adapter)
+    return session
 
 # --- Decorated Helper Functions for Network Requests ---
 
-
-@retry_with_exponential_backoff(max_attempts=5, delay_seconds=2)
-def _open_url_with_retry(uri: str, timeout: int = 10):
+@contextmanager
+def _open_url_with_retry(uri: str, backoff: float = 10, *, stream: bool = True):
     """Open a URL with a timeout and retry logic (aprivate helper).
 
-    :param uri: (str) The URL to open.
-    :param timeout: (int) The timeout for the request in seconds. Defaults to 10.
+    :param uri: The URL to open.
+    :param backoff: The backoff timeout for the request in seconds.
 
-    :return: The response object from urllib.request.urlopen.
+    :return: The response object.
     """
-    return urllib.request.urlopen(uri, timeout=timeout)
+    with requests_session_with_retry(retries=5, backoff=backoff) as session:
+        response = session.get(uri, stream=stream)
+        response.raise_for_status()
+        try:
+            yield response
+        finally:
+            response.close()
 
 
-@retry_with_exponential_backoff(max_attempts=5, delay_seconds=2)
 def get_file_size_with_retry(uri: str) -> int:
     """Fetch the size of a file from a URI with retry logic.
 
@@ -107,12 +79,16 @@ def get_file_size_with_retry(uri: str) -> int:
               header is not present (int).
     """
     with _open_url_with_retry(uri) as response:
-        content_length = response.getheader("Content-Length")
+        content_length = response.headers.get("Content-Length")
         return int(content_length) if content_length else 0
 
 
-@retry_with_exponential_backoff(max_attempts=5, delay_seconds=2)
-def download_with_progress_with_retry(uri: str, dest: str, fi_name: str) -> None:
+def download_with_progress_with_retry(
+        uri: str, 
+        dest: str, 
+        fi_name: str, 
+        stop_after: int|None = None
+) -> None:
     """Download a file with a progress bar and retry logic.
 
     Uses tqdm to display a progress bar during the download.
@@ -136,9 +112,22 @@ def download_with_progress_with_retry(uri: str, dest: str, fi_name: str) -> None
         unit_divisor=1024,
         miniters=1,
         desc=fi_name,
-    ) as u:
-        urllib.request.urlretrieve(uri, dest, reporthook=u.update_retrieve)
+    ) as u, open(dest, "wb") as f, _open_url_with_retry(uri) as resp:
+            total = int(resp.headers.get("Content-Length", 0))
+            if stop_after is not None:
+                total = min(total, stop_after)
+            downloaded = 0
 
+            for chunk in resp.iter_content(8192):
+                f.write(chunk)
+                downloaded += len(chunk)
+                if downloaded > total:
+                    break
+                u.update_retrieve(b=downloaded, bsize=1, tsize=total)
+
+    if downloaded > total:
+        with open(dest, "rb+") as f:
+            f.truncate(total)
 
 # --- Main Functions ---
 
@@ -211,7 +200,7 @@ def download_resource_from_uri(
             logger.info(f"Dry-run: Downloading up to {total // (1024 * 1024)} MB of {fi_name} ...")
             while downloaded < total:
                 to_read = min(chunk_size, total - downloaded)
-                chunk = response.read(to_read)
+                chunk = response.iter_content(to_read)
                 if not chunk:
                     break
                 out_file.write(chunk)
@@ -305,15 +294,13 @@ def resolve_download_file_url(doi: str, fi_name: str, validate_uri: bool = True)
                 with _open_url_with_retry(uri):
                     pass
             except urllib.error.HTTPError:
-                # Other persistent HTTP errors are re-raised
-                raise
+                raise # Other persistent HTTP errors are re-raised
             except ConnectionError as ce:
-                # Catch the final failure from our decorator for other network issues
-                raise RuntimeError(f"Cannot open {uri}. Failed after multiple retries.") from ce
+                msg = f"Cannot open {uri}. Failed after multiple retries."
+                raise RuntimeError(msg) from ce
         return uri
-    raise NotImplementedError(
-        "Repository not validated. Please upload the data for example to zenodo.org",
-    )
+    msg = "Repository not validated. Please upload the data for example to zenodo.org"
+    raise NotImplementedError(msg)
 
 
 def calc_file_sha1_hash(fi: str, step: int = 67108864, one_block: bool = True) -> str:
