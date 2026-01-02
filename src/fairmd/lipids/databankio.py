@@ -13,9 +13,9 @@ import hashlib
 import logging
 import math
 import os
-import urllib.error
 from collections.abc import Mapping
 from contextlib import contextmanager
+from typing import Generator
 
 import requests
 from requests.adapters import HTTPAdapter
@@ -32,11 +32,19 @@ SOFTWARE_CONFIG = {
     "NAMD": {"primary": "TRJ", "secondary": "TRJ"},
 }
 
+# --- Decorated Helper Functions for Network Requests ---
 
-def requests_session_with_retry(
+
+def _requests_session_with_retry(
     retries: int = 5,
     backoff: float = 10,
 ) -> requests.Session:
+    """Session gererator for using in with-constructs.
+
+    :param retries: Max num of retries, defaults to 5
+    :param backoff: Starting time before first retry, defaults to 10
+    :return: requests session
+    """
     retry = Retry(
         total=retries,
         backoff_factor=backoff,
@@ -51,11 +59,13 @@ def requests_session_with_retry(
     return session
 
 
-# --- Decorated Helper Functions for Network Requests ---
-
-
 @contextmanager
-def _open_url_with_retry(uri: str, backoff: float = 10, *, stream: bool = True):
+def _open_url_with_retry(
+    uri: str,
+    backoff: float = 10,
+    *,
+    stream: bool = True,
+) -> Generator[requests.Response, None, None]:
     """Open a URL with a timeout and retry logic (aprivate helper).
 
     :param uri: The URL to open.
@@ -63,7 +73,7 @@ def _open_url_with_retry(uri: str, backoff: float = 10, *, stream: bool = True):
 
     :return: The response object.
     """
-    with requests_session_with_retry(retries=5, backoff=backoff) as session:
+    with _requests_session_with_retry(retries=5, backoff=backoff) as session:
         response = session.get(uri, stream=stream)
         response.raise_for_status()
         try:
@@ -72,7 +82,7 @@ def _open_url_with_retry(uri: str, backoff: float = 10, *, stream: bool = True):
             response.close()
 
 
-def get_file_size_with_retry(uri: str) -> int:
+def _get_file_size_with_retry(uri: str) -> int:
     """Fetch the size of a file from a URI with retry logic.
 
     :param uri: (str) The URL of the file.
@@ -178,7 +188,7 @@ def download_resource_from_uri(
     # Check if dest path already exists and compare file size
     if not override_if_exists and os.path.isfile(dest):
         try:
-            fi_size = get_file_size_with_retry(uri)
+            fi_size = _get_file_size_with_retry(uri)
             if fi_size == os.path.getsize(dest):
                 logger.info(f"{dest}: file already exists, skipping")
                 return 1
@@ -194,12 +204,12 @@ def download_resource_from_uri(
 
     # Download file in dry run mode
     if dry_run_mode:
-        url_size = get_file_size_with_retry(uri)
+        url_size = _get_file_size_with_retry(uri)
         download_with_progress_with_retry(uri, dest, tqdm_title=fi_name, stop_after=MAX_DRYRUN_SIZE)
         return 0
 
     # Download with progress bar and check for final size match
-    url_size = get_file_size_with_retry(uri)
+    url_size = _get_file_size_with_retry(uri)
     download_with_progress_with_retry(uri, dest, tqdm_title=fi_name)
 
     size = os.path.getsize(dest)
@@ -210,48 +220,9 @@ def download_resource_from_uri(
     return return_code
 
 
-def resolve_doi_url(doi: str, validate_uri: bool = True) -> str:
-    """Resolve a DOI to a full URL and validates that it is reachable.
-
-    Args:
-        doi (str): The DOI identifier (e.g., "10.5281/zenodo.1234").
-        validate_uri (bool): If True, checks if the resolved URL is a valid
-            and reachable address. Defaults to True.
-
-    Returns
-    -------
-        str: The full, validated DOI link (e.g., "https://doi.org/...").
-
-    Raises
-    ------
-        urllib.error.HTTPError: If the DOI resolves to a URL, but the server
-            returns an HTTP error code (e.g., 404 Not Found).
-        ConnectionError: If the server cannot be reached after multiple retries.
+def resolve_zenodo_file_url(doi: str, fi_name: str, *, validate_uri: bool = True) -> str:
     """
-    res = "https://doi.org/" + doi
-
-    if validate_uri:
-        try:
-            # The 'with' statement ensures the connection is closed
-            with _open_url_with_retry(res):
-                pass
-        except urllib.error.HTTPError as e:
-            # This specifically catches HTTP errors like 404, 500, etc.
-            logger.exception(f"Validation failed for DOI {doi}. URL <{res}> returned HTTP {e.code}: {e.reason}")
-            # Re-raise the specific HTTPError so the caller can handle it
-            raise
-        except ConnectionError:
-            # This catches the final error from the retry decorator for other issues
-            # (e.g., DNS failure, connection refused).
-            logger.exception(f"Could not connect to <{res}> after multiple attempts.")
-            raise
-
-    return res
-
-
-def resolve_download_file_url(doi: str, fi_name: str, *, validate_uri: bool = True) -> str:
-    """
-    Resolve a download file URI from a supported DOI and filename.
+    Resolve a download file URI from zenodo record's DOI and filename.
 
     Currently supports Zenodo DOIs.
 

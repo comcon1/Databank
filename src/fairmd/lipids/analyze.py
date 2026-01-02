@@ -43,7 +43,7 @@ from fairmd.lipids.analib.maicos import (
 from fairmd.lipids.auxiliary import elements
 from fairmd.lipids.auxiliary.jsonEncoders import CompactJSONEncoder
 from fairmd.lipids.core import System
-from fairmd.lipids.databankio import download_resource_from_uri, resolve_download_file_url
+from fairmd.lipids.databankio import download_resource_from_uri, resolve_zenodo_file_url
 from fairmd.lipids.databankLibrary import GetNlipids, getLipids, system2MDanalysisUniverse
 from fairmd.lipids.molecules import lipids_set
 from fairmd.lipids.SchemaValidation.engines import get_struc_top_traj_fnames
@@ -351,7 +351,7 @@ def computeOP(  # noqa: N802 (API)
                     raise RuntimeError("trjconv exited with error (see above)") from e
         elif "openMM" in software or "NAMD" in software:
             if not os.path.isfile(struc_fname):
-                pdb_url = resolve_download_file_url(system.get("DOI"), struc_fname)
+                pdb_url = resolve_zenodo_file_url(system.get("DOI"), struc_fname)
                 _ = urllib.request.urlretrieve(pdb_url, struc_fname)
         else:
             print(
@@ -686,7 +686,7 @@ def computeMAICOS(  # noqa: N802 (API)
 
     try:
         if _not_skip_dwnld(trj_name):
-            trj_url = resolve_download_file_url(doi, trj)
+            trj_url = resolve_zenodo_file_url(doi, trj)
             if not os.path.isfile(trj_name):
                 print("Downloading trajectory with the size of ", system["TRAJECTORY_SIZE"], " to ", system["path"])
                 _ = download_resource_from_uri(trj_url, trj_name)
@@ -696,12 +696,12 @@ def computeMAICOS(  # noqa: N802 (API)
         if "gromacs" in software:
             tpr_name = top_name
             if _not_skip_dwnld(tpr_name):
-                tpr_url = resolve_download_file_url(doi, top)
+                tpr_url = resolve_zenodo_file_url(doi, top)
                 if not os.path.isfile(tpr_name):
                     _ = urllib.request.urlretrieve(tpr_url, tpr_name)
         elif "openMM" in software or "NAMD" in software:
             if _not_skip_dwnld(struc_name):
-                pdb_url = resolve_download_file_url(doi, struc)
+                pdb_url = resolve_zenodo_file_url(doi, struc)
                 if not os.path.isfile(struc_name):
                     _ = urllib.request.urlretrieve(pdb_url, struc_name)
 

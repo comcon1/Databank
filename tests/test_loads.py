@@ -151,7 +151,7 @@ class TestGetFileSize:
             headers={},  # no Content-Length
         )
 
-        size = dio.get_file_size_with_retry(self.url)
+        size = dio._get_file_size_with_retry(self.url)
 
         assert size == 0
 
@@ -166,27 +166,33 @@ class TestGetFileSize:
             headers={"Content-Length": "1234"},
         )
 
-        size = dio.get_file_size_with_retry(self.url)
+        size = dio._get_file_size_with_retry(self.url)
 
         assert size == 1234
         assert len(responses.calls) == 1
 
 
-class TestResolveDoiUrl:
+class TestResolveZenodoFileUrl:
     def test_badDOI(self):
         import fairmd.lipids.databankio as dio
 
         # test if bad DOI fails
         with pytest.raises(requests.exceptions.HTTPError, match="404") as _:
-            dio.resolve_doi_url("10.5281/zenodo.8435a", True)
+            dio.resolve_zenodo_file_url("10.5281/zenodo.8435a", "a", validate_uri=True)
         # bad DOI doesn't fail if not to check
-        assert dio.resolve_doi_url("10.5281/zenodo.8435a", False) == "https://doi.org/10.5281/zenodo.8435a"
+        assert (
+            dio.resolve_zenodo_file_url("10.5281/zenodo.8435a", "a.txt", validate_uri=False)
+            == "https://zenodo.org/record/8435a/files/a.txt"
+        )
 
     def test_goodDOI(self):
         import fairmd.lipids.databankio as dio
 
         # good DOI works properly
-        assert dio.resolve_doi_url("10.5281/zenodo.8435138", True) == "https://doi.org/10.5281/zenodo.8435138"
+        assert (
+            dio.resolve_zenodo_file_url("10.5281/zenodo.8435138", "pope-md313rfz.tpr", validate_uri=True)
+            == "https://zenodo.org/record/8435138/files/pope-md313rfz.tpr"
+        )
 
     @pytest.mark.parametrize(
         "name, statuses, expected_exception",
@@ -201,19 +207,18 @@ class TestResolveDoiUrl:
         import fairmd.lipids.databankio as dio
 
         print(f"Testing resolve_doi_url with {name}", file=sys.stderr)
-        url = "https://doi.org/10.5281/zenodo.8435138"
+        url = "https://zenodo.org/record/8435138/files/a.txt"
 
         for status in statuses:
             responses.add(responses.GET, url, status=status)
 
         if expected_exception:
             with pytest.raises(expected_exception):
-                dio.resolve_doi_url("10.5281/zenodo.8435138", True)
+                dio.resolve_zenodo_file_url("10.5281/zenodo.8435138", "a.txt", validate_uri=True)
         else:
-            dio.resolve_doi_url("10.5281/zenodo.8435138", True)
+            dio.resolve_zenodo_file_url("10.5281/zenodo.8435138", "a.txt", validate_uri=True)
 
             assert len(responses.calls) == min(10, len(statuses))
 
 
 # TODO file sha1 hash
-# TODO: resolve_download_file_url

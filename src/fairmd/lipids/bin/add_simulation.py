@@ -54,7 +54,7 @@ from fairmd.lipids.databankio import (
     calc_file_sha1_hash,
     create_databank_directories,
     download_resource_from_uri,
-    resolve_download_file_url,
+    resolve_zenodo_file_url,
 )
 from fairmd.lipids.databankLibrary import lipids_set, molecules_set, parse_valid_config_settings
 from fairmd.lipids.molecules import Lipid, MoleculeMappingError, NonLipid
@@ -206,7 +206,7 @@ Returns error codes:
         download_links = []
         for fi in files:
             logger.info(f"Validating URL to file: {fi}..")
-            _x = resolve_download_file_url(sim["DOI"], fi, validate_uri=True)
+            _x = resolve_zenodo_file_url(sim["DOI"], fi, validate_uri=True)
             download_links.append(_x)
 
         logger.info(f"Now downloading {len(files)} files ...")

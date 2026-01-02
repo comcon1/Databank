@@ -34,7 +34,7 @@ def mk_universe_compact(s: dlc.System) -> mda.Universe:
     tpr_path = None
     if "TPR" in s and s["TPR"] is not None:
         tpr = s["TPR"][0][0]
-        tpr_url = dbio.resolve_download_file_url(s["DOI"], tpr, validate_uri=True)
+        tpr_url = dbio.resolve_zenodo_file_url(s["DOI"], tpr, validate_uri=True)
         tpr_path = os.path.join(dlb.FMDL_SIMU_PATH, s["path"], tpr)
         if not os.path.isfile(tpr_path):
             dbio.download_resource_from_uri(tpr_url, tpr_path)
@@ -46,7 +46,7 @@ def mk_universe_compact(s: dlc.System) -> mda.Universe:
         raise RuntimeError(msg)
     if "GRO" in s and s["GRO"] is not None:
         gro = s["GRO"][0][0]
-        gro_url = dbio.resolve_download_file_url(s["DOI"], gro, validate_uri=True)
+        gro_url = dbio.resolve_zenodo_file_url(s["DOI"], gro, validate_uri=True)
         gro_path = os.path.join(dlb.FMDL_SIMU_PATH, s["path"], gro)
         if not os.path.isfile(gro_path):
             dbio.download_resource_from_uri(gro_url, gro_path)
