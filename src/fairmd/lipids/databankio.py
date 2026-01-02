@@ -50,7 +50,9 @@ def requests_session_with_retry(
     session.mount("http://", adapter)
     return session
 
+
 # --- Decorated Helper Functions for Network Requests ---
+
 
 @contextmanager
 def _open_url_with_retry(uri: str, backoff: float = 10, *, stream: bool = True):
@@ -84,10 +86,7 @@ def get_file_size_with_retry(uri: str) -> int:
 
 
 def download_with_progress_with_retry(
-        uri: str, 
-        dest: str, 
-        fi_name: str, 
-        stop_after: int|None = None
+    uri: str, dest: str, *, tqdm_title: str = "Downloading", stop_after: int | None = None
 ) -> None:
     """Download a file with a progress bar and retry logic.
 
@@ -96,8 +95,8 @@ def download_with_progress_with_retry(
     Args:
         uri (str): The URL of the file to download.
         dest (str): The local destination path to save the file.
-        fi_name (str): The name of the file, used for the progress bar
-            description.
+        tqdm_title (str): The title used for the progress bar description.
+        stop_after (int): Download max num of bytes
     """
 
     class RetrieveProgressBar(tqdm):
@@ -106,28 +105,33 @@ def download_with_progress_with_retry(
                 self.total = tsize
             return self.update(b * bsize - self.n)
 
-    with RetrieveProgressBar(
-        unit="B",
-        unit_scale=True,
-        unit_divisor=1024,
-        miniters=1,
-        desc=fi_name,
-    ) as u, open(dest, "wb") as f, _open_url_with_retry(uri) as resp:
-            total = int(resp.headers.get("Content-Length", 0))
-            if stop_after is not None:
-                total = min(total, stop_after)
-            downloaded = 0
+    with (
+        RetrieveProgressBar(
+            unit="B",
+            unit_scale=True,
+            unit_divisor=1024,
+            miniters=1,
+            desc=tqdm_title,
+        ) as u,
+        open(dest, "wb") as f,
+        _open_url_with_retry(uri) as resp,
+    ):
+        total = int(resp.headers.get("Content-Length", 0))
+        if stop_after is not None:
+            total = min(total, stop_after)
+        downloaded = 0
 
-            for chunk in resp.iter_content(8192):
-                f.write(chunk)
-                downloaded += len(chunk)
-                if downloaded > total:
-                    break
-                u.update_retrieve(b=downloaded, bsize=1, tsize=total)
+        for chunk in resp.iter_content(8192):
+            f.write(chunk)
+            downloaded += len(chunk)
+            if downloaded > total:
+                break
+            u.update_retrieve(b=downloaded, bsize=1, tsize=total)
 
     if downloaded > total:
         with open(dest, "rb+") as f:
             f.truncate(total)
+
 
 # --- Main Functions ---
 
@@ -182,7 +186,7 @@ def download_resource_from_uri(
                 f"{fi_name} filesize mismatch of local file '{fi_name}', redownloading ...",
             )
             return_code = 2
-        except (ConnectionError, FileNotFoundError):
+        except FileNotFoundError:
             logger.exception(
                 f"Failed to verify file size for {fi_name}. Proceeding with redownload.",
             )
@@ -191,29 +195,12 @@ def download_resource_from_uri(
     # Download file in dry run mode
     if dry_run_mode:
         url_size = get_file_size_with_retry(uri)
-        # Use the decorated helper for opening the URL
-        with _open_url_with_retry(uri) as response, open(dest, "wb") as out_file:
-            total = min(url_size, MAX_DRYRUN_SIZE) if url_size else MAX_DRYRUN_SIZE
-            downloaded = 0
-            chunk_size = 8192
-            next_report = 10 * 1024 * 1024
-            logger.info(f"Dry-run: Downloading up to {total // (1024 * 1024)} MB of {fi_name} ...")
-            while downloaded < total:
-                to_read = min(chunk_size, total - downloaded)
-                chunk = response.iter_content(to_read)
-                if not chunk:
-                    break
-                out_file.write(chunk)
-                downloaded += len(chunk)
-                if downloaded >= next_report:
-                    logger.info(f"  Downloaded {downloaded // (1024 * 1024)} MB ...")
-                    next_report += 10 * 1024 * 1024
-            logger.info(f"Dry-run: Finished, downloaded {downloaded // (1024 * 1024)} MB of {fi_name}")
+        download_with_progress_with_retry(uri, dest, tqdm_title=fi_name, stop_after=MAX_DRYRUN_SIZE)
         return 0
 
     # Download with progress bar and check for final size match
     url_size = get_file_size_with_retry(uri)
-    download_with_progress_with_retry(uri, dest, fi_name)
+    download_with_progress_with_retry(uri, dest, tqdm_title=fi_name)
 
     size = os.path.getsize(dest)
     if url_size != 0 and url_size != size:
@@ -262,7 +249,7 @@ def resolve_doi_url(doi: str, validate_uri: bool = True) -> str:
     return res
 
 
-def resolve_download_file_url(doi: str, fi_name: str, validate_uri: bool = True) -> str:
+def resolve_download_file_url(doi: str, fi_name: str, *, validate_uri: bool = True) -> str:
     """
     Resolve a download file URI from a supported DOI and filename.
 
@@ -281,7 +268,7 @@ def resolve_download_file_url(doi: str, fi_name: str, validate_uri: bool = True)
 
     Raises
     ------
-        RuntimeError: If the URL cannot be opened after multiple retries.
+        HTTPError or other connection errors: If the URL cannot be opened after multiple retries.
         NotImplementedError: If the DOI provider is not supported.
     """
     if "zenodo" in doi.lower():
@@ -289,15 +276,10 @@ def resolve_download_file_url(doi: str, fi_name: str, validate_uri: bool = True)
         uri = f"https://zenodo.org/record/{zenodo_entry_number}/files/{fi_name}"
 
         if validate_uri:
-            try:
-                # Use the decorated helper to check if the URI exists
-                with _open_url_with_retry(uri):
-                    pass
-            except urllib.error.HTTPError:
-                raise # Other persistent HTTP errors are re-raised
-            except ConnectionError as ce:
-                msg = f"Cannot open {uri}. Failed after multiple retries."
-                raise RuntimeError(msg) from ce
+            # Use the decorated helper to check if the URI exists
+            # If not - it raises the exceptions
+            with _open_url_with_retry(uri):
+                pass
         return uri
     msg = "Repository not validated. Please upload the data for example to zenodo.org"
     raise NotImplementedError(msg)

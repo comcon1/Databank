@@ -18,8 +18,64 @@ import pytest_check as check
 pytestmark = [pytest.mark.nodata, pytest.mark.min]
 
 
-class TestDownloadResourceFromUri:
+class TestDownloadWithProgressWithRetry:
+    url = "https://example.org/file.bin"
+    fname = "file.bin"
 
+    @responses.activate
+    def test_download_success(self, tmp_path):
+        import fairmd.lipids.databankio as dio
+
+        body = b"abcdef"
+        dest = os.path.join(str(tmp_path), self.fname)
+
+        responses.add(
+            responses.GET,
+            self.url,
+            status=200,
+            body=body,
+            headers={"Content-Length": str(len(body))},
+        )
+
+        dio.download_with_progress_with_retry(self.url, dest)
+
+        check.is_true(os.path.isfile(dest), "Success download must create a file")
+        check.equal(open(dest, "br").read(), body, "Success download must get predefined content")
+
+    @pytest.mark.parametrize(
+        "fsize, dsize",
+        [
+            (1500, 1000),
+            (700, 700),
+            (1000, 1000),
+        ],
+    )
+    @responses.activate
+    def test_download_dry_run(self, tmp_path, fsize, dsize):
+        import fairmd.lipids.databankio as dio
+
+        dest = os.path.join(str(tmp_path), self.fname)
+        body = b"x" * fsize
+
+        responses.add(
+            responses.GET,
+            self.url,
+            status=200,
+            body=body,
+            headers={"Content-Length": str(len(body))},
+        )
+
+        status = dio.download_with_progress_with_retry(
+            self.url,
+            dest,
+            stop_after=1000,
+        )
+
+        check.is_true(os.path.isfile(dest), "Dry-run mode must create a file")
+        check.equal(os.stat(dest).st_size, dsize, "Stop-after mode must download not more than some number of bytes")
+
+
+class TestDownloadResourceFromUri:
     url = "https://example.org/file.bin"
     fname = "file.bin"
 
@@ -42,14 +98,14 @@ class TestDownloadResourceFromUri:
 
         check.equal(status, 0, "Success download must return zero")
         check.is_true(os.path.isfile(dest), "Success download must create a file")
-        check.equal(open(dest, 'br').read(), body, "Success download must get predefined content")
+        check.equal(open(dest, "br").read(), body, "Success download must get predefined content")
 
     @pytest.mark.parametrize(
         "fsize, dsize",
         [
             (52400, 0),
             (-52400, -52400),
-        ]
+        ],
     )
     @responses.activate
     def test_download_dry_run(self, tmp_path, fsize, dsize):
@@ -77,11 +133,11 @@ class TestDownloadResourceFromUri:
         check.equal(
             os.stat(dest).st_size,
             dio.MAX_DRYRUN_SIZE + dsize,
-            "Dry-run mode must download not more than some number of bytes"
+            "Dry-run mode must download not more than some number of bytes",
         )
 
+
 class TestGetFileSize:
-    
     url = "https://example.org/file.bin"
 
     @responses.activate
@@ -92,7 +148,7 @@ class TestGetFileSize:
             responses.GET,
             self.url,
             status=200,
-            headers={},   # no Content-Length
+            headers={},  # no Content-Length
         )
 
         size = dio.get_file_size_with_retry(self.url)
@@ -104,11 +160,11 @@ class TestGetFileSize:
         import fairmd.lipids.databankio as dio
 
         responses.add(
-                    responses.GET,
-                    self.url,
-                    status=200,
-                    headers={"Content-Length": "1234"},
-                )
+            responses.GET,
+            self.url,
+            status=200,
+            headers={"Content-Length": "1234"},
+        )
 
         size = dio.get_file_size_with_retry(self.url)
 
@@ -117,7 +173,6 @@ class TestGetFileSize:
 
 
 class TestResolveDoiUrl:
-
     def test_badDOI(self):
         import fairmd.lipids.databankio as dio
 
@@ -132,7 +187,6 @@ class TestResolveDoiUrl:
 
         # good DOI works properly
         assert dio.resolve_doi_url("10.5281/zenodo.8435138", True) == "https://doi.org/10.5281/zenodo.8435138"
-
 
     @pytest.mark.parametrize(
         "name, statuses, expected_exception",
@@ -159,6 +213,7 @@ class TestResolveDoiUrl:
             dio.resolve_doi_url("10.5281/zenodo.8435138", True)
 
             assert len(responses.calls) == min(10, len(statuses))
+
 
 # TODO file sha1 hash
 # TODO: resolve_download_file_url
