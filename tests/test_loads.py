@@ -5,10 +5,10 @@ NOTE: globally import of fairmd-lipids is **STRICTLY FORBIDDEN** because it
       breaks the substitution of global path folders
 """
 
+import hashlib
 import os
 import requests
 import responses
-import stat
 import sys
 
 import pytest
@@ -221,4 +221,59 @@ class TestResolveZenodoFileUrl:
             assert len(responses.calls) == min(10, len(statuses))
 
 
-# TODO file sha1 hash
+class TestCalcFileSha1Hash:
+    @staticmethod
+    def _expected_sha1(data: bytes) -> str:
+        return hashlib.sha1(data).hexdigest()
+
+    @pytest.mark.parametrize(
+        "data, step, expected_slice",
+        [
+            (b"hello world", 64, b"hello world"),
+            (b"a" * 100, 10, b"a" * 10),
+        ],
+    )
+    def test_one_block_behavior(self, tmp_path, data, step, expected_slice):
+        from fairmd.lipids.databankio import calc_file_sha1_hash
+
+        fi = os.path.join(str(tmp_path), "test.bin")
+        with open(fi, "wb") as f:
+            f.write(data)
+
+        # one-block should be default
+        result = calc_file_sha1_hash(fi, step=step)
+        assert result == self._expected_sha1(expected_slice)
+
+        result = calc_file_sha1_hash(fi, step=step, one_block=True)
+        assert result == self._expected_sha1(expected_slice)
+
+    @pytest.mark.parametrize(
+        "data, step",
+        [
+            (b"abc" * 1000, 64),
+            (b"hello", 1024),
+        ],
+    )
+    def test_multi_block_reads_entire_file(self, tmp_path, data, step):
+        from fairmd.lipids.databankio import calc_file_sha1_hash
+
+        fi = os.path.join(str(tmp_path), "test.bin")
+        with open(fi, "wb") as f:
+            f.write(data)
+
+        result = calc_file_sha1_hash(fi, step=step, one_block=False)
+
+        assert result == self._expected_sha1(data)
+
+    def test_empty_file(self, tmp_path):
+        from fairmd.lipids.databankio import calc_file_sha1_hash
+
+        fi = os.path.join(str(tmp_path), "test.bin")
+        with open(fi, "wb") as f:
+            pass
+
+        with pytest.raises(ValueError):
+            calc_file_sha1_hash(fi)
+
+
+# TODO: create_simulation_directories

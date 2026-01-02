@@ -52,7 +52,7 @@ from fairmd.lipids.core import System, initialize_databank
 # helpers
 from fairmd.lipids.databankio import (
     calc_file_sha1_hash,
-    create_databank_directories,
+    create_simulation_directories,
     download_resource_from_uri,
     resolve_zenodo_file_url,
 )
@@ -619,7 +619,7 @@ Returns error codes:
 
     # Try to create final directory
     try:
-        directory_path = create_databank_directories(
+        directory_path = create_simulation_directories(
             sim,
             sim_hashes,
             FMDL_SIMU_PATH,

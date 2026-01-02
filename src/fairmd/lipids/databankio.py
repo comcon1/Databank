@@ -1,36 +1,37 @@
 """
-Input/Output auxilary module **fairmd.lipids.databankio**.
+Input/Output auxilary functions.
 
 Input/Output auxilary module with some small usefull functions. It includes:
-- Network communication.
 - Downloading files.
-- Checking links.
-- Resolving DOIs.
-- Calculating file hashes.
+- Resolving URLs.
+- Calculating file hash for fingerprinting.
 """
 
 import hashlib
 import logging
 import math
 import os
-from collections.abc import Mapping
+from collections.abc import Generator, Mapping
 from contextlib import contextmanager
-from typing import Generator
 
 import requests
 from requests.adapters import HTTPAdapter
 from tqdm import tqdm
 from urllib3.util.retry import Retry
 
+__all__ = [
+    "MAX_DRYRUN_SIZE",
+    "_get_file_size_with_retry",
+    "_open_url_with_retry",
+    "calc_file_sha1_hash",
+    "create_simulation_directories",
+    "download_resource_from_uri",
+    "download_with_progress_with_retry",
+    "resolve_zenodo_file_url",
+]
+
 logger = logging.getLogger(__name__)
 MAX_DRYRUN_SIZE = 50 * 1024 * 1024  # 50 MB, max size for dry-run download
-
-
-SOFTWARE_CONFIG = {
-    "gromacs": {"primary": "TPR", "secondary": "TRJ"},
-    "openMM": {"primary": "TRJ", "secondary": "TRJ"},
-    "NAMD": {"primary": "TRJ", "secondary": "TRJ"},
-}
 
 # --- Decorated Helper Functions for Network Requests ---
 
@@ -256,7 +257,7 @@ def resolve_zenodo_file_url(doi: str, fi_name: str, *, validate_uri: bool = True
     raise NotImplementedError(msg)
 
 
-def calc_file_sha1_hash(fi: str, step: int = 67108864, one_block: bool = True) -> str:
+def calc_file_sha1_hash(fi: str, step: int = 67108864, *, one_block: bool = True) -> str:
     """Calculate the SHA1 hash of a file.
 
     Reads the file in chunks to handle large files efficiently if specified.
@@ -273,8 +274,12 @@ def calc_file_sha1_hash(fi: str, step: int = 67108864, one_block: bool = True) -
     -------
         str: The hexadecimal SHA1 hash of the file content.
     """
-    sha1_hash = hashlib.sha1()
-    n_tot_steps = math.ceil(os.path.getsize(fi) / step)
+    sha1_hash = hashlib.sha1()  # noqa: S324
+    fsize = os.path.getsize(fi)
+    if fsize == 0:
+        msg = "File should be non-empty for hash fingerprinting!"
+        raise ValueError(msg)
+    n_tot_steps = math.ceil(fsize / step)
     with open(fi, "rb") as f:
         if one_block:
             block = f.read(step)
@@ -287,8 +292,15 @@ def calc_file_sha1_hash(fi: str, step: int = 67108864, one_block: bool = True) -
     return sha1_hash.hexdigest()
 
 
-def create_databank_directories(
-    sim: Mapping,
+_SOFTWARE_CONFIG = {
+    "gromacs": {"primary": "TPR", "secondary": "TRJ"},
+    "openMM": {"primary": "TRJ", "secondary": "TRJ"},
+    "NAMD": {"primary": "TRJ", "secondary": "TRJ"},
+}  # is not exported
+
+
+def create_simulation_directories(
+    software: str,
     sim_hashes: Mapping,
     out: str,
     *,
@@ -300,8 +312,7 @@ def create_databank_directories(
     input files.
 
     Args:
-        sim (Mapping): A dictionary containing simulation metadata, including
-            the "SOFTWARE" key.
+        software: MD engine software (from simulation metadata)
         sim_hashes (Mapping): A dictionary mapping file types (e.g., "TPR",
             "TRJ") to their hash information. The structure is expected to be
             `{'TYPE': [('filename', 'hash')]}`.
@@ -321,10 +332,7 @@ def create_databank_directories(
         NotImplementedError: If the simulation software is not supported.
         RuntimeError: If the target output directory could not be created.
     """
-    # resolve output dir naming
-    software: str = sim.get("SOFTWARE")
-
-    config = SOFTWARE_CONFIG.get(software)
+    config = _SOFTWARE_CONFIG.get(software)
     if not config:
         msg = f"Sim software '{software}' not supported"
         raise NotImplementedError(msg)
