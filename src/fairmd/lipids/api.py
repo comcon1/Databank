@@ -78,7 +78,7 @@ def get_eqtimes(system: System) -> dict:
         with open(eq_times_path) as f:
             eq_time_dict = json.load(f)
     except FileNotFoundError:
-        print("No thickness information for system#{}.".format(system["ID"]), file=sys.stderr)
+        print("No equilibration time information for system#{}.".format(system["ID"]), file=sys.stderr)
         raise
     except json.JSONDecodeError:
         print("Equilibration times information for system#{} is invalid.".format(system["ID"]), file=sys.stderr)
