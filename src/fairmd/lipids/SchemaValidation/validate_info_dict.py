@@ -39,9 +39,9 @@ def parse_valid_config_settings(info_yaml: dict, logger) -> tuple[dict, list[str
     # STEP 2 - check required keys defined by sim software used
     software_required_keys = [k for k, v in software_sim.items() if v["REQUIRED"]]
 
-    # are ALL required keys are present in sim dict and defined (not of NoneType) ?
-    if not all((k in list(sim.keys())) and (sim[k] is not None) for k in software_required_keys):
-        missing_keys = [k for k in software_required_keys if k not in sim]
+    # are ALL required keys are present in sim dictionary?
+    missing_keys = [k for k in software_required_keys if k not in sim or sim[k] is None]
+    if missing_keys:
         msg = (
             f"Required '{sim['SOFTWARE'].upper()}' sim keys missing or "
             f"not defined in conf file: {', '.join(missing_keys)}"
