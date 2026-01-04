@@ -208,13 +208,11 @@ class Parser:
             self.tpr_url = resolve_zenodo_file_url(self.doi, self.tpr)
             # This is a log message. Printing even in silent mode
             print("Parser: Downloading tpr ", self.doi)
-            # urllib.request.urlretrieve(self.tpr_url, self.tpr_name)
             download_resource_from_uri(self.tpr_url, self.tpr_name)
         if not os.path.isfile(self.trj_name):
             self.trj_url = resolve_zenodo_file_url(self.doi, self.trj)
             # This is a log message. Printing even in silent mode
             print("Parser: Downloading trj ", self.doi)
-            # urllib.request.urlretrieve(self.trj_url, self.trj_name)
             download_resource_from_uri(self.trj_url, self.trj_name)
 
     def prepare_gmx_traj(self):

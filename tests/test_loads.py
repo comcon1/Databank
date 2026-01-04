@@ -112,7 +112,7 @@ class TestDownloadResourceFromUri:
         import fairmd.lipids.databankio as dio
 
         dest = os.path.join(str(tmp_path), self.fname)
-        body = b"x" * (dio.MAX_DRYRUN_SIZE + fsize)
+        body = b"x" * (dio.MAX_BYTES_DEFAULT + fsize)
 
         responses.add(
             responses.GET,
@@ -125,14 +125,14 @@ class TestDownloadResourceFromUri:
         status = dio.download_resource_from_uri(
             self.url,
             dest,
-            dry_run_mode=True,
+            max_bytes=True,
         )
 
         check.equal(status, 0, "Dry-run mode must work")
         check.is_true(os.path.isfile(dest), "Dry-run mode must create a file")
         check.equal(
             os.stat(dest).st_size,
-            dio.MAX_DRYRUN_SIZE + dsize,
+            dio.MAX_BYTES_DEFAULT + dsize,
             "Dry-run mode must download not more than some number of bytes",
         )
 

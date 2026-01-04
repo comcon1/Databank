@@ -1,7 +1,7 @@
 """
-Input/Output auxilary functions.
+Input/Output auxiliary functions.
 
-Input/Output auxilary module with some small usefull functions. It includes:
+Input/Output module with some small usefull functions. It includes:
 - Downloading files.
 - Resolving URLs.
 - Calculating file hash for fingerprinting.
@@ -20,7 +20,7 @@ from tqdm import tqdm
 from urllib3.util.retry import Retry
 
 __all__ = [
-    "MAX_DRYRUN_SIZE",
+    "MAX_BYTES_DEFAULT",
     "_get_file_size_with_retry",
     "_open_url_with_retry",
     "calc_file_sha1_hash",
@@ -31,9 +31,9 @@ __all__ = [
 ]
 
 logger = logging.getLogger(__name__)
-MAX_DRYRUN_SIZE = 50 * 1024 * 1024  # 50 MB, max size for dry-run download
+MAX_BYTES_DEFAULT = 50 * 1024 * 1024  # 50 MB, default max size for download_resource_from_uri(..., max_bytes=True)
 
-# --- Decorated Helper Functions for Network Requests ---
+# --- Helper Functions for Network Requests ---
 
 
 def _requests_session_with_retry(
@@ -152,7 +152,7 @@ def download_resource_from_uri(
     dest: str,
     *,
     override_if_exists: bool = False,
-    dry_run_mode: bool = False,
+    max_bytes: bool = False,
 ) -> int:
     """Download file resource from a URI to a local destination.
 
@@ -164,7 +164,7 @@ def download_resource_from_uri(
         dest (str): The local destination path to save the file.
         override_if_exists (bool): If True, the file will be re-downloaded
             even if it already exists. Defaults to False.
-        dry_run_mode (bool): If True, only a partial download is performed
+        max_bytes (bool): If True, only a partial download is performed
             (up to MAX_DRYRUN_SIZE). Defaults to False.
 
     Returns
@@ -204,9 +204,9 @@ def download_resource_from_uri(
             return_code = 2
 
     # Download file in dry run mode
-    if dry_run_mode:
+    if max_bytes:
         url_size = _get_file_size_with_retry(uri)
-        download_with_progress_with_retry(uri, dest, tqdm_title=fi_name, stop_after=MAX_DRYRUN_SIZE)
+        download_with_progress_with_retry(uri, dest, tqdm_title=fi_name, stop_after=MAX_BYTES_DEFAULT)
         return 0
 
     # Download with progress bar and check for final size match
@@ -248,7 +248,7 @@ def resolve_zenodo_file_url(doi: str, fi_name: str, *, validate_uri: bool = True
         uri = f"https://zenodo.org/record/{zenodo_entry_number}/files/{fi_name}"
 
         if validate_uri:
-            # Use the decorated helper to check if the URI exists
+            # Use the context helper to check if the URI exists
             # If not - it raises the exceptions
             with _open_url_with_retry(uri):
                 pass
@@ -296,7 +296,8 @@ _SOFTWARE_CONFIG = {
     "gromacs": {"primary": "TPR", "secondary": "TRJ"},
     "openMM": {"primary": "TRJ", "secondary": "TRJ"},
     "NAMD": {"primary": "TRJ", "secondary": "TRJ"},
-}  # is not exported
+}  # dictionary describing how the hash is formed depending on MD engine (not exported)
+# is used right down in :func:`create_simulation_directories`
 
 
 def create_simulation_directories(

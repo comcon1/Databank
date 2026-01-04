@@ -216,7 +216,7 @@ Returns error codes:
                 url,
                 os.path.join(dir_tmp, fi),
                 override_if_exists=args.no_cache,
-                dry_run_mode=args.dry_run,
+                max_bytes=args.dry_run,
             )
 
         logger.info(f"Download of {len(files)} files was successful")
@@ -620,7 +620,7 @@ Returns error codes:
     # Try to create final directory
     try:
         directory_path = create_simulation_directories(
-            sim,
+            sim["SOFTWARE"],
             sim_hashes,
             FMDL_SIMU_PATH,
             dry_run_mode=args.dry_run,
