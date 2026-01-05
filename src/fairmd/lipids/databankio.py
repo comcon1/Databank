@@ -135,7 +135,7 @@ def download_with_progress_with_retry(
         for chunk in resp.iter_content(8192):
             f.write(chunk)
             downloaded += len(chunk)
-            if downloaded > total:
+            if downloaded >= total:
                 break
             u.update_retrieve(b=downloaded, bsize=1, tsize=total)
 

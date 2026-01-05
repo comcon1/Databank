@@ -43,15 +43,16 @@ class TestDownloadWithProgressWithRetry:
         check.equal(open(dest, "br").read(), body, "Success download must get predefined content")
 
     @pytest.mark.parametrize(
-        "fsize, dsize",
+        "maxsize, fsize, dsize",
         [
-            (1500, 1000),
-            (700, 700),
-            (1000, 1000),
+            (1000, 1500, 1000),
+            (1000, 700, 700),
+            (8192, 8192*3, 8192),  # test exactly chunk size
+            (1000, 1000, 1000),
         ],
     )
     @responses.activate
-    def test_download_dry_run(self, tmp_path, fsize, dsize):
+    def test_download_dry_run(self, tmp_path, fsize, dsize, maxsize):
         import fairmd.lipids.databankio as dio
 
         dest = os.path.join(str(tmp_path), self.fname)
@@ -68,11 +69,11 @@ class TestDownloadWithProgressWithRetry:
         status = dio.download_with_progress_with_retry(
             self.url,
             dest,
-            stop_after=1000,
+            stop_after=maxsize,
         )
 
         check.is_true(os.path.isfile(dest), "Dry-run mode must create a file")
-        check.equal(os.stat(dest).st_size, dsize, "Stop-after mode must download not more than some number of bytes")
+        check.equal(os.path.getsize(dest), dsize, "Stop-after mode must download not more than some number of bytes")
 
 
 class TestDownloadResourceFromUri:
