@@ -52,9 +52,9 @@ from fairmd.lipids.core import System, initialize_databank
 # helpers
 from fairmd.lipids.databankio import (
     calc_file_sha1_hash,
-    create_databank_directories,
+    create_simulation_directories,
     download_resource_from_uri,
-    resolve_download_file_url,
+    resolve_file_url,
 )
 from fairmd.lipids.databankLibrary import lipids_set, molecules_set, parse_valid_config_settings
 from fairmd.lipids.molecules import Lipid, MoleculeMappingError, NonLipid
@@ -206,7 +206,7 @@ Returns error codes:
         download_links = []
         for fi in files:
             logger.info(f"Validating URL to file: {fi}..")
-            _x = resolve_download_file_url(sim["DOI"], fi, validate_uri=True)
+            _x = resolve_file_url(sim["DOI"], fi, validate_uri=True)
             download_links.append(_x)
 
         logger.info(f"Now downloading {len(files)} files ...")
@@ -216,7 +216,7 @@ Returns error codes:
                 url,
                 os.path.join(dir_tmp, fi),
                 override_if_exists=args.no_cache,
-                dry_run_mode=args.dry_run,
+                max_bytes=args.dry_run,
             )
 
         logger.info(f"Download of {len(files)} files was successful")
@@ -619,8 +619,8 @@ Returns error codes:
 
     # Try to create final directory
     try:
-        directory_path = create_databank_directories(
-            sim,
+        directory_path = create_simulation_directories(
+            sim["SOFTWARE"],
             sim_hashes,
             FMDL_SIMU_PATH,
             dry_run_mode=args.dry_run,

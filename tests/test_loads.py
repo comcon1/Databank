@@ -5,10 +5,11 @@ NOTE: globally import of fairmd-lipids is **STRICTLY FORBIDDEN** because it
       breaks the substitution of global path folders
 """
 
+import hashlib
 import os
-import stat
+import requests
+import responses
 import sys
-from urllib.error import HTTPError, URLError
 
 import pytest
 import pytest_check as check
@@ -17,174 +18,268 @@ import pytest_check as check
 pytestmark = [pytest.mark.nodata, pytest.mark.min]
 
 
+class TestDownloadWithProgressWithRetry:
+    url = "https://example.org/file.bin"
+    fname = "file.bin"
+
+    @responses.activate
+    def test_download_success(self, tmp_path):
+        import fairmd.lipids.databankio as dio
+
+        body = b"abcdef"
+        dest = os.path.join(str(tmp_path), self.fname)
+
+        responses.add(
+            responses.GET,
+            self.url,
+            status=200,
+            body=body,
+            headers={"Content-Length": str(len(body))},
+        )
+
+        dio.download_with_progress_with_retry(self.url, dest)
+
+        check.is_true(os.path.isfile(dest), "Success download must create a file")
+        check.equal(open(dest, "br").read(), body, "Success download must get predefined content")
+
+    @pytest.mark.parametrize(
+        "maxsize, fsize, dsize",
+        [
+            (1000, 1500, 1000),
+            (1000, 700, 700),
+            (8192, 8192 * 3, 8192),  # test exactly chunk size
+            (1000, 1000, 1000),
+        ],
+    )
+    @responses.activate
+    def test_download_dry_run(self, tmp_path, fsize, dsize, maxsize):
+        import fairmd.lipids.databankio as dio
+
+        dest = os.path.join(str(tmp_path), self.fname)
+        body = b"x" * fsize
+
+        responses.add(
+            responses.GET,
+            self.url,
+            status=200,
+            body=body,
+            headers={"Content-Length": str(len(body))},
+        )
+
+        status = dio.download_with_progress_with_retry(
+            self.url,
+            dest,
+            stop_after=maxsize,
+        )
+
+        check.is_true(os.path.isfile(dest), "Dry-run mode must create a file")
+        check.equal(os.path.getsize(dest), dsize, "Stop-after mode must download not more than some number of bytes")
+
+
 class TestDownloadResourceFromUri:
-    TESTFILENAME = "t.tpr"
+    url = "https://example.org/file.bin"
+    fname = "file.bin"
 
-    def test_justdl__download_resource_from_uri(self, monkeypatch, tmp_path):
-        monkeypatch.chdir(tmp_path)
+    @responses.activate
+    def test_download_success(self, tmp_path):
         import fairmd.lipids.databankio as dio
 
-        if os.path.exists(self.TESTFILENAME):
-            os.remove(self.TESTFILENAME)  # just for sure
-        # first-time download
-        assert (
-            dio.download_resource_from_uri(
-                "https://zenodo.org/records/8435138/files/pope-md313rfz.tpr",
-                "./" + self.TESTFILENAME,
-            )
-            == 0
+        body = b"abcdef"
+        dest = os.path.join(str(tmp_path), self.fname)
+
+        responses.add(
+            responses.GET,
+            self.url,
+            status=200,
+            body=body,
+            headers={"Content-Length": str(len(body))},
         )
-        # repeat download
+
+        status = dio.download_resource_from_uri(self.url, dest)
+
+        check.equal(status, 0, "Success download must return zero")
+        check.is_true(os.path.isfile(dest), "Success download must create a file")
+        check.equal(open(dest, "br").read(), body, "Success download must get predefined content")
+
+    @pytest.mark.parametrize(
+        "fsize, dsize",
+        [
+            (52400, 0),
+            (-52400, -52400),
+        ],
+    )
+    @responses.activate
+    def test_download_dry_run(self, tmp_path, fsize, dsize):
+        import fairmd.lipids.databankio as dio
+
+        dest = os.path.join(str(tmp_path), self.fname)
+        body = b"x" * (dio.MAX_BYTES_DEFAULT + fsize)
+
+        responses.add(
+            responses.GET,
+            self.url,
+            status=200,
+            body=body,
+            headers={"Content-Length": str(len(body))},
+        )
+
+        status = dio.download_resource_from_uri(
+            self.url,
+            dest,
+            max_bytes=True,
+        )
+
+        check.equal(status, 0, "Dry-run mode must work")
+        check.is_true(os.path.isfile(dest), "Dry-run mode must create a file")
         check.equal(
-            dio.download_resource_from_uri(
-                "https://zenodo.org/records/8435138/files/pope-md313rfz.tpr",
-                "./" + self.TESTFILENAME,
-            ),
-            1,
+            os.stat(dest).st_size,
+            dio.MAX_BYTES_DEFAULT + dsize,
+            "Dry-run mode must download not more than some number of bytes",
         )
-        os.remove(self.TESTFILENAME)
 
-    def test_corrupted__download_resource_from_uri(self, monkeypatch, tmp_path):
-        monkeypatch.chdir(tmp_path)
+
+class TestGetFileSize:
+    url = "https://example.org/file.bin"
+
+    @responses.activate
+    def test_no_content_length(self):
         import fairmd.lipids.databankio as dio
 
-        # redownload corrupted file
-        with open(self.TESTFILENAME, "w") as f:
-            f.write("BABABA")
-        old_size = os.path.getsize(self.TESTFILENAME)
-        assert (
-            dio.download_resource_from_uri(
-                "https://zenodo.org/records/8435138/files/pope-md313rfz.tpr",
-                "./" + self.TESTFILENAME,
-            )
-            == 2
+        responses.add(
+            responses.GET,
+            self.url,
+            status=200,
+            headers={},  # no Content-Length
         )
-        # check filesize
-        check.greater(
-            os.path.getsize(self.TESTFILENAME),
-            old_size,
-            msg="File was not redownloaded despite size mismatch!",
-        )
-        os.remove(self.TESTFILENAME)
 
-    @pytest.mark.skipif(sys.platform == "darwin", reason="fails on GitHub Actions")
-    def test_errs__download_resource_from_uri(self, monkeypatch, tmp_path):
-        monkeypatch.chdir(tmp_path)
-        d = tmp_path / "sub"
-        d.mkdir()
+        size = dio._get_file_size_with_retry(self.url)
 
+        assert size == 0
+
+    @responses.activate
+    def test_ok(self):
         import fairmd.lipids.databankio as dio
 
-        # put directory instead of filename
-        with pytest.raises(IsADirectoryError) as _:
-            dio.download_resource_from_uri("https://zenodo.org/records/8435138/files/pope-md313rfz.tpr", "sub")
+        responses.add(
+            responses.GET,
+            self.url,
+            status=200,
+            headers={"Content-Length": "1234"},
+        )
 
-        if os.name != "nt":
-            # TODO: fix on Windows
-            d.chmod(stat.S_IREAD | stat.S_IRGRP | stat.S_IROTH)
-            fn = os.path.join("sub", "no-rights.tpr")
+        size = dio._get_file_size_with_retry(self.url)
 
-            # ask to write to file which you don't have an access
-            with pytest.raises(PermissionError) as _:
-                dio.download_resource_from_uri("https://zenodo.org/records/8435138/files/pope-md313rfz.tpr", fn)
+        assert size == 1234
+        assert len(responses.calls) == 1
 
 
-# resolve_doi_url
-class TestResolveDoiUrl:
-    def test_badDOI__resolve_doi_url(self):
+class TestResolveFileUrl:
+    def test_badDOI(self):
         import fairmd.lipids.databankio as dio
 
         # test if bad DOI fails
-        with pytest.raises(HTTPError, match="404") as _:
-            dio.resolve_doi_url("10.5281/zenodo.8435a", True)
+        with check.raises(requests.exceptions.HTTPError) as e:
+            dio.resolve_file_url("10.5281/zenodo.8435a", "a", validate_uri=True)
+        check.is_in("404", str(e.value))
         # bad DOI doesn't fail if not to check
-        assert dio.resolve_doi_url("10.5281/zenodo.8435a", False) == "https://doi.org/10.5281/zenodo.8435a"
+        check.equal(
+            dio.resolve_file_url("10.5281/zenodo.8435a", "a.txt", validate_uri=False),
+            "https://zenodo.org/record/8435a/files/a.txt",
+        )
+        # non-zenodo DOI fails
+        with check.raises(NotImplementedError) as e:
+            dio.resolve_file_url("10.1000/xyz123", "a.txt", validate_uri=False)
+        check.is_in("Repository not validated", str(e.value))
 
-    def test_goodDOI__resolve_doi_url(self):
+    def test_goodDOI(self):
         import fairmd.lipids.databankio as dio
 
         # good DOI works properly
-        assert dio.resolve_doi_url("10.5281/zenodo.8435138", True) == "https://doi.org/10.5281/zenodo.8435138"
-
-    @staticmethod
-    def _create_mock_success_response(mocker):
-        mock_response = mocker.MagicMock()
-        mock_response.read.return_value = b"mocked content"
-        mock_response.getheader.return_value = "100"  # Content-Length
-        mock_response.code = 200
-        mock_response.reason = "OK"
-        return mock_response
-
-    @pytest.mark.parametrize(
-        "name, side_effects_func, expected_exception, expected_call_count",
-        [
-            (
-                "transient URLError succeeds",
-                lambda m: [URLError("err1"), URLError("err2"), TestResolveDoiUrl._create_mock_success_response(m)],
-                None,
-                3,
-            ),
-            (
-                "persistent URLError fails",
-                lambda m: URLError("persistent error"),
-                ConnectionError,
-                5,
-            ),
-            (
-                "non-retriable 403 HTTPError fails immediately",
-                lambda m: HTTPError("url", 403, "Forbidden", {}, None),
-                HTTPError,
-                1,
-            ),
-            (
-                "retriable 503 HTTPError succeeds",
-                lambda m: [
-                    HTTPError("url", 503, "Service Unavailable", {}, None),
-                    HTTPError("url", 503, "Service Unavailable", {}, None),
-                    TestResolveDoiUrl._create_mock_success_response(m),
-                ],
-                None,
-                3,
-            ),
-            (
-                "persistent 503 HTTPError fails",
-                lambda m: HTTPError("url", 503, "Service Unavailable", {}, None),
-                ConnectionError,
-                5,
-            ),
-        ],
-    )
-    def test_retry_logic__resolve_doi_url(
-        self,
-        name,
-        side_effects_func,
-        expected_exception,
-        expected_call_count,
-        mocker,
-    ):
-        import fairmd.lipids.databankio as dio
-
-        mocker.patch("time.sleep", return_value=None)
-
-        side_effects = side_effects_func(mocker)
-
-        mock_urlopen = mocker.patch(
-            "fairmd.lipids.databankio.urllib.request.urlopen",
-            side_effect=side_effects,
+        assert (
+            dio.resolve_file_url("10.5281/zenodo.8435138", "pope-md313rfz.tpr", validate_uri=True)
+            == "https://zenodo.org/record/8435138/files/pope-md313rfz.tpr"
         )
 
+    @pytest.mark.parametrize(
+        "name, statuses, expected_exception",
+        [
+            ("transient 503 succeeds", [503, 503, 200], None),
+            ("persistent 503 fails", [503] * 200, requests.exceptions.RetryError),
+            ("403 fails immediately", [403], requests.exceptions.HTTPError),
+        ],
+    )
+    @responses.activate
+    def test_retry_logic(self, name, statuses, expected_exception):
+        import fairmd.lipids.databankio as dio
+
+        print(f"Testing resolve_doi_url with {name}", file=sys.stderr)
+        url = "https://zenodo.org/record/8435138/files/a.txt"
+
+        for status in statuses:
+            responses.add(responses.GET, url, status=status)
+
         if expected_exception:
-            with pytest.raises(expected_exception) as excinfo:
-                dio.resolve_doi_url("10.5281/zenodo.8435138", True)
-            if expected_exception == HTTPError:
-                actual_http_error = side_effects[0] if isinstance(side_effects, list) else side_effects
-                assert excinfo.value.code == actual_http_error.code
+            with pytest.raises(expected_exception):
+                dio.resolve_file_url("10.5281/zenodo.8435138", "a.txt", validate_uri=True)
         else:
-            dio.resolve_doi_url("10.5281/zenodo.8435138", True)
+            dio.resolve_file_url("10.5281/zenodo.8435138", "a.txt", validate_uri=True)
 
-        assert mock_urlopen.call_count == expected_call_count, f"Test '{name}' failed on call count."
+            assert len(responses.calls) == min(10, len(statuses))
 
-    # resolve_download_file_url
 
-    def test__resolve_download_file_url(self):
-        pass
+class TestCalcFileSha1Hash:
+    @staticmethod
+    def _expected_sha1(data: bytes) -> str:
+        return hashlib.sha1(data).hexdigest()
+
+    @pytest.mark.parametrize(
+        "data, step, expected_slice",
+        [
+            (b"hello world", 64, b"hello world"),
+            (b"a" * 100, 10, b"a" * 10),
+        ],
+    )
+    def test_one_block_behavior(self, tmp_path, data, step, expected_slice):
+        from fairmd.lipids.databankio import calc_file_sha1_hash
+
+        fi = os.path.join(str(tmp_path), "test.bin")
+        with open(fi, "wb") as f:
+            f.write(data)
+
+        # one-block should be default
+        result = calc_file_sha1_hash(fi, step=step)
+        assert result == self._expected_sha1(expected_slice)
+
+        result = calc_file_sha1_hash(fi, step=step, one_block=True)
+        assert result == self._expected_sha1(expected_slice)
+
+    @pytest.mark.parametrize(
+        "data, step",
+        [
+            (b"abc" * 1000, 64),
+            (b"hello", 1024),
+        ],
+    )
+    def test_multi_block_reads_entire_file(self, tmp_path, data, step):
+        from fairmd.lipids.databankio import calc_file_sha1_hash
+
+        fi = os.path.join(str(tmp_path), "test.bin")
+        with open(fi, "wb") as f:
+            f.write(data)
+
+        result = calc_file_sha1_hash(fi, step=step, one_block=False)
+
+        assert result == self._expected_sha1(data)
+
+    def test_empty_file(self, tmp_path):
+        from fairmd.lipids.databankio import calc_file_sha1_hash
+
+        fi = os.path.join(str(tmp_path), "test.bin")
+        with open(fi, "wb") as f:
+            pass
+
+        with pytest.raises(ValueError):
+            calc_file_sha1_hash(fi)
+
+
+# TODO: create_simulation_directories

@@ -1,104 +1,89 @@
 """
-Input/Output auxilary module **fairmd.lipids.databankio**.
+Input/Output auxiliary functions.
 
-Input/Output auxilary module with some small usefull functions. It includes:
-- Network communication.
+Input/Output module with some small usefull functions. It includes:
 - Downloading files.
-- Checking links.
-- Resolving DOIs.
-- Calculating file hashes.
+- Resolving URLs.
+- Calculating file hash for fingerprinting.
 """
 
-import functools
 import hashlib
 import logging
 import math
 import os
-import time
-import urllib.error
-import urllib.request
-from collections.abc import Callable, Mapping
+from collections.abc import Generator, Mapping
+from contextlib import contextmanager
 
+import requests
+from requests.adapters import HTTPAdapter
 from tqdm import tqdm
+from urllib3.util.retry import Retry
+
+__all__ = [
+    "MAX_BYTES_DEFAULT",
+    "_get_file_size_with_retry",
+    "_open_url_with_retry",
+    "calc_file_sha1_hash",
+    "create_simulation_directories",
+    "download_resource_from_uri",
+    "download_with_progress_with_retry",
+    "resolve_file_url",
+]
 
 logger = logging.getLogger(__name__)
-MAX_DRYRUN_SIZE = 50 * 1024 * 1024  # 50 MB, max size for dry-run download
+MAX_BYTES_DEFAULT = 50 * 1024 * 1024  # 50 MB, default max size for download_resource_from_uri(..., max_bytes=True)
+
+# --- Helper Functions for Network Requests ---
 
 
-SOFTWARE_CONFIG = {
-    "gromacs": {"primary": "TPR", "secondary": "TRJ"},
-    "openMM": {"primary": "TRJ", "secondary": "TRJ"},
-    "NAMD": {"primary": "TRJ", "secondary": "TRJ"},
-}
+def _requests_session_with_retry(
+    retries: int = 5,
+    backoff: float = 10,
+) -> requests.Session:
+    """Session gererator for using in with-constructs.
 
-
-def retry_with_exponential_backoff(max_attempts: int = 3, delay_seconds: int = 1) -> Callable:
-    """Retry a function with exponential backoff.
-
-    :param max_attempts: (int) The maximum number of attempts. Defaults to 3.
-    :param delay_seconds: (int) The initial delay between retries in seconds.
-                          The delay doubles after each failed attempt. Defaults to 1.
+    :param retries: Max num of retries, defaults to 5
+    :param backoff: Starting time before first retry, defaults to 10
+    :return: requests session
     """
+    retry = Retry(
+        total=retries,
+        backoff_factor=backoff,
+        status_forcelist=[429, 500, 502, 503, 504],
+        allowed_methods=None,
+    )
+    adapter = HTTPAdapter(max_retries=retry)
 
-    def decorator(func: Callable) -> Callable:
-        @functools.wraps(func)
-        def wrapper(*args, **kwargs):  # noqa: ANN002,ANN003,ANN202
-            attempts = 0
-            current_delay = delay_seconds
-            while attempts < max_attempts:
-                try:
-                    return func(*args, **kwargs)
-
-                # --- New logic to handle non-retriable HTTP client errors ---
-                except urllib.error.HTTPError as e:
-                    # Check if the error is a client error (4xx) which is not likely to be resolved by a retry.
-                    if 400 <= e.code < 500 and e.code != 429:
-                        logger.exception("Function %s failed with non-retriable client error.", func.__name__)
-                        raise  # Re-raise the HTTPError immediately
-
-                    # For other errors (like 5xx server errors or 429), proceed with retry logic.
-                    logger.warning(f"Caught retriable HTTPError {e.code}. Proceeding with retry...")
-                    # Fall through to the generic exception handling below.
-
-                except (urllib.error.URLError, TimeoutError):
-                    # This block now primarily handles non-HTTP errors or retriable HTTP errors.
-                    pass  # Fall through to the retry logic below
-
-                logger.warning(
-                    f"Attempt {(attempts + 1)}/{max_attempts} for {func.__name__} failed. "
-                    f"Retrying in {current_delay:.1f} seconds...",
-                )
-                time.sleep(current_delay)
-                current_delay *= 2
-                attempts += 1
-
-            msg = f"Function {func.__name__} failed after {max_attempts} attempts."
-            logger.error(msg)
-            # Re-raise the last exception caught to be handled by the caller
-            raise ConnectionError(msg)
-
-        return wrapper
-
-    return decorator
+    session = requests.Session()
+    session.mount("https://", adapter)
+    session.mount("http://", adapter)
+    return session
 
 
-# --- Decorated Helper Functions for Network Requests ---
-
-
-@retry_with_exponential_backoff(max_attempts=5, delay_seconds=2)
-def _open_url_with_retry(uri: str, timeout: int = 10):
+@contextmanager
+def _open_url_with_retry(
+    uri: str,
+    backoff: float = 10,
+    *,
+    stream: bool = True,
+) -> Generator[requests.Response, None, None]:
     """Open a URL with a timeout and retry logic (aprivate helper).
 
-    :param uri: (str) The URL to open.
-    :param timeout: (int) The timeout for the request in seconds. Defaults to 10.
+    :param uri: The URL to open.
+    :param backoff: The backoff timeout for the request in seconds.
 
-    :return: The response object from urllib.request.urlopen.
+    :return: The response object.
     """
-    return urllib.request.urlopen(uri, timeout=timeout)
+    with _requests_session_with_retry(retries=5, backoff=backoff) as session:
+        response = session.get(uri, stream=stream)
+        response.raise_for_status()
+        try:
+            yield response
+        finally:
+            response.close()
 
 
-@retry_with_exponential_backoff(max_attempts=5, delay_seconds=2)
-def get_file_size_with_retry(uri: str) -> int:
+def _get_file_size_with_retry(uri: str) -> int:
     """Fetch the size of a file from a URI with retry logic.
 
     :param uri: (str) The URL of the file.
@@ -107,12 +92,13 @@ def get_file_size_with_retry(uri: str) -> int:
               header is not present (int).
     """
     with _open_url_with_retry(uri) as response:
-        content_length = response.getheader("Content-Length")
+        content_length = response.headers.get("Content-Length")
         return int(content_length) if content_length else 0
 
 
-@retry_with_exponential_backoff(max_attempts=5, delay_seconds=2)
-def download_with_progress_with_retry(uri: str, dest: str, fi_name: str) -> None:
+def download_with_progress_with_retry(
+    uri: str, dest: str, *, tqdm_title: str = "Downloading", stop_after: int | None = None
+) -> None:
     """Download a file with a progress bar and retry logic.
 
     Uses tqdm to display a progress bar during the download.
@@ -120,8 +106,8 @@ def download_with_progress_with_retry(uri: str, dest: str, fi_name: str) -> None
     Args:
         uri (str): The URL of the file to download.
         dest (str): The local destination path to save the file.
-        fi_name (str): The name of the file, used for the progress bar
-            description.
+        tqdm_title (str): The title used for the progress bar description.
+        stop_after (int): Download max num of bytes
     """
 
     class RetrieveProgressBar(tqdm):
@@ -130,14 +116,32 @@ def download_with_progress_with_retry(uri: str, dest: str, fi_name: str) -> None
                 self.total = tsize
             return self.update(b * bsize - self.n)
 
-    with RetrieveProgressBar(
-        unit="B",
-        unit_scale=True,
-        unit_divisor=1024,
-        miniters=1,
-        desc=fi_name,
-    ) as u:
-        urllib.request.urlretrieve(uri, dest, reporthook=u.update_retrieve)
+    with (
+        RetrieveProgressBar(
+            unit="B",
+            unit_scale=True,
+            unit_divisor=1024,
+            miniters=1,
+            desc=tqdm_title,
+        ) as u,
+        open(dest, "wb") as f,
+        _open_url_with_retry(uri) as resp,
+    ):
+        total = int(resp.headers.get("Content-Length", 0))
+        if stop_after is not None:
+            total = min(total, stop_after)
+        downloaded = 0
+
+        for chunk in resp.iter_content(8192):
+            f.write(chunk)
+            downloaded += len(chunk)
+            if downloaded >= total:
+                break
+            u.update_retrieve(b=downloaded, bsize=1, tsize=total)
+
+    if downloaded > total:
+        with open(dest, "rb+") as f:
+            f.truncate(total)
 
 
 # --- Main Functions ---
@@ -148,7 +152,7 @@ def download_resource_from_uri(
     dest: str,
     *,
     override_if_exists: bool = False,
-    dry_run_mode: bool = False,
+    max_bytes: bool = False,
 ) -> int:
     """Download file resource from a URI to a local destination.
 
@@ -160,7 +164,7 @@ def download_resource_from_uri(
         dest (str): The local destination path to save the file.
         override_if_exists (bool): If True, the file will be re-downloaded
             even if it already exists. Defaults to False.
-        dry_run_mode (bool): If True, only a partial download is performed
+        max_bytes (bool): If True, only a partial download is performed
             (up to MAX_DRYRUN_SIZE). Defaults to False.
 
     Returns
@@ -185,7 +189,7 @@ def download_resource_from_uri(
     # Check if dest path already exists and compare file size
     if not override_if_exists and os.path.isfile(dest):
         try:
-            fi_size = get_file_size_with_retry(uri)
+            fi_size = _get_file_size_with_retry(uri)
             if fi_size == os.path.getsize(dest):
                 logger.info(f"{dest}: file already exists, skipping")
                 return 1
@@ -193,38 +197,21 @@ def download_resource_from_uri(
                 f"{fi_name} filesize mismatch of local file '{fi_name}', redownloading ...",
             )
             return_code = 2
-        except (ConnectionError, FileNotFoundError):
+        except (requests.exceptions.HTTPError, requests.exceptions.ConnectionError):
             logger.exception(
                 f"Failed to verify file size for {fi_name}. Proceeding with redownload.",
             )
             return_code = 2
 
     # Download file in dry run mode
-    if dry_run_mode:
-        url_size = get_file_size_with_retry(uri)
-        # Use the decorated helper for opening the URL
-        with _open_url_with_retry(uri) as response, open(dest, "wb") as out_file:
-            total = min(url_size, MAX_DRYRUN_SIZE) if url_size else MAX_DRYRUN_SIZE
-            downloaded = 0
-            chunk_size = 8192
-            next_report = 10 * 1024 * 1024
-            logger.info(f"Dry-run: Downloading up to {total // (1024 * 1024)} MB of {fi_name} ...")
-            while downloaded < total:
-                to_read = min(chunk_size, total - downloaded)
-                chunk = response.read(to_read)
-                if not chunk:
-                    break
-                out_file.write(chunk)
-                downloaded += len(chunk)
-                if downloaded >= next_report:
-                    logger.info(f"  Downloaded {downloaded // (1024 * 1024)} MB ...")
-                    next_report += 10 * 1024 * 1024
-            logger.info(f"Dry-run: Finished, downloaded {downloaded // (1024 * 1024)} MB of {fi_name}")
+    if max_bytes:
+        url_size = _get_file_size_with_retry(uri)
+        download_with_progress_with_retry(uri, dest, tqdm_title=fi_name, stop_after=MAX_BYTES_DEFAULT)
         return 0
 
     # Download with progress bar and check for final size match
-    url_size = get_file_size_with_retry(uri)
-    download_with_progress_with_retry(uri, dest, fi_name)
+    url_size = _get_file_size_with_retry(uri)
+    download_with_progress_with_retry(uri, dest, tqdm_title=fi_name)
 
     size = os.path.getsize(dest)
     if url_size != 0 and url_size != size:
@@ -234,89 +221,38 @@ def download_resource_from_uri(
     return return_code
 
 
-def resolve_doi_url(doi: str, validate_uri: bool = True) -> str:
-    """Resolve a DOI to a full URL and validates that it is reachable.
-
-    Args:
-        doi (str): The DOI identifier (e.g., "10.5281/zenodo.1234").
-        validate_uri (bool): If True, checks if the resolved URL is a valid
-            and reachable address. Defaults to True.
-
-    Returns
-    -------
-        str: The full, validated DOI link (e.g., "https://doi.org/...").
-
-    Raises
-    ------
-        urllib.error.HTTPError: If the DOI resolves to a URL, but the server
-            returns an HTTP error code (e.g., 404 Not Found).
-        ConnectionError: If the server cannot be reached after multiple retries.
+def resolve_file_url(doi: str, fi_name: str, *, validate_uri: bool = True) -> str:
     """
-    res = "https://doi.org/" + doi
-
-    if validate_uri:
-        try:
-            # The 'with' statement ensures the connection is closed
-            with _open_url_with_retry(res):
-                pass
-        except urllib.error.HTTPError as e:
-            # This specifically catches HTTP errors like 404, 500, etc.
-            logger.exception(f"Validation failed for DOI {doi}. URL <{res}> returned HTTP {e.code}: {e.reason}")
-            # Re-raise the specific HTTPError so the caller can handle it
-            raise
-        except ConnectionError:
-            # This catches the final error from the retry decorator for other issues
-            # (e.g., DNS failure, connection refused).
-            logger.exception(f"Could not connect to <{res}> after multiple attempts.")
-            raise
-
-    return res
-
-
-def resolve_download_file_url(doi: str, fi_name: str, validate_uri: bool = True) -> str:
-    """
-    Resolve a download file URI from a supported DOI and filename.
+    Resolve a download file URI from zenodo record's DOI and filename.
 
     Currently supports Zenodo DOIs.
 
-    Args:
-        doi (str): The DOI identifier for the repository (e.g.,
-            "10.5281/zenodo.1234").
-        fi_name (str): The name of the file within the repository.
-        validate_uri (bool): If True, checks if the resolved URL is a valid
-            and reachable address. Defaults to True.
+    :param doi (str): The DOI identifier for the repository (e.g., "10.5281/zenodo.1234").
+    :param fi_name (str): The name of the file within the repository.
+    :param validate_uri (bool): If True, checks if the resolved URL is a valid and
+                                reachable address. Defaults to True.
 
-    Returns
-    -------
-        str: The full, direct download URL for the file.
+    :return str: The full, direct download URL for the file.
 
-    Raises
-    ------
-        RuntimeError: If the URL cannot be opened after multiple retries.
-        NotImplementedError: If the DOI provider is not supported.
+    :raises HTTPError or other connection errors: If the URL cannot be opened after multiple retries.
+    :raises NotImplementedError: If the DOI provider is not supported.
     """
     if "zenodo" in doi.lower():
         zenodo_entry_number = doi.split(".")[2]
         uri = f"https://zenodo.org/record/{zenodo_entry_number}/files/{fi_name}"
+    else:
+        msg = "Repository not validated. Please upload the data for example to zenodo.org"
+        raise NotImplementedError(msg)
 
-        if validate_uri:
-            try:
-                # Use the decorated helper to check if the URI exists
-                with _open_url_with_retry(uri):
-                    pass
-            except urllib.error.HTTPError:
-                # Other persistent HTTP errors are re-raised
-                raise
-            except ConnectionError as ce:
-                # Catch the final failure from our decorator for other network issues
-                raise RuntimeError(f"Cannot open {uri}. Failed after multiple retries.") from ce
-        return uri
-    raise NotImplementedError(
-        "Repository not validated. Please upload the data for example to zenodo.org",
-    )
+    if validate_uri:
+        # Use the context helper to check if the URI exists
+        # If not - it raises the exceptions
+        with _open_url_with_retry(uri):
+            pass
+    return uri
 
 
-def calc_file_sha1_hash(fi: str, step: int = 67108864, one_block: bool = True) -> str:
+def calc_file_sha1_hash(fi: str, step: int = 67108864, *, one_block: bool = True) -> str:
     """Calculate the SHA1 hash of a file.
 
     Reads the file in chunks to handle large files efficiently if specified.
@@ -333,8 +269,12 @@ def calc_file_sha1_hash(fi: str, step: int = 67108864, one_block: bool = True) -
     -------
         str: The hexadecimal SHA1 hash of the file content.
     """
-    sha1_hash = hashlib.sha1()
-    n_tot_steps = math.ceil(os.path.getsize(fi) / step)
+    sha1_hash = hashlib.sha1()  # noqa: S324
+    fsize = os.path.getsize(fi)
+    if fsize == 0:
+        msg = "File should be non-empty for hash fingerprinting!"
+        raise ValueError(msg)
+    n_tot_steps = math.ceil(fsize / step)
     with open(fi, "rb") as f:
         if one_block:
             block = f.read(step)
@@ -347,8 +287,16 @@ def calc_file_sha1_hash(fi: str, step: int = 67108864, one_block: bool = True) -
     return sha1_hash.hexdigest()
 
 
-def create_databank_directories(
-    sim: Mapping,
+_SOFTWARE_CONFIG = {
+    "gromacs": {"primary": "TPR", "secondary": "TRJ"},
+    "openMM": {"primary": "TRJ", "secondary": "TRJ"},
+    "NAMD": {"primary": "TRJ", "secondary": "TRJ"},
+}  # dictionary describing how the hash is formed depending on MD engine (not exported)
+# is used right down in :func:`create_simulation_directories`
+
+
+def create_simulation_directories(
+    software: str,
     sim_hashes: Mapping,
     out: str,
     *,
@@ -360,8 +308,7 @@ def create_databank_directories(
     input files.
 
     Args:
-        sim (Mapping): A dictionary containing simulation metadata, including
-            the "SOFTWARE" key.
+        software: MD engine software (from simulation metadata)
         sim_hashes (Mapping): A dictionary mapping file types (e.g., "TPR",
             "TRJ") to their hash information. The structure is expected to be
             `{'TYPE': [('filename', 'hash')]}`.
@@ -381,10 +328,7 @@ def create_databank_directories(
         NotImplementedError: If the simulation software is not supported.
         RuntimeError: If the target output directory could not be created.
     """
-    # resolve output dir naming
-    software: str = sim.get("SOFTWARE")
-
-    config = SOFTWARE_CONFIG.get(software)
+    config = _SOFTWARE_CONFIG.get(software)
     if not config:
         msg = f"Sim software '{software}' not supported"
         raise NotImplementedError(msg)

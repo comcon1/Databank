@@ -16,7 +16,7 @@ import numpy as np
 
 from fairmd.lipids import FMDL_SIMU_PATH
 from fairmd.lipids.core import System
-from fairmd.lipids.databankio import download_resource_from_uri, resolve_download_file_url
+from fairmd.lipids.databankio import download_resource_from_uri, resolve_file_url
 from fairmd.lipids.molecules import lipids_set, molecule_ff_set, molecules_set
 from fairmd.lipids.SchemaValidation.engines import get_struc_top_traj_fnames, software_dict
 
@@ -276,7 +276,7 @@ def system2MDanalysisUniverse(system):  # noqa: N802 (API name)
             msg = (f"Trajectory should be downloaded [{trj_name}] by user",)
             raise FileNotFoundError(msg)
     else:
-        trj_url = resolve_download_file_url(doi, trj)
+        trj_url = resolve_file_url(doi, trj)
         if not os.path.isfile(trj_name):
             print(
                 "Downloading trajectory with the size of ",
@@ -293,7 +293,7 @@ def system2MDanalysisUniverse(system):  # noqa: N802 (API name)
                 msg = f"TPR should be downloaded [{top_name}]"
                 raise FileNotFoundError(msg)
         else:
-            top_url = resolve_download_file_url(doi, top)
+            top_url = resolve_file_url(doi, top)
             if not os.path.isfile(top_name):
                 _ = download_resource_from_uri(top_url, top_name)
 
@@ -304,7 +304,7 @@ def system2MDanalysisUniverse(system):  # noqa: N802 (API name)
                 msg = f"GRO should be downloaded [{struc_name}]"
                 raise FileNotFoundError(msg)
         else:
-            struc_url = resolve_download_file_url(doi, struc)
+            struc_url = resolve_file_url(doi, struc)
             if not os.path.isfile(struc_name):
                 _ = download_resource_from_uri(struc_url, struc_name)
 
