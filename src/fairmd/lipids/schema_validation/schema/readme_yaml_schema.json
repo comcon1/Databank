@@ -2,28 +2,43 @@
   "$schema": "https://json-schema.org/draft-07/schema",
   "type": "object",
   "additionalProperties": true,
-  "required": ["DOI", "TRJ","PREEQTIME","TIMELEFTOUT", "SOFTWARE", "SYSTEM", "COMPOSITION", "FF", "AUTHORS_CONTACT"],
-  "allOf": [
-    {
+    "required": [
+    "DOI",
+    "TRJ",
+    "PREEQTIME",
+    "TIMELEFTOUT",
+    "SOFTWARE",
+    "SYSTEM",
+    "COMPOSITION",
+    "FF",
+    "AUTHORS_CONTACT",
+    "ID",
+    "TRAJECTORY_SIZE",
+    "TRJLENGTH",
+    "NUMBER_OF_ATOMS",
+    "DATEOFRUNNING"
+  ],
+   "allOf": [
+   {
       "if": { "properties": { "SOFTWARE": { "const": "gromacs" } } },
       "then": { "required": ["TPR"] }
-    },
-    {
+   },
+   {
       "if": { "properties": { "SOFTWARE": { "const": "NAMD" } } },
-      "then": { "required": ["PDB"] }
-    },
-    {
+      "then": { "required": ["PSF"] }
+   },
+   {
       "if": { "properties": { "SOFTWARE": { "const": "openMM" } } },
       "then": { "required": ["PDB"] }
-    }
-  ],
+   }
+   ],
   "properties": {
     "DOI": { 
       "type": "string" },
     "TRJ": {
-       "type": "string" },
+       "type": ["array"] },
     "TPR": { 
-      "type": "string" },
+      "type": ["array"] },
     "SOFTWARE": {
        "type": "string" ,
        "enum": ["gromacs", "openMM", "NAMD"]},
@@ -53,7 +68,8 @@
         "additionalProperties": false,
         "properties": {
           "NAME": { "type": "string" },
-          "MAPPING": { "type": "string" }
+          "MAPPING": { "type": "string" },
+          "COUNT": { "type": ["array", "integer"]}
         },
         "required": ["NAME", "MAPPING"]
       }
@@ -71,15 +87,52 @@
     "FF_DATE": {
        "type": ["string", "number", "null"]},
     "CPT": {
-       "type": ["string", "null"] },
+       "type": ["array", "null"] },
     "LOG": {
-       "type": ["string", "null"] },
+       "type": ["array", "null"] },
     "TOP": {
-       "type": ["string", "null"] },
+       "type": ["array", "null"] },
     "GRO": {
-       "type": ["string", "null"] },
+       "type": ["array", "null"] },
     "EDR": {
-       "type": ["string", "null"] }
-  }
+       "type": ["string", "null"] },
 
+    "ID": {
+      "type": "integer"
+    },
+    "TRAJECTORY_SIZE": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "TRJLENGTH": {
+      "type": "number",
+      "minimum": 0
+    },
+    "NUMBER_OF_ATOMS": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "DATEOFRUNNING": {
+      "type": "string"
+    },
+    "EXPERIMENT": {
+      "type": ["object", "null"],
+      "properties": {
+        "ORDERPARAMETER": {
+          "type": "object",
+        "additionalProperties": {
+        "type": "array"}
+        },
+        "FORMFACTOR": {
+          "type": "array"
+        
+        }
+      }
+      }
+    ,
+    "WARNINGS": {
+      "additionalProperties": true,
+      "type": ["null", "object"]
+    }
+  }
 }
