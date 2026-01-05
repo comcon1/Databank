@@ -47,7 +47,7 @@ class TestDownloadWithProgressWithRetry:
         [
             (1000, 1500, 1000),
             (1000, 700, 700),
-            (8192, 8192*3, 8192),  # test exactly chunk size
+            (8192, 8192 * 3, 8192),  # test exactly chunk size
             (1000, 1000, 1000),
         ],
     )

@@ -197,7 +197,7 @@ def download_resource_from_uri(
                 f"{fi_name} filesize mismatch of local file '{fi_name}', redownloading ...",
             )
             return_code = 2
-        except FileNotFoundError:
+        except (requests.exceptions.HTTPError, requests.exceptions.ConnectionError):
             logger.exception(
                 f"Failed to verify file size for {fi_name}. Proceeding with redownload.",
             )
