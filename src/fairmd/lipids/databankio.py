@@ -27,7 +27,7 @@ __all__ = [
     "create_simulation_directories",
     "download_resource_from_uri",
     "download_with_progress_with_retry",
-    "resolve_zenodo_file_url",
+    "resolve_file_url",
 ]
 
 logger = logging.getLogger(__name__)
@@ -221,40 +221,35 @@ def download_resource_from_uri(
     return return_code
 
 
-def resolve_zenodo_file_url(doi: str, fi_name: str, *, validate_uri: bool = True) -> str:
+def resolve_file_url(doi: str, fi_name: str, *, validate_uri: bool = True) -> str:
     """
     Resolve a download file URI from zenodo record's DOI and filename.
 
     Currently supports Zenodo DOIs.
 
-    Args:
-        doi (str): The DOI identifier for the repository (e.g.,
-            "10.5281/zenodo.1234").
-        fi_name (str): The name of the file within the repository.
-        validate_uri (bool): If True, checks if the resolved URL is a valid
-            and reachable address. Defaults to True.
+    :param doi (str): The DOI identifier for the repository (e.g., "10.5281/zenodo.1234").
+    :param fi_name (str): The name of the file within the repository.
+    :param validate_uri (bool): If True, checks if the resolved URL is a valid and
+                                reachable address. Defaults to True.
 
-    Returns
-    -------
-        str: The full, direct download URL for the file.
+    :return str: The full, direct download URL for the file.
 
-    Raises
-    ------
-        HTTPError or other connection errors: If the URL cannot be opened after multiple retries.
-        NotImplementedError: If the DOI provider is not supported.
+    :raises HTTPError or other connection errors: If the URL cannot be opened after multiple retries.
+    :raises NotImplementedError: If the DOI provider is not supported.
     """
     if "zenodo" in doi.lower():
         zenodo_entry_number = doi.split(".")[2]
         uri = f"https://zenodo.org/record/{zenodo_entry_number}/files/{fi_name}"
+    else:
+        msg = "Repository not validated. Please upload the data for example to zenodo.org"
+        raise NotImplementedError(msg)
 
-        if validate_uri:
-            # Use the context helper to check if the URI exists
-            # If not - it raises the exceptions
-            with _open_url_with_retry(uri):
-                pass
-        return uri
-    msg = "Repository not validated. Please upload the data for example to zenodo.org"
-    raise NotImplementedError(msg)
+    if validate_uri:
+        # Use the context helper to check if the URI exists
+        # If not - it raises the exceptions
+        with _open_url_with_retry(uri):
+            pass
+    return uri
 
 
 def calc_file_sha1_hash(fi: str, step: int = 67108864, *, one_block: bool = True) -> str:

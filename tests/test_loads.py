@@ -173,25 +173,30 @@ class TestGetFileSize:
         assert len(responses.calls) == 1
 
 
-class TestResolveZenodoFileUrl:
+class TestResolveFileUrl:
     def test_badDOI(self):
         import fairmd.lipids.databankio as dio
 
         # test if bad DOI fails
-        with pytest.raises(requests.exceptions.HTTPError, match="404") as _:
-            dio.resolve_zenodo_file_url("10.5281/zenodo.8435a", "a", validate_uri=True)
+        with check.raises(requests.exceptions.HTTPError) as e:
+            dio.resolve_file_url("10.5281/zenodo.8435a", "a", validate_uri=True)
+        check.is_in("404", str(e.value))
         # bad DOI doesn't fail if not to check
-        assert (
-            dio.resolve_zenodo_file_url("10.5281/zenodo.8435a", "a.txt", validate_uri=False)
-            == "https://zenodo.org/record/8435a/files/a.txt"
+        check.equal(
+            dio.resolve_file_url("10.5281/zenodo.8435a", "a.txt", validate_uri=False),
+            "https://zenodo.org/record/8435a/files/a.txt",
         )
+        # non-zenodo DOI fails
+        with check.raises(NotImplementedError) as e:
+            dio.resolve_file_url("10.1000/xyz123", "a.txt", validate_uri=False)
+        check.is_in("Repository not validated", str(e.value))
 
     def test_goodDOI(self):
         import fairmd.lipids.databankio as dio
 
         # good DOI works properly
         assert (
-            dio.resolve_zenodo_file_url("10.5281/zenodo.8435138", "pope-md313rfz.tpr", validate_uri=True)
+            dio.resolve_file_url("10.5281/zenodo.8435138", "pope-md313rfz.tpr", validate_uri=True)
             == "https://zenodo.org/record/8435138/files/pope-md313rfz.tpr"
         )
 
@@ -215,9 +220,9 @@ class TestResolveZenodoFileUrl:
 
         if expected_exception:
             with pytest.raises(expected_exception):
-                dio.resolve_zenodo_file_url("10.5281/zenodo.8435138", "a.txt", validate_uri=True)
+                dio.resolve_file_url("10.5281/zenodo.8435138", "a.txt", validate_uri=True)
         else:
-            dio.resolve_zenodo_file_url("10.5281/zenodo.8435138", "a.txt", validate_uri=True)
+            dio.resolve_file_url("10.5281/zenodo.8435138", "a.txt", validate_uri=True)
 
             assert len(responses.calls) == min(10, len(statuses))
 
