@@ -144,8 +144,12 @@ def test_valid_info_file():
 
 @pytest.fixture
 def valid_readme_instance(valid_instance):
-    """Base info dict + README-specific required fields."""
+    """Base info dict + README-specific required fields and changes."""
     inst = copy.deepcopy(valid_instance)
+
+    inst["TRJ"] = [inst["TRJ"]]
+    inst["TPR"] = [inst["TPR"]]
+
     inst.update(
         {
             "TRAJECTORY_SIZE": 123456,
