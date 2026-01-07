@@ -14,11 +14,11 @@ import sys
 from ._version import __version__
 
 # Package Information
-_mtd = importlib.metadata.metadata("fairmd-lipids")
-__author_email__ = _mtd["Author-email"]
+_mtd = importlib.metadata.metadata("fairmd.lipids")
+__author_email__ = _mtd.get("Author-email", "unknown")
 __author__ = re.sub(r" ?<.*>$", "", __author_email__)
-__description__ = _mtd["Summary"]  # reads toml's `description` field
-__license__ = _mtd["Licence-Expression"]
+__description__ = _mtd.get("Summary")  # reads toml's `description` field
+__license__ = _mtd.get("License-Expression", "no licence")
 __url__ = _mtd.json["project_url"][2].split(", ")[1]  # url nr 3
 
 # Global Paths
