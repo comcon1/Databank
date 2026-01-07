@@ -226,10 +226,10 @@ def test_deal_with_corrupted_tpr(systems):
     check.equal(u.atoms.n_atoms, s["NUMBER_OF_ATOMS"])
     check.equal(u.trajectory.n_frames, 1)
 
-    # test with
+    # test with the trajectory
     uc = UniverseConstructor(s)
     uc.download_mddata()
-    u = uc.build_universe()  # build from GRO instead
+    u = uc.build_universe()
     with check.raises(mda.NoDataError):
         u.atoms.molnums  # Universe has no connectivity
     check.equal(u.atoms.n_atoms, s["NUMBER_OF_ATOMS"])

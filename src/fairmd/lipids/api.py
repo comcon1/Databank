@@ -302,7 +302,7 @@ class UniverseConstructor:
                     )
                 else:
                     u = mda.Universe(self._paths["top"], self._paths["traj"])
-            except OSError as e:
+            except OSError as e:  # exception for corrupted topology file
                 print(
                     f"We got exception.. == \n{e}\n == ..and assume that TOPOLOGY is file is corrupted", file=sys.stderr
                 )
@@ -314,6 +314,7 @@ class UniverseConstructor:
                     if self._paths["traj"] is None
                     else mda.Universe(self._paths["struc"], self._paths["traj"])
                 )
+            # other exceptions are raised as is
         return u
 
 
