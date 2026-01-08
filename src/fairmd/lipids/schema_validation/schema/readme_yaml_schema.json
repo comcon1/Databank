@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft-07/schema",
   "type": "object",
   "additionalProperties": true,
-    "required": [
+  "required": [
     "DOI",
     "TRJ",
     "PREEQTIME",
@@ -17,8 +17,8 @@
     "TRJLENGTH",
     "NUMBER_OF_ATOMS",
     "DATEOFRUNNING"
-  ],
-   "allOf": [
+  ], 
+  "allOf": [
    {
       "if": { "properties": { "SOFTWARE": { "const": "gromacs" } } },
       "then": { "required": ["TPR"] }
@@ -43,9 +43,13 @@
        "type": "string" ,
        "enum": ["gromacs", "openMM", "NAMD"]},
     "PREEQTIME": { 
-      "type": "number" },
+      "type": "number",
+     "minimum": 0},
+      
     "TIMELEFTOUT": {
-       "type": "number" },
+       "type": "number",
+       "minimum": 0
+       },
     "TEMPERATURE": {
        "type": ["number", "null"]},
     "DIR_WRK": {
@@ -78,7 +82,7 @@
        "type": ["string", "null"] },
     "AUTHORS_CONTACT": {
        "type": ["string"] },
-   "SOFTWARE_VERSION": {
+    "SOFTWARE_VERSION": {
        "type": ["string", "number", "null"] },
     "FF": {
        "type": ["string"] },

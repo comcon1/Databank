@@ -27,10 +27,13 @@
     "SOFTWARE": {
        "type": "string" ,
        "enum": ["gromacs", "openMM", "NAMD"]},
-    "PREEQTIME": { 
-      "type": "number" },
+   "PREEQTIME": { 
+      "type": "number",
+     "minimum": 0},    
     "TIMELEFTOUT": {
-       "type": "number" },
+       "type": "number",
+       "minimum": 0
+      },
     "TEMPERATURE": {
        "type": ["number", "null"]},
     "DIR_WRK": {
