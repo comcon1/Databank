@@ -72,9 +72,9 @@ def validate_readme_yaml_file(readme_file_path: str, schema_path: str = default_
 
 def run_file(path: str, schema_type: SchemaType) -> int:
     """
-    Runs schema validation on an info.yml or README.yaml file. 
-    Will return error codes without throwing exceptions to be able to report on multiple files without stopping. 
-    
+    Runs schema validation on an info.yml or README.yaml file.
+    Will return error codes without throwing exceptions to be able to report on multiple files without stopping.
+
     :param path: path of file to validate
     :type path: str
     :param schema_type: info or readme
@@ -101,7 +101,7 @@ def run_file(path: str, schema_type: SchemaType) -> int:
         logger.error("ERROR: %s", path)
         logger.error("  -> %s: %s", type(e).__name__, e)
         return 3
-    
+
     if not errors:
         logger.info(f"OK: {path}")
         return 0
