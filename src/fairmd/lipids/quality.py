@@ -11,10 +11,10 @@ import re
 from typing import Optional, Tuple
 
 import numpy as np
-import scipy.signal
 import scipy.stats
 
 from fairmd.lipids import FMDL_SIMU_PATH
+from fairmd.lipids.analib.formfactor import FormFactorMinFromData
 from fairmd.lipids.core import System, initialize_databank, lipids_set
 
 
@@ -313,31 +313,6 @@ def calc_k_e(SimExpData: list) -> float:
         sum2 += np.abs(F_e) ** 2 / deltaF_e**2
 
     return sum1 / sum2
-
-
-def FormFactorMinFromData(FormFactor):
-    """Find the position of first minimum in form factor data."""
-    FFtmp = []
-    for i in FormFactor:
-        FFtmp.append(-i[1])
-
-    try:
-        w = scipy.signal.savgol_filter(FFtmp, 31, 1)
-    except ValueError as e:
-        print("FFtmp:")
-        print(FFtmp)
-        raise e
-
-    minX = []
-
-    peak_ind = scipy.signal.find_peaks(w)
-
-    for i in peak_ind[0]:
-        if FormFactor[i][0] > 0.1:
-            minX.append(FormFactor[i][0])
-
-    print(minX)
-    return minX
 
 
 def get_ffq_scaling(ffd_sim: list, ffd_exp: list) -> Optional[Tuple[float, float]]:
