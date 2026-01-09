@@ -130,8 +130,11 @@
          {
       "type": "array",
       "items": {
-        "type": "string",
-        "pattern": "\\.top$"
+        "type": "array",
+        "items": {
+          "pattern": "\\.top$"
+        }
+        
       },
       "minItems": 1
     }]},
@@ -160,7 +163,7 @@
       },
       "minItems": 1}]},
     "EDR": {
-       "type": ["string", "null"] },
+       "type": ["array", "null"] },
 
     "ID": {
       "type": "integer"
