@@ -106,7 +106,7 @@ def test_missing_tpr_non_gromacs(valid_instance):
 
     valid_instance["SOFTWARE"] = "openMM"
     del valid_instance["TPR"]
-    valid_instance["PDB"] = "pdb-test"
+    valid_instance["PDB"] = "test.pdb"
     errors = validate_info_dict(valid_instance)
     assert len(errors) == 0
 
@@ -164,6 +164,9 @@ def valid_readme_instance(valid_instance):
             "ID": 1,
         }
     )
+
+    for comp in inst["COMPOSITION"].values():
+        comp["COUNT"] = 1
     return inst
 
 
@@ -172,7 +175,7 @@ def valid_readme_namd(valid_readme_instance):
     inst = copy.deepcopy(valid_readme_instance)
     inst["SOFTWARE"] = "NAMD"
     del inst["TPR"]
-    inst["PSF"] = ["valid.psf"]
+    inst["PSF"] = [["valid.psf"]]
     return inst
 
 

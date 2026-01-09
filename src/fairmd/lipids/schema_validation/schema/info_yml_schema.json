@@ -2,53 +2,72 @@
   "$schema": "https://json-schema.org/draft-07/schema",
   "type": "object",
   "additionalProperties": true,
-  "required": ["DOI", "TRJ","PREEQTIME","TIMELEFTOUT", "SOFTWARE", "SYSTEM", "COMPOSITION", "FF", "AUTHORS_CONTACT"],
-   "allOf": [
-   {
+  "required": [
+    "DOI",
+    "TRJ",
+    "PREEQTIME",
+    "TIMELEFTOUT",
+    "SOFTWARE",
+    "SYSTEM",
+    "COMPOSITION",
+    "FF",
+    "AUTHORS_CONTACT"
+  ],
+  "allOf": [
+    {
       "if": { "properties": { "SOFTWARE": { "const": "gromacs" } } },
       "then": { "required": ["TPR"] }
-   },
-   {
+    },
+    {
       "if": { "properties": { "SOFTWARE": { "const": "NAMD" } } },
       "then": { "required": ["PSF"] }
-   },
-   {
+    },
+    {
       "if": { "properties": { "SOFTWARE": { "const": "openMM" } } },
       "then": { "required": ["PDB"] }
-   }
-   ],
+    }
+  ],
   "properties": {
-    "DOI": { 
-      "type": "string" },
+    "DOI": {
+      "type": "string"
+    },
     "TRJ": {
-       "type": "string" },
-    "TPR": { 
+      "type": "string"
+    },
+    "TPR": {
       "type": "string",
-      "pattern":"\\.tpr" },
+      "pattern": "\\.tpr$"
+    },
     "SOFTWARE": {
-       "type": "string" ,
-       "enum": ["gromacs", "openMM", "NAMD"]},
-   "PREEQTIME": { 
+      "type": "string",
+      "enum": ["gromacs", "openMM", "NAMD"]
+    },
+    "PREEQTIME": {
       "type": "number",
-     "minimum": 0},    
+      "minimum": 0
+    },
     "TIMELEFTOUT": {
-       "type": "number",
-       "minimum": 0
-      },
+      "type": "number",
+      "minimum": 0
+    },
     "TEMPERATURE": {
-       "type": ["number", "null"]},
+      "type": ["number", "null"]
+    },
     "DIR_WRK": {
-       "type": ["string", "null"] },
+      "type": ["string", "null"]
+    },
     "UNITEDATOM_DICT": {
       "type": ["object", "null"],
       "additionalProperties": {
-        "type": ["string"] 
+        "type": ["string"]
       }
     },
     "TYPEOFSYSTEM": {
-       "type": ["string", "null"] },
+      "type": ["string", "null"]
+    },
     "SYSTEM": {
-       "type": "string" },
+      "type": "string"
+    },
     "COMPOSITION": {
       "type": "object",
       "minProperties": 2,
@@ -63,32 +82,49 @@
       }
     },
     "PUBLICATION": {
-       "type": ["string", "null"] },
+      "type": ["string", "null"]
+    },
     "AUTHORS_CONTACT": {
-       "type": ["string"] },
-   "SOFTWARE_VERSION": {
-       "type": ["string", "number", "null"] },
+      "type": ["string"]
+    },
+    "SOFTWARE_VERSION": {
+      "type": ["string", "number", "null"]
+    },
     "FF": {
-       "type": ["string"] },
+      "type": ["string"]
+    },
     "FF_SOURCE": {
-       "type": ["string", "null"] },
+      "type": ["string", "null"]
+    },
     "FF_DATE": {
-       "type": ["string", "number", "null"]},
+      "type" : ["string", "number", "null"]
+    },
     "CPT": {
-       "type": ["string", "null"] },
+      "type": ["string", "null"],
+      "pattern": "\\.cpt$"
+    },
     "LOG": {
-       "type": ["string", "null"] },
+      "type": ["string", "null"]
+    },
     "TOP": {
-       "type": ["string", "null"] },
+      "type": ["string", "null"],
+      "pattern": "\\.top$"
+    },
     "GRO": {
-       "type": ["string", "null"], 
-       "pattern": "\\.gro$"},
+      "type": ["string", "null"],
+      "pattern": "\\.gro$"
+    },
     "PSF": {
       "type": ["string", "null"],
-      "pattern": "\\.psf"
+      "pattern": "\\.psf$"
+    },
+    "PDB": {
+      "type": ["string", "null"],
+      "pattern": "\\.pdb$"
     },
     "EDR": {
-       "type": ["string", "null"] }
+      "type": ["string", "null"],
+      "pattern": "\\.edr$"
+    }
   }
-
 }

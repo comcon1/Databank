@@ -6,13 +6,22 @@ import sys
 from typing import Literal
 
 import yaml
-from jsonschema import Draft202012Validator, FormatChecker
+from jsonschema import Draft7Validator, FormatChecker, SchemaError
 
 """
 Tools for validating YAML files against predefined JSON Schemas.
 
-When run as a script, this module validates one or more YAML files:
+This module can be run either as a module or as a script.
+
+Module usage:
     python -m fairmd.lipids.schema_validation.validate_yaml --schema readme README.yaml
+
+Script usage:
+    python validate_yaml.py --schema readme README.yaml
+    python validate_yaml.py --schema info info.yml
+
+Multiple files can be validated at once:
+    python validate_yaml.py README.yaml other/README.yaml
 """
 
 
@@ -32,7 +41,7 @@ def validate_info_dict(instance: dict, schema_path: str = default_info_schema_pa
     """
     with open(schema_path, encoding="utf-8") as f:
         schema = json.load(f)
-    validator = Draft202012Validator(schema, format_checker=FormatChecker())
+    validator = Draft7Validator(schema, format_checker=FormatChecker())
     return list(validator.iter_errors(instance))
 
 
@@ -43,6 +52,8 @@ def validate_info_file(info_file_path: str, schema_path: str = default_info_sche
     """
     with open(info_file_path, encoding="utf-8") as f:
         instance = yaml.safe_load(f)
+        if not isinstance(instance, dict) or not instance:
+            raise ValueError("YAML did not contain a non-empty mapping")
     return validate_info_dict(instance, schema_path)
 
 
@@ -54,11 +65,11 @@ def validate_readme_dict(instance: dict, schema_path: str = default_readme_yaml_
     """
     with open(schema_path, encoding="utf-8") as f:
         schema = json.load(f)
-    validator = Draft202012Validator(schema, format_checker=FormatChecker())
+    validator = Draft7Validator(schema, format_checker=FormatChecker())
     return list(validator.iter_errors(instance))
 
 
-def validate_readme_yaml_file(readme_file_path: str, schema_path: str = default_readme_yaml_schema_path):
+def validate_readme_file(readme_file_path: str, schema_path: str = default_readme_yaml_schema_path):
     """
     Validate a README.yaml file on disk against the README JSON schema.
 
@@ -66,47 +77,68 @@ def validate_readme_yaml_file(readme_file_path: str, schema_path: str = default_
     """
     with open(readme_file_path, encoding="utf-8") as f:
         instance = yaml.safe_load(f)
+        if not isinstance(instance, dict) or not instance:
+            raise ValueError("YAML did not contain a non-empty mapping")
     return validate_readme_dict(instance, schema_path)
 
 
-def run_file(path: str, schema_type: schema_type_options) -> int:
+def run_file(path: str, schema_type: schema_type_options) -> None:
     """
-    Runs schema validation on an info.yml or README.yaml file.
+    Validate a single YAML file against the selected schema.
 
-    :param path: path of file to validate
-    :type path: str
-    :param schema_type: info or readme
-    :type schema_type: str
-    :return: error code
-    :rtype: int
+    On success, logs "OK: <path>" and returns normally.
 
-    Exit codes:
-      0 = valid
-      1 = schema invalid
-      2 = file missing / not a file
-      3 = could not read / parse / other runtime error
+    On failure, logs detailed schema errors and raises an exception.
+
+    Raises:
+        FileNotFoundError:
+            If the file does not exist or is not a regular file.
+
+        RuntimeError:
+            If the file was successfully read but failed schema validation.
+
+        ValueError:
+            If the YAML does not contain a non-empty mapping (invalid structure).
+
+        OSError, yaml.YAMLError, json.JSONDecodeError, SchemaError:
+            For I/O errors, invalid YAML, invalid JSON schema, or other runtime failures.
     """
+
     if not os.path.isfile(path):
-        logger.error("File not found (or not a file): %s", path)
-        return 2
+        raise FileNotFoundError(path)
 
     if schema_type == "info":
         errors = validate_info_file(path)
     else:
-        errors = validate_readme_yaml_file(path)
+        errors = validate_readme_file(path)
 
     if not errors:
-        logger.info(f"OK: {path}")
-        return 0
+        logger.info("OK: %s", path)
+        return
 
-    logger.info(f"INVALID: {path}")
+    logger.error("INVALID: %s", path)
     for err in errors:
         keys = ".".join(str(p) for p in err.path) if err.path else "<root>"
-        logger.info(f"  -> {err.message} (at {keys})")
-    return 1
+        logger.error("  -> %s (at %s)", err.message, keys)
+
+    raise RuntimeError("Schema validation failed")
 
 
 def main() -> int:
+    """
+    Command-line entry point for YAML schema validation.
+
+    Validates one or more YAML files against either the FAIRMD
+    info.yml schema or the README.yaml schema.
+
+    Returns:
+        int: Process exit code:
+            0 = all files valid
+            1 = at least one file failed schema validation
+            2 = at least one file was missing or not a regular file
+            3 = at least one file could not be read, parsed, or validated
+                due to YAML, JSON, or runtime errors
+    """
     logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 
     parser = argparse.ArgumentParser(description="Validate YAML files against FAIRMD info / README schemas.")
@@ -129,15 +161,16 @@ def main() -> int:
     for f in args.files:
         path = os.path.normpath(f)
         try:
-            code = run_file(path, args.schema)
-        except (OSError, yaml.YAMLError, json.JSONDecodeError) as e:
+            run_file(path, args.schema)
+        except RuntimeError:
+            exit_code = max(exit_code, 1)
+        except FileNotFoundError:
+            logger.error("File not found (or not a file): %s", path)
+            exit_code = max(exit_code, 2)
+        except (ValueError, OSError, yaml.YAMLError, json.JSONDecodeError, SchemaError) as e:
             logger.error("ERROR: %s", path)
             logger.error("  -> %s: %s", type(e).__name__, e)
-            code = 3
-
-        if code > exit_code:
-            exit_code = code
-
+            exit_code = max(exit_code, 3)
     return exit_code
 
 
