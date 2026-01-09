@@ -15,6 +15,7 @@ import scipy.stats
 
 from fairmd.lipids import FMDL_SIMU_PATH
 from fairmd.lipids.analib.formfactor import get_mins_from_ffdata
+from fairmd.lipids.api import get_FF
 from fairmd.lipids.core import System, initialize_databank, lipids_set
 
 
@@ -410,18 +411,11 @@ def load_simulation_qe() -> list[QualSimulation]:
                     pass
                 sim_op_data[lip_mol] = op_data
 
-            sim_ff_data = {}  # form factor data
-            filename2 = os.path.join(
-                FMDL_SIMU_PATH,
-                system["path"],
-                "FormFactor.json",
-            )
             try:
-                with open(filename2) as json_file:
-                    sim_ff_data = json.load(json_file)
+                sim_ff_data = get_FF(system)
             except FileNotFoundError:
                 # FormFactor data for this system is missed
-                pass
+                sim_ff_data = {}  # form factor data
             simulations.append(
                 QualSimulation(system, sim_op_data, sim_ff_data, system["path"]),
             )
