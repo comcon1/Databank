@@ -96,7 +96,7 @@ class System(MutableMapping):
                 total += sum(v["COUNT"])
         return total
 
-    def membrane_composition(self, which: str = "molar") -> dict[str, float]:
+    def membrane_composition(self, basis: typing.Literal["molar", "mass"] = "molar") -> dict[str, float]:
         """Return the composition of the membrane in system.
 
         :param which: Type of composition to return. Options are:
@@ -104,8 +104,8 @@ class System(MutableMapping):
                       - "mass": compute mass fraction
         :return: dictionary (universal molecule name -> value)
         """
-        if which not in ["molar", "mass"]:
-            msg = "Which must be 'molar' or 'mass'"
+        if basis not in ["molar", "mass"]:
+            msg = "Basis must be 'molar' or 'mass'"
             raise ValueError(msg)
         comp: dict[str, float] = {}
         for k, v in self["COMPOSITION"].items():
@@ -114,10 +114,10 @@ class System(MutableMapping):
             count = sum(v["COUNT"])
             comp[k] = count
         n_lipids = self.n_lipids
-        if which == "molar":
+        if basis == "molar":
             for k in comp:
                 comp[k] /= n_lipids
-        elif which == "mass":
+        else:  # (basis == "mass")
             total_mass = 0.0
             for k in comp:  # noqa: PLC0206 (modify dict while iterating)
                 mol: Lipid = self._content[k]
@@ -128,19 +128,20 @@ class System(MutableMapping):
                 comp[k] /= total_mass
         return comp
 
-    def get_hydration(self, which: str = "number") -> float:
+    def get_hydration(self, basis: typing.Literal["number", "mass"] = "number") -> float:
         """Get system hydration."""
-        if which == "number":
+        if basis not in ["number", "mass"]:
+            msg = "Basis must be 'molar' or 'mass'"
+            raise ValueError(msg)
+        if basis == "number":
             if "SOL" not in self["COMPOSITION"]:
                 msg = "Cannot compute hydration for implicit water (system #{}).".format(self["ID"])
                 raise ValueError(msg)
-            return self["COMPOSITION"]["SOL"]["COUNT"] / self.n_lipids
-        elif which == "mass":
+            hyval = self["COMPOSITION"]["SOL"]["COUNT"] / self.n_lipids
+        else:  # basis == "mass"
             msg = "Mass hydration is not implemented yet."
             raise NotImplementedError(msg)
-        else:
-            msg = "Use number|mass for `which`."
-            raise ValueError(msg)
+        return hyval
 
     def __repr__(self) -> str:
         return f"System({self._store['ID']}): {self._store['path']}"

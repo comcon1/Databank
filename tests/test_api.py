@@ -168,7 +168,8 @@ def test_GetFormFactorMin(systems, systemid, result):
 def test_get_hydration(systems, systemid, result):
     sys0 = systems.loc(systemid)
     hl = sys0.get_hydration()
-    assert hl == pytest.approx(result, 1e-4)
+    check.almost_equal(hl, sys0.get_hydration(basis="number"))  # number is default
+    check.almost_equal(hl, result, abs=1e-4)
 
 
 @pytest.mark.parametrize(
@@ -183,10 +184,10 @@ def test_get_hydration(systems, systemid, result):
 )
 def test_membrane_composition(systems, systemid, lipid, result_molar, result_mass):
     sys0 = systems.loc(systemid)
-    molar_fractions = sys0.membrane_composition(which="molar")
-    mass_fractions = sys0.membrane_composition(which="mass")
+    molar_fractions = sys0.membrane_composition(basis="molar")
+    mass_fractions = sys0.membrane_composition(basis="mass")
     with check.raises(ValueError):
-        _ = sys0.membrane_composition(which="invalid_option")
+        _ = sys0.membrane_composition(basis="invalid_option")
     with check.raises(KeyError):
         _ = molar_fractions["SOPC"]
     err = 0
