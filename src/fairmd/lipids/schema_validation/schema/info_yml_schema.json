@@ -23,7 +23,8 @@
     "TRJ": {
        "type": "string" },
     "TPR": { 
-      "type": "string" },
+      "type": "string",
+      "pattern":"\\.tpr" },
     "SOFTWARE": {
        "type": "string" ,
        "enum": ["gromacs", "openMM", "NAMD"]},
@@ -80,7 +81,12 @@
     "TOP": {
        "type": ["string", "null"] },
     "GRO": {
-       "type": ["string", "null"] },
+       "type": ["string", "null"], 
+       "pattern": "\\.gro$"},
+    "PSF": {
+      "type": ["string", "null"],
+      "pattern": "\\.psf"
+    },
     "EDR": {
        "type": ["string", "null"] }
   }

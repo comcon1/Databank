@@ -75,7 +75,7 @@
           "MAPPING": { "type": "string" },
           "COUNT": { "type": ["array", "integer"]}
         },
-        "required": ["NAME", "MAPPING"]
+        "required": ["NAME", "MAPPING"] 
       }
     },
     "PUBLICATION": {
@@ -91,13 +91,55 @@
     "FF_DATE": {
        "type": ["string", "number", "null"]},
     "CPT": {
-       "type": ["array", "null"] },
+      "anyOf": [
+          {"type": "null"},
+         {
+      "type": "array",
+      "items": {
+        "type": "array",
+        "items": {
+        "pattern": "\\.cpt$"
+        }
+      },
+      "minItems": 1
+    }]},
     "LOG": {
        "type": ["array", "null"] },
     "TOP": {
-       "type": ["array", "null"] },
+       "anyOf": [
+          {"type": "null"},
+         {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "\\.top$"
+      },
+      "minItems": 1
+    }]},
     "GRO": {
-       "type": ["array", "null"] },
+       "anyOf": [
+          {"type": "null"},
+         {
+      "type": "array",
+      "items": {
+        "type": "array",
+        "items": {
+        "pattern": "\\.gro$"
+        }
+      },
+      "minItems": 1
+    }]},
+
+    "PSF": {
+      "anyOf": [
+          {"type": "null"},
+         {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "\\.psf$"
+      },
+      "minItems": 1}]},
     "EDR": {
        "type": ["string", "null"] },
 

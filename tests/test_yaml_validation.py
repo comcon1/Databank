@@ -23,6 +23,11 @@ valid = {
 }
 
 
+@pytest.fixture(scope="module")
+def systems():
+    from fairmd.lipids import FMDL_DATA_PATH, FMDL_SIMU_PATH
+
+
 @pytest.fixture
 def valid_instance():
     return copy.deepcopy(valid)
@@ -162,6 +167,15 @@ def valid_readme_instance(valid_instance):
     return inst
 
 
+@pytest.fixture
+def valid_readme_namd(valid_readme_instance):
+    inst = copy.deepcopy(valid_readme_instance)
+    inst["SOFTWARE"] = "NAMD"
+    del inst["TPR"]
+    inst["PSF"] = ["valid.psf"]
+    return inst
+
+
 def test_valid_readme(valid_readme_instance):
     from fairmd.lipids.schema_validation.validate_yaml import validate_readme_dict
 
@@ -194,3 +208,19 @@ def test_readme_wrong_type_traj_size(valid_readme_instance):
     errors = validate_readme_dict(valid_readme_instance)
     assert len(errors) == 1
     assert errors[0].validator in ("minimum", "type")
+
+
+def test_valid_readme_namd(valid_readme_namd):
+    from fairmd.lipids.schema_validation.validate_yaml import validate_readme_dict
+
+    errors = validate_readme_dict(valid_readme_namd)
+    assert len(errors) == 0
+
+
+def test_namd_wrong_file_ending(valid_readme_namd):
+    from fairmd.lipids.schema_validation.validate_yaml import validate_readme_dict
+
+    valid_readme_namd["PSF"] = ["bad.json"]
+
+    errors = validate_readme_dict(valid_readme_namd)
+    assert len(errors) == 1
