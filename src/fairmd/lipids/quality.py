@@ -14,7 +14,7 @@ import numpy as np
 import scipy.stats
 
 from fairmd.lipids import FMDL_SIMU_PATH
-from fairmd.lipids.analib.formfactor import FormFactorMinFromData
+from fairmd.lipids.analib.formfactor import get_mins_from_ffdata
 from fairmd.lipids.core import System, initialize_databank, lipids_set
 
 
@@ -337,8 +337,8 @@ def get_ffq_scaling(ffd_sim: list, ffd_exp: list) -> Optional[Tuple[float, float
     # Calculates the scaling factor for plotting
     scf = calc_k_e(sim_exp_data)
 
-    sim_min = FormFactorMinFromData(ffd_sim)
-    exp_min = FormFactorMinFromData(ffd_exp)
+    sim_min = get_mins_from_ffdata(ffd_sim)
+    exp_min = get_mins_from_ffdata(ffd_exp)
 
     ffq: float = np.abs(sim_min[0] - exp_min[0]) * 100
 
