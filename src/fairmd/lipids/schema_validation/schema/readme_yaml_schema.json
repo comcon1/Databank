@@ -36,9 +36,28 @@
     "DOI": { 
       "type": "string" },
     "TRJ": {
-       "type": ["array"] },
-    "TPR": { 
-      "type": ["array"] },
+       "type": "array",
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1
+    },
+    "minItems": 1
+  },
+    "TPR": {
+    "type": "array",
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "\\.tpr$"
+      },
+      "minItems": 1
+    },
+    "minItems": 1
+  },
     "SOFTWARE": {
        "type": "string" ,
        "enum": ["gromacs", "openMM", "NAMD"]},

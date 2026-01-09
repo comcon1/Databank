@@ -152,8 +152,8 @@ def valid_readme_instance(valid_instance):
     """Base info dict + README-specific required fields and changes."""
     inst = copy.deepcopy(valid_instance)
 
-    inst["TRJ"] = [inst["TRJ"]]
-    inst["TPR"] = [inst["TPR"]]
+    inst["TRJ"] = [[inst["TRJ"]]]
+    inst["TPR"] = [[inst["TPR"]]]
 
     inst.update(
         {
