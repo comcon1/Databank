@@ -77,12 +77,12 @@ def get_eqtimes(system: System) -> dict:
     try:
         with open(eq_times_path) as f:
             eq_time_dict = json.load(f)
-    except FileNotFoundError:
-        print("No equilibration time information for system#{}.".format(system["ID"]), file=sys.stderr)
-        raise
-    except json.JSONDecodeError:
-        print("Equilibration times information for system#{} is invalid.".format(system["ID"]), file=sys.stderr)
-        raise
+    except FileNotFoundError as e:
+        msg = "No equilibration time information for system#{}.".format(system["ID"])
+        raise FileNotFoundError(msg) from e
+    except json.JSONDecodeError as e:
+        msg = "Equilibration times information for system#{} is invalid.".format(system["ID"])
+        raise ValueError(msg) from e
 
     return eq_time_dict
 
@@ -106,6 +106,7 @@ def get_OP(system: System) -> dict:  # noqa: N802 (API name)
             system["path"],
             mol + "OrderParameters.json",
         )
+        # it always returns dictionary but values can be empty
         if not os.path.isfile(fname):
             warnings.warn(f"{fname} not found for {system['ID']}", stacklevel=2)
             sim_op_data[mol] = None
@@ -114,14 +115,35 @@ def get_OP(system: System) -> dict:  # noqa: N802 (API name)
         try:
             with open(fname) as json_file:
                 op_data = json.load(json_file)
-        except json.JSONDecodeError:
-            print(
-                f"Order parameter data in {fname} is invalid for {system['ID']}",
-                file=sys.stderr,
-            )
-            raise
+        except json.JSONDecodeError as e:
+            msg = f"Order parameter data in {fname} is invalid for {system['ID']}"
+            raise ValueError(msg) from e
         sim_op_data[mol] = op_data
     return sim_op_data
+
+
+def get_FF(system: System) -> np.ndarray:  # noqa: N802 (API name)
+    """
+    Get numpy table of FormFactor curve.
+
+    :param system: Simulation object
+    :return: (q,FF,err) numpy table
+    """
+    fn = os.path.join(
+        FMDL_SIMU_PATH,
+        system["path"],
+        "FormFactor.json",
+    )
+    try:
+        with open(fn) as json_file:
+            sim_ff_data = json.load(json_file)
+    except FileNotFoundError as e:
+        msg = "The form-factor data is missing for system#{}.".format(system["ID"])
+        raise FileNotFoundError(msg) from e
+    except json.JSONDecodeError as e:
+        msg = "The form-factor data for system#{} is invalid.".format(system["ID"])
+        raise ValueError(msg) from e
+    return np.array(sim_ff_data)
 
 
 def get_mean_ApL(system: System) -> float:  # noqa: N802 (API name)
@@ -133,15 +155,15 @@ def get_mean_ApL(system: System) -> float:  # noqa: N802 (API name)
     :return: area per lipid (Å^2)
     """
     path = os.path.join(FMDL_SIMU_PATH, system["path"], "apl.json")
-    if not os.path.isfile(path):
-        msg = "apl.json not found from" + path
-        raise FileNotFoundError(msg)
     try:
         with open(path) as f:
             data = json.load(f)
-    except json.JSONDecodeError:
-        print("Area per lipid data for system #{} in {} is invalid.".format(system["ID"], path), file=sys.stderr)
-        raise
+    except FileNotFoundError as e:
+        msg = "Area per lipid data is absent for system #{}".format(system["ID"])
+        raise FileNotFoundError(msg) from e
+    except json.JSONDecodeError as e:
+        msg = "Area per lipid data for system #{} in {} is invalid.".format(system["ID"], path)
+        raise ValueError(msg) from e
     vals = np.array(list(data.values()))
     return vals.mean()
 
