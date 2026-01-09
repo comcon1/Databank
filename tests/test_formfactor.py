@@ -9,4 +9,3 @@ Test data is stored in `./ToyData/Simulations.2`
 NOTE: globally import of fairmd-lipids is **STRICTLY FORBIDDEN** because it
       breaks the substitution of global path folders
 """
-

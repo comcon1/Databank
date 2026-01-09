@@ -16,6 +16,7 @@ import copy
 import os
 import sys
 import warnings
+import numpy as np
 import pytest
 import pytest_check as check
 
@@ -322,6 +323,42 @@ def test_get_OP_reads_valid_json(systems, systemid, lipid):
     resdic = get_OP(sys0)
 
     assert lipid in resdic
+
+
+@pytest.mark.parametrize(
+    "systemid",
+    [
+        281,
+        243,
+    ],
+)
+def test_get_FF_valid(systems, systemid):
+    from fairmd.lipids.api import get_FF
+
+    sys0 = systems.loc(systemid)
+    ff_data: np.ndarray = get_FF(sys0)
+
+    assert isinstance(ff_data, np.ndarray)
+    check.equal(ff_data.shape[1], 3)
+    check.greater(ff_data.shape[0], 10)
+    check.is_true((ff_data[:, 0] < 1.01).all(), "First column is qq")
+    check.greater(np.mean(ff_data[:, 1] / ff_data[:, 2]), 1, "Error should be smaller than values")
+
+
+@pytest.mark.parametrize(
+    "systemid",
+    [
+        787,
+    ],
+)
+def test_get_FF_missing_file(systems, systemid):
+    from fairmd.lipids.api import get_FF
+
+    sys0 = systems.loc(systemid)
+
+    with check.raises(FileNotFoundError) as e:
+        ff_data = get_FF(sys0)
+    check.is_in("form-factor data is missing", str(e.value))
 
 
 @pytest.mark.parametrize(
