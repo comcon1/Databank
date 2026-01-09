@@ -3,10 +3,10 @@
 import scipy.signal
 
 
-def FormFactorMinFromData(FormFactor):
+def get_mins_from_ffdata(ffdata):
     """Find the position of first minimum in form factor data."""
     FFtmp = []
-    for i in FormFactor:
+    for i in ffdata:
         FFtmp.append(-i[1])
 
     try:
@@ -21,8 +21,8 @@ def FormFactorMinFromData(FormFactor):
     peak_ind = scipy.signal.find_peaks(w)
 
     for i in peak_ind[0]:
-        if FormFactor[i][0] > 0.1:
-            minX.append(FormFactor[i][0])
+        if ffdata[i][0] > 0.1:
+            minX.append(ffdata[i][0])
 
     print(minX)
     return minX
