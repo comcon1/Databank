@@ -227,3 +227,13 @@ def test_namd_wrong_file_ending(valid_readme_namd):
 
     errors = validate_readme_dict(valid_readme_namd)
     assert len(errors) == 1
+
+
+
+def test_valid_readme_file():
+    from fairmd.lipids import FMDL_DATA_PATH
+    from fairmd.lipids.schema_validation.validate_yaml import validate_readme_file
+
+    valid_info_path = os.path.join(FMDL_DATA_PATH,"Simulations.2","aa0", "README.yaml")
+    errors = validate_readme_file(valid_info_path)
+    assert len(errors) == 0
