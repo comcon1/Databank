@@ -1,4 +1,5 @@
 import argparse
+import datetime
 import json
 import logging
 import os
@@ -6,7 +7,7 @@ import sys
 from typing import Literal
 
 import yaml
-from jsonschema import Draft7Validator, FormatChecker, SchemaError
+from jsonschema import Draft7Validator, FormatChecker, SchemaError, ValidationError
 
 """
 Tools for validating YAML files against predefined JSON Schemas.
@@ -34,6 +35,22 @@ default_readme_yaml_schema_path = os.path.join(os.path.dirname(__file__), "schem
 schema_type_options = Literal["info", "readme"]
 
 
+def _filter_yaml_date_string_type_errors(errors: list[ValidationError]) -> list[ValidationError]:
+    """
+    PyYAML may parse unquoted ISO dates (e.g. 2021-02-23) into datetime.date.
+    JSON Schema expects a string (often with format: date).
+    This filters out only that specific type mismatch.
+    """
+    out: list[ValidationError] = []
+    for e in errors:
+        if e.validator == "type" and "string" in e.validator_value:
+            inst = getattr(e, "instance", None)
+            if isinstance(inst, (datetime.date, datetime.datetime)):
+                continue
+        out.append(e)
+    return out
+
+
 def validate_info_dict(instance: dict, schema_path: str = default_info_schema_path):
     """
     Validate an info dict against a schema dict.
@@ -42,7 +59,8 @@ def validate_info_dict(instance: dict, schema_path: str = default_info_schema_pa
     with open(schema_path, encoding="utf-8") as f:
         schema = json.load(f)
     validator = Draft7Validator(schema, format_checker=FormatChecker())
-    return list(validator.iter_errors(instance))
+    errors = list(validator.iter_errors(instance))
+    return _filter_yaml_date_string_type_errors(errors)
 
 
 def validate_info_file(info_file_path: str, schema_path: str = default_info_schema_path):
@@ -66,7 +84,8 @@ def validate_readme_dict(instance: dict, schema_path: str = default_readme_yaml_
     with open(schema_path, encoding="utf-8") as f:
         schema = json.load(f)
     validator = Draft7Validator(schema, format_checker=FormatChecker())
-    return list(validator.iter_errors(instance))
+    errors = list(validator.iter_errors(instance))
+    return _filter_yaml_date_string_type_errors(errors)
 
 
 def validate_readme_file(readme_file_path: str, schema_path: str = default_readme_yaml_schema_path):
