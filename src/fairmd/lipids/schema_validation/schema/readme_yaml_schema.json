@@ -29,7 +29,14 @@
     },
     {
       "if": { "properties": { "SOFTWARE": { "const": "openMM" } } },
-      "then": { "required": ["PDB"] }
+      "then": {
+        "anyOf": [
+          { "required": ["PDB"] },
+          { "required": ["PSF"] },
+          { "required": ["PRMTOP"] },
+          { "required": ["TOP"] }
+        ]
+      }
     }
   ],
   "properties": {
@@ -179,7 +186,7 @@
 
     "PSF": {
       "type": ["array", "null"],
-       "minItems": 1,
+      "minItems": 1,
       "items": {
         "type": "array",
         "minItems": 1,
@@ -188,7 +195,6 @@
           "pattern": "\\.psf$"
         }
       }
-      
     },
     "PDB": {
       "type": ["array", "null"],
