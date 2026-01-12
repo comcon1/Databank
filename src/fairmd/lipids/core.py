@@ -8,7 +8,9 @@ Can be imported without additional libraries to scan Databank system file tree!
 import os
 import sys
 import typing
-from collections.abc import MutableMapping, Sequence
+from abc import ABC, abstractmethod
+from collections.abc import MutableMapping, MutableSet, Sequence
+from typing import Any, Generic, TypeVar
 
 import yaml
 
@@ -261,3 +263,92 @@ def print_README(system: str | typing.Mapping) -> None:  # noqa: N802
     for key in readme_file:
         print("\033[1m" + key + ":" + "\033[0m")
         print(" ", readme_file[key])
+
+
+T = TypeVar("T")
+
+
+class Collection(MutableSet[T], Generic[T], ABC):
+    """A generic, mutable set collection for databank items."""
+
+    def __init__(self, *args: T):
+        """Initialize the Collection with optional initial elements."""
+        self._items: set[T] = set()
+        self._ids: set[str] = set()
+        for arg in args:
+            self.add(arg)
+
+    @abstractmethod
+    def _test_item_type(self, item: Any) -> bool:
+        """Test if an item is of the proper type for the collection."""
+
+    @abstractmethod
+    def _create_item(self, name: str) -> T:
+        """Construct an item of the proper type from a name."""
+
+    @abstractmethod
+    def _get_item_id(self, item: T) -> str:
+        """Get the unique identifier of an item."""
+
+    def __contains__(self, item: Any) -> bool:
+        """Check if an item is in the set by instance or by ID."""
+        return (self._test_item_type(item) and item in self._items) or (
+            isinstance(item, str) and item.upper() in self._ids
+        )
+
+    def __iter__(self):
+        return iter(self._items)
+
+    def __len__(self) -> int:
+        return len(self._items)
+
+    def add(self, item: T | str) -> None:
+        """
+        Add an item to the set.
+
+        If the item is a string, `_create_item` is used to construct the object.
+        """
+        if self._test_item_type(item):
+            self._items.add(item)
+            self._ids.add(self._get_item_id(item).upper())
+        elif isinstance(item, str):
+            new_item = self._create_item(item)
+            self._items.add(new_item)
+            self._ids.add(self._get_item_id(new_item).upper())
+        else:
+            msg = f"Only proper instances or strings can be added to {type(self).__name__}."
+            raise TypeError(msg)
+
+    def discard(self, item: T | str) -> None:
+        """Remove an item from the set without raising an error if it does not exist."""
+        item_id_to_discard = None
+        if self._test_item_type(item):
+            item_id_to_discard = self._get_item_id(item).upper()
+        elif isinstance(item, str):
+            item_id_to_discard = item.upper()
+
+        if item_id_to_discard is None or item_id_to_discard not in self._ids:
+            return
+
+        item_to_remove = self.get(item_id_to_discard)
+        if item_to_remove:
+            self._items.discard(item_to_remove)
+            self._ids.discard(item_id_to_discard)
+
+
+    def get(self, key: str, default: Any = None) -> T | None:
+        """Get an item by its ID (case-insensitive)."""
+        key_upper = key.upper()
+        if key_upper in self._ids:
+            for item in self._items:
+                if self._get_item_id(item).upper() == key_upper:
+                    return item
+        return default
+
+    def __repr__(self) -> str:
+        return f"{type(self).__name__}({sorted(list(self._ids))})"
+
+    @property
+    def ids(self) -> set[str]:
+        """The set of unique identifiers for all items in the collection."""
+        return self._ids
