@@ -24,7 +24,13 @@
     },
     {
       "if": { "properties": { "SOFTWARE": { "const": "openMM" } } },
-      "then": { "required": ["PDB"] }
+      "then": {
+        "anyOf": [
+          { "required": ["PDB"] },
+          { "required": ["PSF"] },
+          { "required": ["AMBERTOP"] }
+        ]
+      }
     }
   ],
   "properties": {
@@ -97,7 +103,7 @@
       "type": ["string", "null"]
     },
     "FF_DATE": {
-      "type" : ["string", "number", "null"]
+      "type": ["string", "number", "null"]
     },
     "CPT": {
       "type": ["string", "null"],

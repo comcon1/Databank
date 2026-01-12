@@ -33,8 +33,7 @@
         "anyOf": [
           { "required": ["PDB"] },
           { "required": ["PSF"] },
-          { "required": ["PRMTOP"] },
-          { "required": ["TOP"] }
+          { "required": ["AMBERTOP"] }
         ]
       }
     }
