@@ -116,6 +116,10 @@
       "type": ["string", "null"],
       "pattern": "\\.top$"
     },
+    "AMBERTOP": {
+      "type": ["string", "null"],
+      "pattern": "\\.(prmtop|parm7|top)$"
+    },
     "GRO": {
       "type": ["string", "null"],
       "pattern": "\\.gro$"

@@ -170,6 +170,18 @@
         }
       }
     },
+    "AMBERTOP": {
+      "type": ["array", "null"],
+      "minItems": 1,
+      "items": {
+        "type": "array",
+        "minItems": 1,
+        "items": {
+          "type": "string",
+          "pattern": "\\.(prmtop|parm7|top)$"
+        }
+      }
+    },
     "GRO": {
       "type": ["array", "null"],
       "minItems": 1,

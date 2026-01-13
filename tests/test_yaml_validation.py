@@ -179,6 +179,14 @@ def valid_readme_namd(valid_readme_instance):
     return inst
 
 
+@pytest.fixture
+def valid_readme_openMM(valid_readme_instance):
+    inst = copy.deepcopy(valid_readme_instance)
+    inst["SOFTWARE"] = "openMM"
+    inst["AMBERTOP"] = [["valid.top"]]
+    return inst
+
+
 def test_valid_readme(valid_readme_instance):
     from fairmd.lipids.schema_validation.validate_yaml import validate_readme_dict
 
@@ -226,6 +234,21 @@ def test_namd_wrong_file_ending(valid_readme_namd):
     valid_readme_namd["PSF"] = ["bad.json"]
 
     errors = validate_readme_dict(valid_readme_namd)
+    assert len(errors) == 1
+
+
+def test_valid_readme_openNN(valid_readme_openMM):
+    from fairmd.lipids.schema_validation.validate_yaml import validate_readme_dict
+
+    errors = validate_readme_dict(valid_readme_openMM)
+    assert len(errors) == 0
+
+
+def test_wrong_filetype_readme_openNN(valid_readme_openMM):
+    from fairmd.lipids.schema_validation.validate_yaml import validate_readme_dict
+
+    valid_readme_openMM["AMBERTOP"] = "bad.gro"
+    errors = validate_readme_dict(valid_readme_openMM)
     assert len(errors) == 1
 
 
