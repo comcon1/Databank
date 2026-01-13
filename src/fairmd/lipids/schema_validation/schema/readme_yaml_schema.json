@@ -98,7 +98,7 @@
     },
     "COMPOSITION": {
       "type": "object",
-      "minProperties": 2,
+      "minProperties": 1,
       "additionalProperties": {
         "type": "object",
         "additionalProperties": false,
