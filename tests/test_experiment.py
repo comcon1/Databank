@@ -6,8 +6,9 @@ import pytest_check as check
 import yaml
 import json
 
-from fairmd.lipids.experiment import ExperimentCollection, OPExperiment, FFExperiment
-from fairmd.lipids.api import FMDL_EXP_PATH, lipids_set
+
+# run only on sim2 mocking data
+pytestmark = [pytest.mark.exp]
 
 @pytest.fixture(scope="module")
 def dummy_experiments(tmp_path_factory):
@@ -62,6 +63,10 @@ def dummy_experiments(tmp_path_factory):
 
 def test_load_experiments(dummy_experiments):
     """Test loading of experiments."""
+    from fairmd.lipids.experiment import ExperimentCollection, OPExperiment, FFExperiment
+    from fairmd.lipids.api import FMDL_EXP_PATH, lipids_set
+    from fairmd.lipids.core import System
+
     collection = ExperimentCollection.load_from_data()
     check.equal(len(collection), 2, "Should load two experiments.")
 
@@ -76,6 +81,9 @@ def test_load_experiments(dummy_experiments):
 
 def test_op_experiment_properties(dummy_experiments):
     """Test properties of OPExperiment."""
+    from fairmd.lipids.experiment import ExperimentCollection, OPExperiment, FFExperiment
+    from fairmd.lipids.api import FMDL_EXP_PATH, lipids_set
+    from fairmd.lipids.core import System
     collection = ExperimentCollection.load_from_data()
     exp = collection.get("exp1")
 
@@ -88,7 +96,10 @@ def test_op_experiment_properties(dummy_experiments):
 
 def test_ff_experiment_properties(dummy_experiments):
     """Test properties of FFExperiment."""
-    collection = ExperimentCollection.load_from_data()
+    from fairmd.lipids.experiment import ExperimentCollection, OPExperiment, FFExperiment
+    from fairmd.lipids.api import FMDL_EXP_PATH, lipids_set
+    from fairmd.lipids.core import System
+    collection = ExperimentCollection[FFExperiment].load_from_data()
     exp = collection.get("exp2")
 
     check.equal(exp.exp_id, "exp2")
@@ -100,7 +111,12 @@ def test_ff_experiment_properties(dummy_experiments):
 
 def test_collection_methods(dummy_experiments):
     """Test methods of ExperimentCollection."""
-    collection = ExperimentCollection.load_from_data()
+    from fairmd.lipids.experiment import ExperimentCollection, OPExperiment, FFExperiment
+    from fairmd.lipids.api import FMDL_EXP_PATH, lipids_set
+    from fairmd.lipids.core import System
+    
+    with pytest.raises(TypeError):
+        ExperimentCollection.load_from_data()
     
     exp1 = collection.get("exp1")
     check.is_in(exp1, collection)
@@ -122,4 +138,6 @@ def test_collection_methods(dummy_experiments):
     collection.add(exp1)
     check.equal(len(collection), 2)
     check.is_in("exp1", collection)
+
+
 

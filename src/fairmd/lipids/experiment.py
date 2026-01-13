@@ -3,15 +3,16 @@
 
 :description: Module for handling experimental data entries in the databank.
 """
+
 import json
 import os
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import Any, Literal
 
 import yaml
 
-from fairmd.lipids.core import Collection
 from fairmd.lipids.api import FMDL_EXP_PATH, lipids_set
+from fairmd.lipids.core import CollectionSingleton
 
 
 class Experiment(ABC):
@@ -95,6 +96,11 @@ class Experiment(ABC):
     def exptype(self) -> str:
         """The type of the experiment."""
 
+    @classmethod
+    def target_folder(cls) -> str:
+        """The target folder name for the experiment type."""
+        raise NotImplementedError("This method should be implemented in subclasses.")
+
     def get_lipids(self, molecules=lipids_set) -> list[str]:
         """Get lipids from molar fractions."""
         return [k for k in self.metadata.get("MOLAR_FRACTIONS", {}) if k in molecules]
@@ -149,6 +155,10 @@ class OPExperiment(Experiment):
     def exptype(self) -> str:
         return "OrderParameters"
 
+    @classmethod
+    def target_folder(cls) -> str:
+        return "OrderParameters"
+
 
 class FFExperiment(Experiment):
     """Represents a form factor experiment."""
@@ -173,30 +183,34 @@ class FFExperiment(Experiment):
     def exptype(self) -> str:
         return "FormFactors"
 
+    @classmethod
+    def target_folder(cls) -> str:
+        return "FormFactors"
 
-class ExperimentCollection(Collection[Experiment]):
+
+class ExperimentCollection(CollectionSingleton[Experiment]):
     """A collection of experiments."""
 
     def _test_item_type(self, item: Any) -> bool:
         return isinstance(item, Experiment)
 
-    def _create_item(self, name: str) -> Experiment:
-        raise NotImplementedError("Cannot create an experiment by name. Use load_from_data.")
-
     def _get_item_id(self, item: Experiment) -> str:
         return item.exp_id
 
     @staticmethod
-    def load_from_data() -> "ExperimentCollection":
+    def load_from_data(exp_type: Literal["OPExperiment", "FFExperiment"] = "OPExperiment") -> "ExperimentCollection":
         """Load experiment data from the designated directory."""
-        collection = ExperimentCollection()
         exp_types = {
-            "OrderParameters": OPExperiment,
-            "FormFactors": FFExperiment,
+            "OPExperiment": OPExperiment,
+            "FFExperiment": FFExperiment,
         }
-
-        for exp_type, exp_cls in exp_types.items():
-            path = os.path.join(FMDL_EXP_PATH, exp_type)
+        if exp_type not in exp_types.keys():
+            msg = "..."
+            raise ValueError(msg)
+        collection = ExperimentCollection()
+        for exp_cls in exp_types.values():
+            # for exp_type, exp_type in exp_types.items():
+            path = os.path.join(FMDL_EXP_PATH, exp_cls.target_folder())
             if not os.path.isdir(path):
                 continue
             for subdir, _, files in os.walk(path):
@@ -210,11 +224,3 @@ class ExperimentCollection(Collection[Experiment]):
                         # Log this error?
                         pass
         return collection
-
-    def loc(self, exp_id: str) -> Experiment:
-        """Locate an experiment by its path-ID."""
-        exp = self.get(exp_id)
-        if exp:
-            return exp
-        msg = f"Experiment with path-ID '{exp_id}' not found in the collection."
-        raise KeyError(msg)
