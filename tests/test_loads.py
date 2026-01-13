@@ -10,6 +10,7 @@ import os
 import requests
 import responses
 import sys
+import time
 
 import pytest
 import pytest_check as check
@@ -177,15 +178,19 @@ class TestResolveFileUrl:
     def test_badDOI(self):
         import fairmd.lipids.databankio as dio
 
+        time.sleep(5)
         # test if bad DOI fails
+        print("Testing bad DOI resolution", file=sys.stderr)
         with check.raises(requests.exceptions.HTTPError) as e:
             dio.resolve_file_url("10.5281/zenodo.8435a", "a", validate_uri=True)
-        check.is_in("404", str(e.value))
+        check.is_in("404", str(e.value), "Bad zenodo ID should raise 404 error")
         # bad DOI doesn't fail if not to check
+        print("Testing DOI resolution without validation", file=sys.stderr)
         check.equal(
             dio.resolve_file_url("10.5281/zenodo.8435a", "a.txt", validate_uri=False),
-            "https://zenodo.org/record/8435a/files/a.txt",
+            "https://zenodo.org/records/8435a/files/a.txt",
         )
+        time.sleep(5)
         # non-zenodo DOI fails
         with check.raises(NotImplementedError) as e:
             dio.resolve_file_url("10.1000/xyz123", "a.txt", validate_uri=False)
@@ -194,10 +199,11 @@ class TestResolveFileUrl:
     def test_goodDOI(self):
         import fairmd.lipids.databankio as dio
 
+        time.sleep(5)
         # good DOI works properly
         assert (
             dio.resolve_file_url("10.5281/zenodo.8435138", "pope-md313rfz.tpr", validate_uri=True)
-            == "https://zenodo.org/record/8435138/files/pope-md313rfz.tpr"
+            == "https://zenodo.org/records/8435138/files/pope-md313rfz.tpr"
         )
 
     @pytest.mark.parametrize(
@@ -213,10 +219,10 @@ class TestResolveFileUrl:
         import fairmd.lipids.databankio as dio
 
         print(f"Testing resolve_doi_url with {name}", file=sys.stderr)
-        url = "https://zenodo.org/record/8435138/files/a.txt"
+        url = "https://zenodo.org/api/records/8435138"
 
         for status in statuses:
-            responses.add(responses.GET, url, status=status)
+            responses.add(responses.GET, url, status=status, body=b'{"files": [{"key": "a.txt"}]}')
 
         if expected_exception:
             with pytest.raises(expected_exception):
