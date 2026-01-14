@@ -11,6 +11,7 @@ import hashlib
 import logging
 import math
 import os
+import time
 from collections.abc import Generator, Mapping
 from contextlib import contextmanager
 
@@ -64,20 +65,21 @@ def _requests_session_with_retry(
 
 @contextmanager
 def _open_url_with_retry(
-    uri: str,
-    backoff: float = 10,
-    *,
-    stream: bool = True,
+    uri: str, backoff: float = 10, *, stream: bool = True, update_headers: dict = {}
 ) -> Generator[requests.Response, None, None]:
     """Open a URL with a timeout and retry logic (aprivate helper).
 
     :param uri: The URL to open.
     :param backoff: The backoff timeout for the request in seconds.
+    :param stream: Whether to stream the response content.
+    :param update_headers: Additional headers to include in the request.
 
     :return: The response object.
     """
+    headers = {"User-Agent": f"fairmd-lipids/{__version__}"}
+    headers.update(update_headers)
     with _requests_session_with_retry(retries=5, backoff=backoff) as session:
-        response = session.get(uri, stream=stream, headers={"User-Agent": f"fairmd-lipids/{__version__}"})
+        response = session.get(uri, stream=stream, headers=headers)
         response.raise_for_status()
         try:
             yield response
@@ -99,7 +101,12 @@ def _get_file_size_with_retry(uri: str) -> int:
 
 
 def download_with_progress_with_retry(
-    uri: str, dest: str, *, tqdm_title: str = "Downloading", stop_after: int | None = None
+    uri: str,
+    dest: str,
+    *,
+    tqdm_title: str = "Downloading",
+    stop_after: int | None = None,
+    total_size: int | None = None,
 ) -> None:
     """Download a file with a progress bar and retry logic.
 
@@ -110,7 +117,9 @@ def download_with_progress_with_retry(
         dest (str): The local destination path to save the file.
         tqdm_title (str): The title used for the progress bar description.
         stop_after (int): Download max num of bytes
+        total_size (int): Total size of the file to download (for resuming).
     """
+    chunk_sz = 8192
 
     class RetrieveProgressBar(tqdm):
         def update_retrieve(self, b=1, bsize=1, tsize=None):
@@ -118,32 +127,48 @@ def download_with_progress_with_retry(
                 self.total = tsize
             return self.update(b * bsize - self.n)
 
-    with (
-        RetrieveProgressBar(
-            unit="B",
-            unit_scale=True,
-            unit_divisor=1024,
-            miniters=1,
-            desc=tqdm_title,
-        ) as u,
-        open(dest, "wb") as f,
-        _open_url_with_retry(uri) as resp,
-    ):
-        total = int(resp.headers.get("Content-Length", 0))
-        if stop_after is not None:
-            total = min(total, stop_after)
-        downloaded = 0
+    with RetrieveProgressBar(
+        unit="B",
+        unit_scale=True,
+        unit_divisor=1024,
+        miniters=1,
+        desc=tqdm_title,
+    ) as u:
+        # go
+        if os.path.isfile(dest) and dest.endswith(".part"):
+            # Resuming download
+            dl_size = os.path.getsize(dest)
 
-        for chunk in resp.iter_content(8192):
-            f.write(chunk)
-            downloaded += len(chunk)
-            if downloaded >= total:
-                break
-            u.update_retrieve(b=downloaded, bsize=1, tsize=total)
+            n_chunks = dl_size // chunk_sz
+            downloaded = chunk_sz * n_chunks
+            if dl_size % chunk_sz != 0:
+                # Truncate file to nearest chunk.
+                print("Applying truncation to nearest chunk size.")
+                with open(dest, "a") as f:
+                    f.truncate(downloaded)
+            u.update_retrieve(b=downloaded, bsize=1, tsize=total_size)
+            mode = "ab"
+            headers = {"Range": f"bytes={downloaded}-"}  # request only missing part
+        else:
+            mode = "wb"
+            headers = {}
+            downloaded = 0
+        # open connection
+        with open(dest, mode) as f, _open_url_with_retry(uri, update_headers=headers) as resp:
+            total = total_size if total_size is not None else int(resp.headers.get("Content-Length", 0))
+            if stop_after is not None:
+                total = min(total, stop_after)
 
-    if downloaded > total:
-        with open(dest, "rb+") as f:
-            f.truncate(total)
+            for chunk in resp.iter_content(chunk_size=chunk_sz):
+                f.write(chunk)
+                downloaded += len(chunk)
+                if downloaded >= total:
+                    break
+                u.update_retrieve(b=downloaded, bsize=1, tsize=total)
+
+        if downloaded > total:
+            with open(dest, "rb+") as f:
+                f.truncate(total)
 
 
 # --- Main Functions ---
@@ -155,6 +180,7 @@ def download_resource_from_uri(
     *,
     override_if_exists: bool = False,
     max_bytes: bool = False,
+    max_restarts: int = 0,
 ) -> int:
     """Download file resource from a URI to a local destination.
 
@@ -214,7 +240,20 @@ def download_resource_from_uri(
     else:
         # Download with progress bar and check for final size match
         dest_part = dest + ".part"
-        download_with_progress_with_retry(uri, dest_part, tqdm_title=fi_name)
+        re = 0
+        while True:
+            try:
+                download_with_progress_with_retry(uri, dest_part, tqdm_title=fi_name, total_size=url_size)
+            except requests.exceptions.ReadTimeout as e:  # noqa: PERF203
+                re += 1
+                if re <= max_restarts:
+                    logger.warning("Download timed out. Attempting restart...")
+                    time.sleep(5)
+                else:
+                    msg = "Maximum download attempts exceeded."
+                    raise ConnectionError(msg) from e
+            else:
+                break
         os.replace(dest_part, dest)
 
     size = os.path.getsize(dest)
