@@ -205,17 +205,17 @@ def download_resource_from_uri(
             )
             return_code = 2
 
-    # Download file in dry run mode
-    if max_bytes:
-        url_size = _get_file_size_with_retry(uri)
-        download_with_progress_with_retry(uri, dest, tqdm_title=fi_name, stop_after=MAX_BYTES_DEFAULT)
-        return 0
-
-    # Download with progress bar and check for final size match
     url_size = _get_file_size_with_retry(uri)
-    dest_part = dest + ".part"
-    download_with_progress_with_retry(uri, dest_part, tqdm_title=fi_name)
-    os.replace(dest_part, dest)
+    if max_bytes:
+        # Download file in dry run mode
+        download_with_progress_with_retry(uri, dest, tqdm_title=fi_name, stop_after=MAX_BYTES_DEFAULT)
+        url_size = min(url_size, MAX_BYTES_DEFAULT)
+        return_code = 0
+    else:
+        # Download with progress bar and check for final size match
+        dest_part = dest + ".part"
+        download_with_progress_with_retry(uri, dest_part, tqdm_title=fi_name)
+        os.replace(dest_part, dest)
 
     size = os.path.getsize(dest)
     if url_size != 0 and url_size != size:
