@@ -9,6 +9,7 @@ import hashlib
 import os
 import requests
 import responses
+from unittest import mock
 import sys
 import time
 
@@ -37,6 +38,9 @@ class TestDownloadWithProgressWithRetry:
             body=body,
             headers={"Content-Length": str(len(body))},
         )
+
+        with check.raises(IsADirectoryError) as e:
+            dio.download_with_progress_with_retry("https://nonexistent.domain/file.bin", str(tmp_path))
 
         dio.download_with_progress_with_retry(self.url, dest)
 
@@ -137,6 +141,36 @@ class TestDownloadResourceFromUri:
             dio.MAX_BYTES_DEFAULT + dsize,
             "Dry-run mode must download not more than some number of bytes",
         )
+
+    @responses.activate
+    def test_download_break_in_the_middle(self, tmp_path):
+        import fairmd.lipids.databankio as dio
+
+        body_part1 = b"a" * 5000
+        # body_part2 = b"b" * 5000
+
+        dest = os.path.join(str(tmp_path), self.fname)
+
+        responses.add(
+            responses.GET,
+            self.url,
+            status=200,
+            body=body_part1,
+            headers={"Content-Length": str(10000)},
+        )
+
+        def _ic_midbrok(chunk_size):
+            yield body_part1
+            raise requests.exceptions.ReadTimeout("timeout")
+
+        with mock.patch(
+            "requests.models.Response.iter_content",
+            side_effect=_ic_midbrok,
+        ):
+            with check.raises(requests.exceptions.ReadTimeout):
+                status = dio.download_resource_from_uri(self.url, dest)
+            check.is_true(os.path.isfile(dest + ".part"), "Partial download must create a file.part")
+            check.is_false(os.path.isfile(dest), "Partial download must not create a file.")
 
 
 class TestGetFileSize:
