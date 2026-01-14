@@ -213,7 +213,9 @@ def download_resource_from_uri(
 
     # Download with progress bar and check for final size match
     url_size = _get_file_size_with_retry(uri)
-    download_with_progress_with_retry(uri, dest, tqdm_title=fi_name)
+    dest_part = dest + ".part"
+    download_with_progress_with_retry(uri, dest_part, tqdm_title=fi_name)
+    os.replace(dest_part, dest)
 
     size = os.path.getsize(dest)
     if url_size != 0 and url_size != size:
