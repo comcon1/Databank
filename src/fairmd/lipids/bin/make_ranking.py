@@ -3,8 +3,7 @@
 Creates different types of ranking lists inside the Databank.
 
 It ranks simulations based on their quality against experiments. The ranking lists are stored in
-``{FMDL_DATA_PATH}/Ranking/`` folder in JSON format.
-The lists can be shown with the ``fairmd.lipids.plottings`` module.
+``{FMDL_DATA_PATH}/Ranking/`` folder in CSV format.
 
 **Usage:**
 
@@ -24,6 +23,8 @@ import pandas as pd
 from fairmd.lipids import FMDL_DATA_PATH
 from fairmd.lipids.api import get_quality, lipids_set
 from fairmd.lipids.core import System, initialize_databank
+
+__all__ = ["make_ranking"]
 
 
 def _make_composition_string(comp: dict) -> str:
@@ -64,9 +65,9 @@ def make_ranking() -> None:
         record = [
             s["ID"],
             s["FF"],
+            _make_composition_string(s["COMPOSITION"]),
             s["TEMPERATURE"],
             _get_hydration_nan(s),
-            _make_composition_string(s["COMPOSITION"]),
             np.round(get_quality(s, experiment="FF"), 4),
             np.round(get_quality(s, experiment="OP"), 4),
             np.round(get_quality(s, part="tails", experiment="OP"), 4),
@@ -108,9 +109,9 @@ def make_ranking() -> None:
             record = [
                 s["ID"],
                 s["FF"],
+                _make_composition_string(s["COMPOSITION"]),
                 s["TEMPERATURE"],
                 _get_hydration_nan,
-                _make_composition_string(s["COMPOSITION"]),
                 np.round(get_quality(s, experiment="FF"), 4),
                 np.round(qq, 4),
                 np.round(tq, 4),
