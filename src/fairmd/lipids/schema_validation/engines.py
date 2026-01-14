@@ -184,7 +184,7 @@ amber_dict = {
         "CATEGORY": "trajectory",
         "EXTENSION": ("nc", "ncdf", "trj", "mdcrd"),
     },
-    "TOP": {
+    "AMBERTOP": {
         "REQUIRED": False,
         "CATEGORY": "topology",
         "TYPE": "file",
@@ -284,8 +284,8 @@ namd_dict = {
         "EXTENSION": ("log"),
         # can be parsed to get software version etc.
     },
-    "TOP": {
-        "REQUIRED": False,
+    "PSF": {
+        "REQUIRED": True,
         "CATEGORY": "topology",
         "TYPE": "file",
         "EXTENSION": ("psf"),
@@ -381,7 +381,13 @@ openmm_dict = {
         "CATEGORY": "structure",
         "EXTENSION": ("pdb",),
     },
-    "TOP": {
+    "AMBERTOP": {
+        "REQUIRED": False,
+        "CATEGORY": "topology",
+        "TYPE": "file",
+        "EXTENSION": ("prmtop", "top"),
+    },
+    "PSF": {
         "REQUIRED": False,
         "CATEGORY": "topology",
         "TYPE": "file",
