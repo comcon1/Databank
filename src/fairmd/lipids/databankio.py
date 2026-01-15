@@ -16,6 +16,7 @@ from collections.abc import Generator, Mapping
 from contextlib import contextmanager
 
 import requests
+import requests.exceptions as rexp
 from requests.adapters import HTTPAdapter
 from tqdm import tqdm
 from urllib3.util.retry import Retry
@@ -225,7 +226,7 @@ def download_resource_from_uri(
                 f"{fi_name} filesize mismatch of local file '{fi_name}', redownloading ...",
             )
             return_code = 2
-        except (requests.exceptions.HTTPError, requests.exceptions.ConnectionError):
+        except (rexp.HTTPError, rexp.ConnectionError):
             logger.exception(
                 f"Failed to verify file size for {fi_name}. Proceeding with redownload.",
             )
@@ -244,7 +245,7 @@ def download_resource_from_uri(
         while True:
             try:
                 download_with_progress_with_retry(uri, dest_part, tqdm_title=fi_name, total_size=url_size)
-            except requests.exceptions.ReadTimeout as e:  # noqa: PERF203
+            except (rexp.ReadTimeout, rexp.ChunkedEncodingError) as e:  # noqa: PERF203
                 re += 1
                 if re <= max_restarts:
                     logger.warning("Download timed out. Attempting restart...")
@@ -300,7 +301,7 @@ def resolve_file_url(doi: str, fi_name: str, *, validate_uri: bool = True) -> st
                     found_flag = True
             if not found_flag:
                 msg = f"File '{fi_name}' not found in zenodo record '{doi}'"
-                raise requests.exceptions.HTTPError(msg)
+                raise rexp.HTTPError(msg)
         else:
             with _open_url_with_retry(uri):
                 pass
