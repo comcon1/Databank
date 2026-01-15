@@ -66,7 +66,11 @@ def _requests_session_with_retry(
 
 @contextmanager
 def _open_url_with_retry(
-    uri: str, backoff: float = 10, *, stream: bool = True, update_headers: dict = {}
+    uri: str,
+    backoff: float = 10,
+    *,
+    stream: bool = True,
+    update_headers: dict | None = None,
 ) -> Generator[requests.Response, None, None]:
     """Open a URL with a timeout and retry logic (aprivate helper).
 
@@ -78,7 +82,8 @@ def _open_url_with_retry(
     :return: The response object.
     """
     headers = {"User-Agent": f"fairmd-lipids/{__version__}"}
-    headers.update(update_headers)
+    if update_headers is not None:
+        headers.update(update_headers)
     with _requests_session_with_retry(retries=5, backoff=backoff) as session:
         response = session.get(uri, stream=stream, headers=headers)
         response.raise_for_status()
