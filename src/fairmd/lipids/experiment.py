@@ -209,8 +209,7 @@ class ExperimentCollection(CollectionSingleton[Experiment]):
             msg = "..."
             raise ValueError(msg)
         collection = ExperimentCollection()
-        for exp_cls in exp_types.values():
-            # for exp_type, exp_type in exp_types.items():
+        for exp_cls in [exp_types[exp_type]]:
             path = os.path.join(FMDL_EXP_PATH, exp_cls.target_folder())
             if not os.path.isdir(path):
                 continue

@@ -188,10 +188,10 @@ class CollectionSingleton(MutableSet[T], Generic[T], ABC):
 
     def __iter__(self):
         return iter(self._items)
-    
+
     def __len__(self) -> int:
         return len(self._items)
-    
+
     def __getitem__(self, index: int) -> T:
         return self._items[index]
 
@@ -210,7 +210,7 @@ class CollectionSingleton(MutableSet[T], Generic[T], ABC):
             msg = f"Only proper instances can be added to {type(self).__name__}."
             raise TypeError(msg)
 
-    def discard(self, id: str|int) -> None:
+    def discard(self, id: str | int) -> None:
         """Remove an item from the set without raising an error if it does not exist."""
         raise NotImplementedError("This method should be implemented for non-set.")
         # if isinstance(id, str):
