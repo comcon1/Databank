@@ -291,7 +291,9 @@ def match_experiments() -> None:
             yaml.dump(simulation.system.readme, f, sort_keys=False, allow_unicode=True)
 
     print("Loading all experiments from databank...")
-    all_experiments = ExperimentCollection.load_from_data()
+    ExperimentCollection.load_from_data("OPExperiment")
+    ExperimentCollection.load_from_data("FFExperiment")
+    all_experiments = ExperimentCollection()
     print(f"{len(all_experiments)} experiments loaded.")
 
     experiments_op = load_experiments("OrderParameters", all_experiments)
