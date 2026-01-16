@@ -155,10 +155,22 @@ T = TypeVar("T")
 class CollectionSingleton(MutableSet[T], Generic[T], ABC):
     """A generic, mutable set collection for databank items."""
 
+    _instance = None
+
+    def __new__(cls, *args, **kwargs):
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+        return cls._instance
+
     def __init__(self):
         """Initialize the Empty Collection."""
         self._items: list[T] = list()
         self._ids: set = set()
+
+    @classmethod
+    def clear_instance(cls):
+        """Clear the singleton instance. For testing purposes only."""
+        cls._instance = None
 
     @abstractmethod
     def _test_item_type(self, item: Any) -> bool:
@@ -170,10 +182,9 @@ class CollectionSingleton(MutableSet[T], Generic[T], ABC):
 
     def __contains__(self, item: Any) -> bool:
         """Check if an item is in the set by instance or by ID."""
-        return (
-            (self._test_item_type(item) and item in self._items)
-            or (item in self._ids)
-        )
+        if isinstance(item, str):
+            item = item.upper()
+        return (self._test_item_type(item) and item in self._items) or (item in self._ids)
 
     def __iter__(self):
         return iter(self._items)
