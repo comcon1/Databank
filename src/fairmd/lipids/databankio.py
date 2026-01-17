@@ -169,6 +169,15 @@ def download_with_progress_with_retry(
         # open connection
         with open(dest, mode) as f, _open_url_with_retry(uri, update_headers=headers) as resp:
             total = total_size if total_size is not None else int(resp.headers.get("Content-Length", 0))
+            if mode == "ab" and resp.status_code != requests.status_codes.codes.PARTIAL_CONTENT:
+                msg = (
+                    "Server doesn't return PARTIAL CONTENT 206 status.",
+                    f"Cannot resume {dest}. Please delete it and restart.",
+                )
+                raise requests.exceptions.HTTPError(msg)
+            if mode == "wb" and resp.status_code != requests.status_codes.codes.OK:
+                msg = f"Failed to download {dest}. Server returned status code {resp.status_code}."
+                raise requests.exceptions.HTTPError(msg)
             if stop_after is not None:
                 total = min(total, stop_after)
 
