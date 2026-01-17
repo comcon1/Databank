@@ -9,6 +9,7 @@ import hashlib
 import os
 import requests
 import responses
+from responses import matchers
 from unittest import mock
 import sys
 import time
@@ -96,6 +97,14 @@ class TestDownloadWithProgressWithRetry:
             body=body_part1 + body_part2,
             headers={"Content-Length": str(dio._fmdl_chunk_size * 2)},
         )
+        responses.add(
+            responses.GET,
+            self.url,
+            status=206,
+            body=body_part2,
+            headers={"Content-Length": str(dio._fmdl_chunk_size * 2)},
+            match=[matchers.header_matcher({"Range": "bytes=8192-"})],
+        )
 
         def _ic_brok(chunk_size):
             yield body_part1
@@ -124,6 +133,12 @@ class TestDownloadWithProgressWithRetry:
             dio._fmdl_chunk_size * 2,
             "Resumed download must have full size",
         )
+        with open(dest, "br") as f:
+            check.equal(
+                f.read(),
+                body_part1 + body_part2,
+                "Resumed download must have full content",
+            )
 
 
 class TestDownloadResourceFromUri:
@@ -202,6 +217,14 @@ class TestDownloadResourceFromUri:
             body=body_part1 + body_part2,
             headers={"Content-Length": str(16384)},
         )
+        responses.add(
+            responses.GET,
+            self.url,
+            status=206,
+            body=body_part2,
+            headers={"Content-Length": str(16384)},
+            match=[matchers.header_matcher({"Range": "bytes=8192-"})],
+        )
 
         def _ic_midbrok(*args, **kwargs):
             yield body_part1
@@ -209,7 +232,7 @@ class TestDownloadResourceFromUri:
 
         with mock.patch(
             "requests.models.Response.iter_content",
-            side_effect=[_ic_midbrok(), iter([body_part1 + body_part2])],
+            side_effect=[_ic_midbrok(), iter([body_part2])],
         ):
             # now try again - should resume
             status = dio.download_resource_from_uri(self.url, dest, max_restarts=1)
