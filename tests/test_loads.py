@@ -154,8 +154,8 @@ class TestDownloadResourceFromUri:
     @pytest.mark.parametrize(
         "fsize, dsize",
         [
-            (52400, 0),
-            (-52400, -52400),
+            (8192 * 4, 0),
+            (-8192 * 4, -8192 * 4),
         ],
     )
     @responses.activate
@@ -191,8 +191,8 @@ class TestDownloadResourceFromUri:
     def test_resume_break_in_the_middle(self, tmp_path):
         import fairmd.lipids.databankio as dio
 
-        body_part1 = b"a" * 5000
-        body_part2 = b"b" * 5000
+        body_part1 = b"a" * 8192
+        body_part2 = b"b" * 8192
 
         dest = os.path.join(str(tmp_path), self.fname)
         responses.add(
@@ -200,7 +200,7 @@ class TestDownloadResourceFromUri:
             self.url,
             status=200,
             body=body_part1 + body_part2,
-            headers={"Content-Length": str(10000)},
+            headers={"Content-Length": str(16384)},
         )
 
         def _ic_midbrok(*args, **kwargs):
@@ -218,16 +218,41 @@ class TestDownloadResourceFromUri:
             check.is_false(os.path.isfile(dest + ".part"), "Resume must remove file.part")
             check.equal(
                 os.path.getsize(dest),
-                10000,
+                16384,
                 "Resumed download must have full size",
             )
+
+    @responses.activate
+    def test_resume_nonmultiply(self, tmp_path):
+        import fairmd.lipids.databankio as dio
+
+        body_part1 = b"a" * 5000
+        body_part2 = b"b" * 5000
+
+        dest = os.path.join(str(tmp_path), self.fname)
+
+        # first create a .part file with non-multiple of chunk size
+        part_path = dest + ".part"
+        with open(part_path, "wb") as f:
+            f.write(body_part1)
+
+        responses.add(
+            responses.GET,
+            self.url,
+            status=200,
+            body=body_part1 + body_part2,
+            headers={"Content-Length": str(10000)},
+        )
+
+        with pytest.raises(RuntimeError, match="should be multiple"):
+            dio.download_resource_from_uri(self.url, dest)
 
     @responses.activate
     def test_download_break_in_the_middle(self, tmp_path):
         import fairmd.lipids.databankio as dio
 
-        body_part1 = b"a" * 5000
-        body_part2 = b"b" * 5000
+        body_part1 = b"a" * 8192
+        body_part2 = b"b" * 8192
 
         def _ic_midbrok(*args, **kwargs):
             yield body_part1
@@ -239,7 +264,7 @@ class TestDownloadResourceFromUri:
             self.url,
             status=200,
             body=body_part1 + body_part2,
-            headers={"Content-Length": str(10000)},
+            headers={"Content-Length": str(16384)},
         )
 
         with mock.patch(
