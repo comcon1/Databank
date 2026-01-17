@@ -40,7 +40,7 @@ class TestDownloadWithProgressWithRetry:
             headers={"Content-Length": str(len(body))},
         )
 
-        with check.raises(IsADirectoryError) as e:
+        with check.raises(OSError) as e:
             dio.download_with_progress_with_retry("https://nonexistent.domain/file.bin", str(tmp_path))
 
         dio.download_with_progress_with_retry(self.url, dest)
