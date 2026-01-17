@@ -25,6 +25,7 @@ from fairmd.lipids import __version__
 
 __all__ = [
     "MAX_BYTES_DEFAULT",
+    "_fmdl_chunk_size",
     "_get_file_size_with_retry",
     "_open_url_with_retry",
     "calc_file_sha1_hash",
@@ -34,6 +35,7 @@ __all__ = [
     "resolve_file_url",
 ]
 
+_fmdl_chunk_size = 8192  # 8 KB, chunk size for downloading files in pieces
 logger = logging.getLogger(__name__)
 MAX_BYTES_DEFAULT = 50 * 1024 * 1024  # 50 MB, default max size for download_resource_from_uri(..., max_bytes=True)
 
@@ -125,7 +127,6 @@ def download_with_progress_with_retry(
         stop_after (int): Download max num of bytes
         total_size (int): Total size of the file to download (for resuming).
     """
-    chunk_sz = 8192
 
     class RetrieveProgressBar(tqdm):
         def update_retrieve(self, b=1, bsize=1, tsize=None):
@@ -145,9 +146,15 @@ def download_with_progress_with_retry(
             # Resuming download
             dl_size = os.path.getsize(dest)
 
-            n_chunks = dl_size // chunk_sz
-            downloaded = chunk_sz * n_chunks
-            if dl_size % chunk_sz != 0:
+            n_chunks = dl_size // _fmdl_chunk_size
+            downloaded = _fmdl_chunk_size * n_chunks
+            if downloaded != dl_size:
+                msg = (
+                    f"Downloaded part-size should be multiple of {_fmdl_chunk_size}. ",
+                    "Please delete '{dest}' and retry.",
+                )
+                raise RuntimeError(msg)
+            if dl_size % _fmdl_chunk_size != 0:
                 # Truncate file to nearest chunk.
                 print("Applying truncation to nearest chunk size.")
                 with open(dest, "a") as f:
@@ -165,7 +172,7 @@ def download_with_progress_with_retry(
             if stop_after is not None:
                 total = min(total, stop_after)
 
-            for chunk in resp.iter_content(chunk_size=chunk_sz):
+            for chunk in resp.iter_content(chunk_size=_fmdl_chunk_size):
                 f.write(chunk)
                 downloaded += len(chunk)
                 if downloaded >= total:
