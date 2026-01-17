@@ -84,8 +84,8 @@ class TestDownloadWithProgressWithRetry:
     def test_download_after_break(self, tmp_path):
         import fairmd.lipids.databankio as dio
 
-        body_part1 = b"a" * 5000
-        body_part2 = b"b" * 5000
+        body_part1 = b"a" * dio._fmdl_chunk_size
+        body_part2 = b"b" * dio._fmdl_chunk_size
 
         dest = os.path.join(str(tmp_path), self.fname)
 
@@ -94,7 +94,7 @@ class TestDownloadWithProgressWithRetry:
             self.url,
             status=200,
             body=body_part1 + body_part2,
-            headers={"Content-Length": str(10000)},
+            headers={"Content-Length": str(dio._fmdl_chunk_size * 2)},
         )
 
         def _ic_brok(chunk_size):
@@ -111,7 +111,7 @@ class TestDownloadWithProgressWithRetry:
             check.is_true(os.path.isfile(dest), "Partial download must create a file")
             check.equal(
                 os.path.getsize(dest),
-                5000,
+                dio._fmdl_chunk_size,
                 "Partial download must have partial size",
             )
 
@@ -121,7 +121,7 @@ class TestDownloadWithProgressWithRetry:
         check.is_true(os.path.isfile(dest), "Resumed download must create a file")
         check.equal(
             os.path.getsize(dest),
-            10000,
+            dio._fmdl_chunk_size * 2,
             "Resumed download must have full size",
         )
 
