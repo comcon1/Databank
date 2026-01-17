@@ -142,7 +142,7 @@ def download_with_progress_with_retry(
         desc=tqdm_title,
     ) as u:
         # go
-        if os.path.isfile(dest) and dest.endswith(".part"):
+        if os.path.isfile(dest):
             # Resuming download
             dl_size = os.path.getsize(dest)
 
