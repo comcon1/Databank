@@ -5,7 +5,9 @@
 """
 
 import os
+import numpy as np
 import pytest
+import pytest_check as check
 import yaml
 
 
@@ -103,9 +105,9 @@ class TestOPExperiment:
 
         """Test properties of OPExperiment."""
         exp = OPExperiment("exp1", mock_op_experiment_path)
-        assert exp.molname == "POPC"
-        assert exp.exptype == "OrderParameters"
-        assert OPExperiment.target_folder() == "OrderParameters"
+        check.equal(exp.molname, "POPC")
+        check.equal(exp.exptype, "OrderParameters")
+        check.equal(OPExperiment.target_folder(), "OrderParameters")
 
     def test_empty_data(self, mock_empty_data_path):
         from fairmd.lipids.experiment import OPExperiment
@@ -126,7 +128,7 @@ class TestFFExperiment:
         exp = FFExperiment("exp2", mock_ff_experiment_path)
         assert exp.exp_id == "exp2"
         assert exp.path == mock_ff_experiment_path
-        assert exp.metadata["TEMPERATURE"] == 298.15
+        check.almost_equal(exp.metadata["TEMPERATURE"], 298.15, abs=1e-6)
 
     def test_data_loading(self, mock_ff_experiment_path):
         from fairmd.lipids.experiment import FFExperiment
@@ -135,7 +137,7 @@ class TestFFExperiment:
         exp = FFExperiment("exp2", mock_ff_experiment_path)
         data = exp.data
         assert "q" in data
-        assert data["I"] == [1.0, 0.5, 0.2]
+        np.testing.assert_allclose(data["I"], [1.0, 0.5, 0.2])
 
     def test_properties(self, mock_ff_experiment_path):
         from fairmd.lipids.experiment import FFExperiment
