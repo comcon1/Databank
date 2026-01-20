@@ -12,8 +12,8 @@ from typing import Any, Literal
 import yaml
 
 from fairmd.lipids import FMDL_EXP_PATH
-from fairmd.lipids.molecules import lipids_set
 from fairmd.lipids.core import CollectionSingleton
+from fairmd.lipids.molecules import lipids_set
 
 
 class Experiment(ABC):

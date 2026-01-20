@@ -9,12 +9,12 @@ import os
 import sys
 import typing
 from abc import ABC, abstractmethod
-from collections.abc import MutableMapping, MutableSet, Sequence
+from collections.abc import MutableMapping, MutableSet
 from typing import Any, Generic, TypeVar
 
 import yaml
 
-from fairmd.lipids import FMDL_DATA_PATH, FMDL_SIMU_PATH
+from fairmd.lipids import FMDL_SIMU_PATH
 from fairmd.lipids.molecules import Lipid, Molecule, NonLipid, lipids_set, molecules_set
 
 

@@ -18,7 +18,7 @@ No arguments are needed.
 
 import logging
 import os
-from typing import IO, List
+from typing import IO
 
 import yaml
 from tqdm import tqdm
