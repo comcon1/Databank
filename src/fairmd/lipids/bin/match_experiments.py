@@ -26,6 +26,7 @@ from tqdm import tqdm
 from fairmd.lipids import FMDL_EXP_PATH, FMDL_SIMU_PATH
 from fairmd.lipids.api import lipids_set
 from fairmd.lipids.core import System, initialize_databank
+from fairmd.lipids.experiment import Experiment, ExperimentCollection
 
 logger = logging.getLogger("__name__")
 
@@ -107,34 +108,6 @@ class SearchSystem:
 ##################
 
 
-class Experiment:
-    def __init__(self, readme: dict, molname: str, data_path: str, exptype: str):
-        self.readme = readme
-        self.molname = molname  # <- the dictionary about existence of data files
-        self.dataPath = data_path  # .... for particular lipids
-        self.exptype = exptype
-
-    def get_lipids(self, molecules=lipids_set) -> list[str]:
-        lipids = [k for k in self.readme["MOLAR_FRACTIONS"] if k in molecules]
-        return lipids
-
-    def get_ions(self, ions) -> list[str]:
-        exp_ions: list[str] = []
-
-        for key in ions:
-            try:
-                if self.readme["ION_CONCENTRATIONS"][key] != 0:
-                    exp_ions.append(key)
-            except KeyError:
-                continue
-            try:
-                if key in self.readme["COUNTER_IONS"]:
-                    exp_ions.append(key)
-            except (TypeError, KeyError):
-                continue
-        return exp_ions
-
-
 def load_simulations() -> list[SearchSystem]:
     """
     Generates the list of Simulation objects. Go through all README.yaml files.
@@ -155,49 +128,12 @@ def load_simulations() -> list[SearchSystem]:
     return simulations
 
 
-def load_experiments(exp_type: str) -> list[Experiment]:
+def load_experiments(exp_type: str, all_experiments: ExperimentCollection) -> list[Experiment]:
     """
-    Loops over the experiment entries in the experiment databank and read experiment
-    readme and order parameter files into objects.
+    Filters experiments from the collection by experiment type.
     """
-    if exp_type == "OrderParameters":
-        data_file = "_OrderParameters.json"
-    elif exp_type == "FormFactors":
-        data_file = "_FormFactor.json"
-    else:
-        raise NotImplementedError("Only OrderParameters and FormFactors types are implemented.")
-
-    print("Build experiments [%s] index..." % exp_type, end="")
-    rm_idx = []
-
-    path = os.path.join(FMDL_EXP_PATH, exp_type)
-    for subdir, _, files in os.walk(path):
-        for fn in files:
-            if fn == "README.yaml":
-                rm_idx.append(subdir)
-    print("%d READMEs loaded." % len(rm_idx))
-
-    print("Loading data for each experiment.")
-    experiments: list[Experiment] = []
-    for subdir in tqdm(rm_idx, desc="Experiment"):
-        try:
-            exp_readme_fp = os.path.join(subdir, "README.yaml")
-            with open(exp_readme_fp) as yaml_file_exp:
-                exp_readme = yaml.load(yaml_file_exp, Loader=yaml.FullLoader)
-        except (FileNotFoundError, PermissionError):
-            logger.warning(f"Problems while accessing README.yaml in: {subdir}")
-            continue
-
-        for fname in os.listdir(subdir):
-            if fname.endswith(data_file):
-                molecule_name = ""
-                if exp_type == "OrderParameters":
-                    molecule_name = fname.replace(data_file, "")
-                elif exp_type == "FormFactors":
-                    molecule_name = "system"
-                experiments.append(Experiment(exp_readme, molecule_name, subdir, exp_type))
-
-    return experiments
+    print(f"Filtering for {exp_type} experiments...")
+    return [exp for exp in all_experiments if exp.exptype == exp_type]
 
 
 def find_pairs(experiments: list[Experiment], simulations: list[SearchSystem]):
@@ -219,7 +155,7 @@ def find_pairs(experiments: list[Experiment], simulations: list[SearchSystem]):
 
             exp_total_lipid_concentration = experiment.readme["TOTAL_LIPID_CONCENTRATION"]
             exp_ions = experiment.get_ions(ions_list)
-            exp_counter_ions = experiment.readme["COUNTER_IONS"]
+            exp_counter_ions = experiment.readme.get("COUNTER_IONS")
 
             # calculate simulation ion concentrations
             sim_concentrations = {}
@@ -283,6 +219,8 @@ def find_pairs(experiments: list[Experiment], simulations: list[SearchSystem]):
                         )
                         if experiment.exptype == "OrderParameters":
                             lipid = experiment.molname
+                            if lipid not in simulation.system["EXPERIMENT"]["ORDERPARAMETER"]:
+                                simulation.system["EXPERIMENT"]["ORDERPARAMETER"][lipid] = []
                             simulation.system["EXPERIMENT"]["ORDERPARAMETER"][lipid].append(exp_path)
                         elif experiment.exptype == "FormFactors":
                             simulation.system["EXPERIMENT"]["FORMFACTOR"].append(exp_path)
@@ -352,8 +290,14 @@ def match_experiments() -> None:
         with open(readme_path, "w") as f:
             yaml.dump(simulation.system.readme, f, sort_keys=False, allow_unicode=True)
 
-    experiments_op = load_experiments("OrderParameters")
-    experiments_ff = load_experiments("FormFactors")
+    print("Loading all experiments from databank...")
+    ExperimentCollection.load_from_data("OPExperiment")
+    ExperimentCollection.load_from_data("FFExperiment")
+    all_experiments = ExperimentCollection()
+    print(f"{len(all_experiments)} experiments loaded.")
+
+    experiments_op = load_experiments("OrderParameters", all_experiments)
+    experiments_ff = load_experiments("FormFactors", all_experiments)
 
     # Pair each simulation with an experiment with the closest matching temperature
     # and composition
