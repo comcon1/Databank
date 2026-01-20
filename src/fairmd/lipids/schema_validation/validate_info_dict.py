@@ -1,7 +1,7 @@
 import copy
 
 from fairmd.lipids.molecules import lipids_set, molecule_ff_set, molecules_set
-from fairmd.lipids.SchemaValidation.engines import software_dict
+from fairmd.lipids.schema_validation.engines import software_dict
 
 
 class YamlBadConfigError(Exception):

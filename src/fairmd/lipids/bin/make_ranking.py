@@ -3,8 +3,7 @@
 Creates different types of ranking lists inside the Databank.
 
 It ranks simulations based on their quality against experiments. The ranking lists are stored in
-``{FMDL_DATA_PATH}/Ranking/`` folder in JSON format.
-The lists can be shown with the ``fairmd.lipids.plottings`` module.
+``{FMDL_DATA_PATH}/Ranking/`` folder in CSV format.
 
 **Usage:**
 
@@ -15,109 +14,121 @@ The lists can be shown with the ``fairmd.lipids.plottings`` module.
 No arguments are needed.
 """
 
-import json
+import math
 import os
 
-from fairmd.lipids import FMDL_DATA_PATH, FMDL_SIMU_PATH
-from fairmd.lipids.api import lipids_set
-from fairmd.lipids.auxiliary.jsonEncoders import CompactJSONEncoder
-from fairmd.lipids.core import initialize_databank
+import numpy as np
+import pandas as pd
+
+from fairmd.lipids import FMDL_DATA_PATH
+from fairmd.lipids.api import get_quality, lipids_set
+from fairmd.lipids.core import System, initialize_databank
+
+__all__ = ["make_ranking"]
 
 
-def make_ranking():
-    systems = initialize_databank()
+def _make_composition_string(comp: dict) -> str:
+    """Return formatted composition for ranking tables."""
+    lips = []
+    rats = []
+    for k, v in comp.items():
+        if k in lipids_set:
+            lips += [k]
+            rats += [sum(v["COUNT"])]
+    # sort lipids alphabetically
+    lips = np.array(lips)
+    rats = np.array(rats)
+    ids = np.argsort(lips)
+    lips = lips[ids]
+    rats = rats[ids]
+    div = math.gcd(*rats)
+    comp_s = ":".join(map(str, (rats / div).astype(np.int32)))
+    return ":".join(lips) + " (" + comp_s + ")"
 
-    # ---- Making list of qualities
-    qualities = []
-    for system in systems:
-        path = os.path.join(FMDL_SIMU_PATH, system["path"])
 
-        total_quality_file_path = os.path.join(path, "SYSTEM_quality.json")
+def _get_hydration_nan(s: System) -> float:
+    """Return hydration (allowing nan)."""
+    try:
+        hy = np.round(s.get_hydration(), 1)
+    except ValueError:
+        hy = np.nan  # implicit water
+    return hy
 
-        fragment_Q = {}  # noqa: N816
-        for lipid in system["COMPOSITION"]:
-            quality_file = os.path.join(path, lipid + "_FragmentQuality.json")
-            try:
-                with open(quality_file) as json_file:
-                    fragment_Q[lipid] = json.load(json_file)
-            except Exception:
+
+def make_ranking() -> None:
+    """Make ranking CSV tables."""
+    ss = initialize_databank()
+
+    # GLOBAL FF and OP rankings
+    res_array = []
+    for s in ss:
+        record = [
+            s["ID"],
+            s["FF"],
+            _make_composition_string(s["COMPOSITION"]),
+            s["TEMPERATURE"],
+            _get_hydration_nan(s),
+            np.round(get_quality(s, experiment="FF"), 4),
+            np.round(get_quality(s, experiment="OP"), 4),
+            np.round(get_quality(s, part="tails", experiment="OP"), 4),
+            np.round(get_quality(s, part="headgroup", experiment="OP"), 4),
+        ]
+        res_array.append(record)
+
+    df = pd.DataFrame(res_array)
+    df.columns = ["ID", "FF", "composition", "T", "Hydration", "Q_FF", "Q_OP", "Q_OP_tails", "Q_OP_heads"]
+
+    # FF ranking
+    qff_df = df[~df["Q_FF"].isna()]
+    qff_sorted_df = qff_df.sort_values(by="Q_FF", ascending=False)
+    fn = os.path.join(FMDL_DATA_PATH, "Ranking", "FF_ranking.csv")
+    qff_sorted_df.to_csv(fn, index=False)
+
+    # OP ranking
+    qff_df = df[~df["Q_OP"].isna()]
+    qff_sorted_df = qff_df.sort_values(by="Q_OP", ascending=False)
+    fn = os.path.join(FMDL_DATA_PATH, "Ranking", "OP_ranking.csv")
+    qff_sorted_df.to_csv(fn, index=False)
+
+    # Individual lipid NMR
+    res_array = {}
+    for s in ss:
+        for lip in s.lipids:
+            qq = get_quality(s, lipid=lip, experiment="OP")
+            if np.isnan(qq):
                 continue
-
-        if os.path.isfile(total_quality_file_path):
-            with open(total_quality_file_path) as json_file:
-                fragment_Q["TotalQuality"] = json.load(json_file)
-
-        ff_quality_fpath = os.path.join(path, "FormFactorQuality.json")
-        if os.path.isfile(ff_quality_fpath):
-            with open(ff_quality_fpath) as json_file:
-                FFq = json.load(json_file)
             try:
-                fragment_Q["TotalQuality"]
+                hq = get_quality(s, lipid=lip, part="headgroup", experiment="OP")
             except KeyError:
-                fragment_Q["TotalQuality"] = {}
+                hq = np.nan  # Lipid doesn't have head
             try:
-                fragment_Q["TotalQuality"]["FFQuality"] = FFq[0]
-            except (KeyError, TypeError):
-                fragment_Q["TotalQuality"]["FFQuality"] = FFq
-            json_file.close()
+                tq = get_quality(s, lipid=lip, part="tails", experiment="OP")
+            except KeyError:
+                tq = np.nan  # Lipid doesn't have tails
 
-        fragment_Q["system"] = system.readme
-        qualities.append(fragment_Q)
+            record = [
+                s["ID"],
+                s["FF"],
+                _make_composition_string(s["COMPOSITION"]),
+                s["TEMPERATURE"],
+                _get_hydration_nan(s),
+                np.round(get_quality(s, experiment="FF"), 4),
+                np.round(qq, 4),
+                np.round(tq, 4),
+                np.round(hq, 4),
+            ]
+            if lip not in res_array:
+                res_array[lip] = []
+            res_array[lip].append(record)
 
-    # ---- Sort based on total quality of a simulation
-    fragments = ["total", "tails", "headgroup"]
-
-    for sort_based_on in fragments:
-        new_qualities = []
-        for i in qualities:
-            try:
-                if i["TotalQuality"][sort_based_on] > 0:
-                    new_qualities.append(i)
-            except (KeyError, TypeError):
-                continue
-
-        sorted_qualities = sorted(new_qualities, key=lambda i: i["TotalQuality"][sort_based_on], reverse=True)
-
-        outputfile = os.path.join(FMDL_DATA_PATH, "Ranking", "SYSTEM_" + sort_based_on + "_Ranking.json")
-        with open(outputfile, "w") as fp:
-            json.dump(sorted_qualities, fp, default=str, cls=CompactJSONEncoder)
-        print(f"Sorted based on {sort_based_on} quality and saved to {outputfile}")
-
-    new_qualities = []
-    for i in qualities:
-        try:
-            if i["TotalQuality"]["FFQuality"] > 0:
-                new_qualities.append(i)
-        except (KeyError, TypeError):
-            continue
-
-    sorted_qualities = sorted(new_qualities, key=lambda i: i["TotalQuality"]["FFQuality"])
-
-    outputfile = os.path.join(FMDL_DATA_PATH, "Ranking", "SYSTEM_FormFactor_Ranking.json")
-    with open(outputfile, "w") as fp:
-        json.dump(sorted_qualities, fp, default=str, cls=CompactJSONEncoder)
-    print("Sorted based on form factor quality and saved to", outputfile)
-
-    # ---- Sorting best simulations for each lipid
-    fragments = ["total", "sn-1", "sn-2", "headgroup"]
-
-    for sort_based_on in fragments:
-        for lipid in lipids_set:
-            new_qualities = []
-            for i in qualities:
-                try:
-                    if i[lipid][sort_based_on] > 0:
-                        new_qualities.append(i)
-                except (KeyError, TypeError):
-                    continue
-
-            sorted_qualities = sorted(new_qualities, key=lambda i: i[lipid][sort_based_on], reverse=True)
-
-            if sorted_qualities:
-                outputfile = os.path.join(FMDL_DATA_PATH, "Ranking", lipid + "_" + sort_based_on + "_Ranking.json")
-                with open(outputfile, "w") as fp:
-                    json.dump(sorted_qualities, fp, default=str, cls=CompactJSONEncoder)
-                print(f"Quality of {sort_based_on} of {lipid} sorted and saved to {outputfile}")
+    # OP ranking
+    for lipid_name, dataframe in res_array.items():
+        df = pd.DataFrame(dataframe)
+        df.columns = ["ID", "FF", "composition", "T", "Hydration", "Q_FF", "Q_OP", "Q_OP_tails", "Q_OP_heads"]
+        q_df = df[~df["Q_OP"].isna()]
+        q_sorted_df = q_df.sort_values(by="Q_OP", ascending=False)
+        fn = os.path.join(FMDL_DATA_PATH, "Ranking", f"{lipid_name}_ranking.csv")
+        q_sorted_df.to_csv(fn, index=False)
 
 
 if __name__ == "__main__":

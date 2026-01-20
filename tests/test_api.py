@@ -412,3 +412,54 @@ def test_run_analysis_interface():
     )
 
     check.is_in("COMPUTED: 3", log_stream.getvalue())
+
+
+def test_get_quality(systems):
+    from fairmd.lipids.api import get_quality
+
+    sys0 = systems.loc(281)
+    # default quality is TOTAL|BOTH
+    # "boths" experiments work only for "total"
+    q1: float = 0
+    q2: float = 0
+    with check.raises(NotImplementedError):
+        q1 = get_quality(sys0)
+    with check.raises(NotImplementedError):
+        q2 = get_quality(sys0, part="total", experiment="both")
+    # UNCOMMENT WHEN IMPLEMENTED
+    check.equal(q1, q2, "Default run should be TOTAL|BOTH")
+    # for parts "both" is not allowed
+    with check.raises(ValueError):
+        get_quality(sys0, part="headgroup", experiment="both")
+    with check.raises(ValueError):
+        get_quality(sys0, lipid="POPC", experiment="both")
+
+    # total quality can work for each experiment
+    q1 = get_quality(sys0, part="total", experiment="FF")
+    q2 = get_quality(sys0, experiment="FF")  # part=total is default
+    check.equal(q1, q2, "Default `part` must be TOTAL")
+    check.equal(q1, 0.8, "FormFactor quality value is improper!")
+    q = get_quality(sys0, part="total", experiment="OP")
+    check.equal(q, 0.41)
+
+    # FF quality for parts is not allowed
+    with check.raises(ValueError):
+        get_quality(sys0, part="headgroup", experiment="FF")
+    with check.raises(ValueError):
+        get_quality(sys0, lipid="POPC", experiment="FF")
+    # NMR quality can work for parts
+    q = get_quality(sys0, part="headgroup", experiment="OP")
+    check.equal(q, 0.5)
+    q = get_quality(sys0, lipid="POPC", experiment="OP")
+    check.equal(q, 0.4)
+    q = get_quality(sys0, part="tails", lipid="POPC", experiment="OP")
+    check.equal(q, 0.25)
+    # invalid part
+    with check.raises(ValueError):
+        get_quality(sys0, part="invalidpart", experiment="OP")
+    # invalid lipid
+    with check.raises(ValueError):
+        get_quality(sys0, lipid="INVALIDLIPID", experiment="OP")
+    sys0 = systems.loc(566)
+    q = get_quality(sys0, part="tails", lipid="POPC", experiment="OP")
+    check.is_nan(q, "Absent quality must mean nan")

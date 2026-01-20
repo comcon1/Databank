@@ -36,7 +36,7 @@ from fairmd.lipids import FMDL_SIMU_PATH
 from fairmd.lipids.core import System
 from fairmd.lipids.databankio import download_resource_from_uri, resolve_file_url
 from fairmd.lipids.molecules import Molecule, lipids_set
-from fairmd.lipids.SchemaValidation.engines import get_struc_top_traj_fnames
+from fairmd.lipids.schema_validation.engines import get_struc_top_traj_fnames
 
 logger = logging.getLogger(__name__)
 
@@ -144,6 +144,62 @@ def get_FF(system: System) -> np.ndarray:  # noqa: N802 (API name)
         msg = "The form-factor data for system#{} is invalid.".format(system["ID"])
         raise ValueError(msg) from e
     return np.array(sim_ff_data)
+
+
+def get_quality(
+    system: System,
+    *,
+    part: str = "total",
+    lipid: str | None = None,
+    experiment: str = "both",
+) -> dict:
+    """
+    Return quality metrics for a given system.
+
+    :param system: Simulation system
+    :param part: Part of the system to evaluate quality for (total|tails|headgroup)".
+    :param lipid: Lipid name to evaluate quality for (if None, evaluates for all lipids).
+    :param experiment: Experiment type to evaluate quality against (XR|NMR|both).
+    """
+    if part not in ["total", "headgroup", "tails"] or experiment not in ["FF", "OP", "both"]:
+        msg = "Invalid values for `part` or `experiment`!"
+        raise ValueError(msg)
+    if (part != "total" or lipid is not None) and experiment in ["both", "FF"]:
+        msg = "Combined or form-factor qualities are available only for the entire system!"
+        raise ValueError(msg)
+    if part == "total" and experiment == "both":
+        msg = "Quality for both experiments is not implemented!"
+        raise NotImplementedError(msg)
+
+    q = -100
+
+    if experiment == "FF":
+        spath = os.path.join(FMDL_SIMU_PATH, system["path"], "FormFactorQuality.json")
+        if not os.path.isfile(spath):
+            return np.nan
+        with open(spath) as fd:
+            q = float(json.load(fd)[0])
+
+    if experiment == "OP" and lipid is None:
+        spath = os.path.join(FMDL_SIMU_PATH, system["path"], "SYSTEM_quality.json")
+        if not os.path.isfile(spath):
+            return np.nan
+        with open(spath) as fd:
+            qdict = json.load(fd)
+        return float(qdict[part])
+
+    if experiment == "OP" and lipid is not None:
+        if lipid not in system.content:
+            msg = f"Lipid {lipid} is not in the system composition!"
+            raise ValueError(msg)
+        spath = os.path.join(FMDL_SIMU_PATH, system["path"], lipid + "_FragmentQuality.json")
+        if not os.path.isfile(spath):
+            return np.nan
+        with open(spath) as fd:
+            qdict = json.load(fd)
+        q = (float(qdict["sn-1"]) + float(qdict["sn-2"])) / 2 if part == "tails" else float(qdict[part])
+
+    return q
 
 
 def get_mean_ApL(system: System) -> float:  # noqa: N802 (API name)

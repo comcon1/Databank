@@ -19,6 +19,8 @@ from requests.adapters import HTTPAdapter
 from tqdm import tqdm
 from urllib3.util.retry import Retry
 
+from fairmd.lipids import __version__
+
 __all__ = [
     "MAX_BYTES_DEFAULT",
     "_get_file_size_with_retry",
@@ -75,7 +77,7 @@ def _open_url_with_retry(
     :return: The response object.
     """
     with _requests_session_with_retry(retries=5, backoff=backoff) as session:
-        response = session.get(uri, stream=stream)
+        response = session.get(uri, stream=stream, headers={"User-Agent": f"fairmd-lipids/{__version__}"})
         response.raise_for_status()
         try:
             yield response
@@ -239,7 +241,7 @@ def resolve_file_url(doi: str, fi_name: str, *, validate_uri: bool = True) -> st
     """
     if "zenodo" in doi.lower():
         zenodo_entry_number = doi.split(".")[2]
-        uri = f"https://zenodo.org/record/{zenodo_entry_number}/files/{fi_name}"
+        uri = f"https://zenodo.org/records/{zenodo_entry_number}/files/{fi_name}"
     else:
         msg = "Repository not validated. Please upload the data for example to zenodo.org"
         raise NotImplementedError(msg)
@@ -247,8 +249,20 @@ def resolve_file_url(doi: str, fi_name: str, *, validate_uri: bool = True) -> st
     if validate_uri:
         # Use the context helper to check if the URI exists
         # If not - it raises the exceptions
-        with _open_url_with_retry(uri):
-            pass
+        if "zenodo" in doi.lower():
+            api_uri = f"https://zenodo.org/api/records/{zenodo_entry_number}"
+            with _open_url_with_retry(api_uri) as resp:
+                jsresp = resp.json()
+            found_flag = False
+            for t in jsresp["files"]:
+                if t["key"] == fi_name:
+                    found_flag = True
+            if not found_flag:
+                msg = f"File '{fi_name}' not found in zenodo record '{doi}'"
+                raise requests.exceptions.HTTPError(msg)
+        else:
+            with _open_url_with_retry(uri):
+                pass
     return uri
 
 
