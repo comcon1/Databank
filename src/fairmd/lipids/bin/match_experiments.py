@@ -14,6 +14,7 @@ files and into a log file.
     fmdl_match_experiments
 
 No arguments are needed.
+TODO: check if EXPERIMENT section changed and trigger the action!
 """
 
 import logging
@@ -23,20 +24,21 @@ from typing import IO
 import yaml
 from tqdm import tqdm
 
-from fairmd.lipids import FMDL_EXP_PATH, FMDL_SIMU_PATH
+from fairmd.lipids import FMDL_SIMU_PATH
 from fairmd.lipids.api import lipids_set
 from fairmd.lipids.core import System, initialize_databank
 from fairmd.lipids.experiment import Experiment, ExperimentCollection
 
 logger = logging.getLogger("__name__")
 
-# TODO: move ions list into Data
+# TODO: REMOVE IT COMPLETELY!!!
 ions_list = ["POT", "SOD", "CLA", "CAL"]  # should contain names of all ions
 
 LIP_CONC_REL_THRESHOLD = 0.15  # relative acceptable error for determination
 # of the hydration in ssNMR
 
 
+# TODO: derive from Simulation (if not to remove at all!)
 class SearchSystem:
     system: dict
     idx_path: str
@@ -46,10 +48,12 @@ class SearchSystem:
         self.idx_path = readme["path"]
 
     def get_lipids(self, molecules=lipids_set):
+        """Return list of lipids"""
         lipids = [k for k in self.system["COMPOSITION"] if k in molecules]
         return lipids
 
     def get_ions(self, ions):
+        """Return list of non-zero ions"""
         sim_ions = [k for k in self.system["COMPOSITION"] if k in ions]
         return sim_ions
 
@@ -109,9 +113,7 @@ class SearchSystem:
 
 
 def load_simulations() -> list[SearchSystem]:
-    """
-    Generates the list of Simulation objects. Go through all README.yaml files.
-    """
+    """Generate the list of Simulation objects. Go through all README.yaml files."""
     systems = initialize_databank()
     simulations: list[SearchSystem] = []
 
@@ -129,14 +131,12 @@ def load_simulations() -> list[SearchSystem]:
 
 
 def load_experiments(exp_type: str, all_experiments: ExperimentCollection) -> list[Experiment]:
-    """
-    Filters experiments from the collection by experiment type.
-    """
+    """Filter experiments from the collection by experiment type."""
     print(f"Filtering for {exp_type} experiments...")
     return [exp for exp in all_experiments if exp.exptype == exp_type]
 
 
-def find_pairs(experiments: list[Experiment], simulations: list[SearchSystem]):
+def find_pairs_and_change_sims(experiments: list[Experiment], simulations: list[SearchSystem]):
     pairs = []
     for simulation in tqdm(simulations, desc="Simulation"):
         sim_lipids = simulation.get_lipids()
@@ -213,17 +213,13 @@ def find_pairs(experiments: list[Experiment], simulations: list[SearchSystem]):
 
                         # Add path to experiment into simulation README.yaml
                         # many experiment entries can match to same simulation
-                        exp_path = os.path.relpath(
-                            experiment.dataPath,
-                            start=os.path.join(FMDL_EXP_PATH, experiment.exptype),
-                        )
                         if experiment.exptype == "OrderParameters":
-                            lipid = experiment.molname
-                            if lipid not in simulation.system["EXPERIMENT"]["ORDERPARAMETER"]:
-                                simulation.system["EXPERIMENT"]["ORDERPARAMETER"][lipid] = []
-                            simulation.system["EXPERIMENT"]["ORDERPARAMETER"][lipid].append(exp_path)
+                            for lipid in experiment.data:
+                                if lipid not in simulation.system["EXPERIMENT"]["ORDERPARAMETER"]:
+                                    simulation.system["EXPERIMENT"]["ORDERPARAMETER"][lipid] = []
+                                simulation.system["EXPERIMENT"]["ORDERPARAMETER"][lipid].append(experiment.exp_id)
                         elif experiment.exptype == "FormFactors":
-                            simulation.system["EXPERIMENT"]["FORMFACTOR"].append(exp_path)
+                            simulation.system["EXPERIMENT"]["FORMFACTOR"].append(experiment.exp_id)
                     else:
                         continue
 
@@ -232,12 +228,6 @@ def find_pairs(experiments: list[Experiment], simulations: list[SearchSystem]):
         cur_exp["FORMFACTOR"].sort()
         for _lipid in cur_exp["ORDERPARAMETER"]:
             cur_exp["ORDERPARAMETER"][_lipid].sort()
-
-        outfile_dict = os.path.join(FMDL_SIMU_PATH, simulation.idx_path, "README.yaml")
-        with open(outfile_dict, "w") as f:
-            if "path" in simulation.system:
-                del simulation.system["path"]
-            yaml.dump(simulation.system.readme, f, sort_keys=False, allow_unicode=True)
 
     return pairs
 
@@ -278,7 +268,6 @@ def match_experiments() -> None:
     simulations = load_simulations()
 
     # clear all EXPERIMENT sections in all simulations
-    # TODO: check if EXPERIMENT section changed and trigger the action!
     for simulation in simulations:
         simulation.system["EXPERIMENT"] = {}
         simulation.system["EXPERIMENT"]["ORDERPARAMETER"] = {}
@@ -286,30 +275,30 @@ def match_experiments() -> None:
         for lipid in simulation.get_lipids():
             simulation.system["EXPERIMENT"]["ORDERPARAMETER"][lipid] = []
 
-        readme_path = os.path.join(FMDL_SIMU_PATH, simulation.idx_path, "README.yaml")
-        with open(readme_path, "w") as f:
-            yaml.dump(simulation.system.readme, f, sort_keys=False, allow_unicode=True)
-
-    print("Loading all experiments from databank...")
-    ExperimentCollection.load_from_data("OPExperiment")
-    ExperimentCollection.load_from_data("FFExperiment")
-    all_experiments = ExperimentCollection()
-    print(f"{len(all_experiments)} experiments loaded.")
-
-    experiments_op = load_experiments("OrderParameters", all_experiments)
-    experiments_ff = load_experiments("FormFactors", all_experiments)
-
     # Pair each simulation with an experiment with the closest matching temperature
     # and composition
     with open("search-databank-pairs.log", "w") as logf:
         print("Scanning simulation-experiment pairs among order parameter experiments.")
-        pairs_op = find_pairs(experiments_op, simulations)
+        exps = ExperimentCollection.load_from_data("OPExperiment")
+        print(f"{len(exps)} OP experiments loaded.")
+        pairs_op = find_pairs_and_change_sims(exps, simulations)
         logf.write("=== OP PAIRS ===\n")
         log_pairs(pairs_op, logf)
+
+        exps = ExperimentCollection.load_from_data("FFExperiment")
+        print(f"{len(exps)} FF experiments loaded.")
         print("Scanning simulation-experiment pairs among form factor experiments.")
-        pairs_ff = find_pairs(experiments_ff, simulations)
+        pairs_ff = find_pairs_and_change_sims(exps, simulations)
         logf.write("=== FF PAIRS ===\n")
         log_pairs(pairs_ff, logf)
+
+    # save changed simulations
+    for simulation in tqdm(simulations, "Saving READMEs"):
+        outfile_dict = os.path.join(FMDL_SIMU_PATH, simulation.idx_path, "README.yaml")
+        with open(outfile_dict, "w") as f:
+            if "path" in simulation.system:
+                del simulation.system["path"]
+            yaml.dump(simulation.system.readme, f, sort_keys=False, allow_unicode=True)
 
     print("Found order parameter data for " + str(len(pairs_op)) + " pairs")
     print("Found form factor data for " + str(len(pairs_ff)) + " pairs")
