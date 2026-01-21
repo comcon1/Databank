@@ -59,6 +59,10 @@ def make_ranking() -> None:
     """Make ranking CSV tables."""
     ss = initialize_databank()
 
+    ranking_dir = os.path.join(FMDL_DATA_PATH, "Ranking")
+    if not os.path.isdir(ranking_dir):
+        os.mkdir(ranking_dir)
+
     # GLOBAL FF and OP rankings
     res_array = []
     for s in ss:
