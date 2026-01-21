@@ -148,15 +148,8 @@ def download_with_progress_with_retry(
 
             n_chunks = dl_size // _fmdl_chunk_size
             downloaded = _fmdl_chunk_size * n_chunks
-            if downloaded != dl_size:
-                msg = (
-                    f"Downloaded part-size should be multiple of {_fmdl_chunk_size}. ",
-                    "Please delete '{dest}' and retry.",
-                )
-                raise RuntimeError(msg)
             if dl_size % _fmdl_chunk_size != 0:
-                # Truncate file to nearest chunk.
-                print("Applying truncation to nearest chunk size.")
+                print(f"Applying truncation to nearest chunk size [{downloaded}].")
                 with open(dest, "a") as f:
                     f.truncate(downloaded)
             u.update_retrieve(b=downloaded, bsize=1, tsize=total_size)
@@ -168,7 +161,11 @@ def download_with_progress_with_retry(
             downloaded = 0
         # open connection
         with open(dest, mode) as f, _open_url_with_retry(uri, update_headers=headers) as resp:
-            total = total_size if total_size is not None else int(resp.headers.get("Content-Length", 0))
+            if total_size is not None:
+                total = total_size
+            else:
+                content_length = int(resp.headers.get("Content-Length", 0))
+                total = content_length + downloaded if mode == "ab" else content_length
             if mode == "ab" and resp.status_code != requests.status_codes.codes.PARTIAL_CONTENT:
                 msg = (
                     "Server doesn't return PARTIAL CONTENT 206 status.",
@@ -184,9 +181,9 @@ def download_with_progress_with_retry(
             for chunk in resp.iter_content(chunk_size=_fmdl_chunk_size):
                 f.write(chunk)
                 downloaded += len(chunk)
+                u.update_retrieve(b=downloaded, bsize=1, tsize=total)
                 if downloaded >= total:
                     break
-                u.update_retrieve(b=downloaded, bsize=1, tsize=total)
 
         if downloaded > total:
             with open(dest, "rb+") as f:

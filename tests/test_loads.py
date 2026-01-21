@@ -102,7 +102,7 @@ class TestDownloadWithProgressWithRetry:
             self.url,
             status=206,
             body=body_part2,
-            headers={"Content-Length": str(dio._fmdl_chunk_size * 2)},
+            headers={"Content-Length": str(dio._fmdl_chunk_size)},
             match=[matchers.header_matcher({"Range": "bytes=8192-"})],
         )
 
@@ -249,7 +249,7 @@ class TestDownloadResourceFromUri:
     def test_resume_nonmultiply(self, tmp_path):
         import fairmd.lipids.databankio as dio
 
-        body_part1 = b"a" * 5000
+        body_part1 = b"a" * 15000
         body_part2 = b"b" * 5000
 
         dest = os.path.join(str(tmp_path), self.fname)
@@ -259,16 +259,26 @@ class TestDownloadResourceFromUri:
         with open(part_path, "wb") as f:
             f.write(body_part1)
 
-        responses.add(
+        responses.add(  # for size-request mocking
             responses.GET,
             self.url,
             status=200,
             body=body_part1 + body_part2,
-            headers={"Content-Length": str(10000)},
+            headers={"Content-Length": str(20000)},
         )
 
-        with pytest.raises(RuntimeError, match="should be multiple"):
-            dio.download_resource_from_uri(self.url, dest)
+        responses.add(
+            responses.GET,
+            self.url,
+            status=206,
+            body=body_part1[8192:] + body_part2,
+            headers={"Content-Length": str(20000 - 8192)},
+            match=[matchers.header_matcher({"Range": "bytes=8192-"})],
+        )
+
+        dio.download_resource_from_uri(self.url, dest)  # will truncate and continue
+        with open(dest, "br") as fd:
+            check.equal(fd.read(), body_part1 + body_part2, "Success download must get predefined content")
 
     @responses.activate
     def test_download_break_in_the_middle(self, tmp_path):
