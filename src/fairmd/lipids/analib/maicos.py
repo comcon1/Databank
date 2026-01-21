@@ -6,21 +6,18 @@ Wrappers for MAICoS calculations adapted to Databank needs.
 - Custom maicos analysis classes with save methods adapted to Databank needs
 """
 
-import contextlib
 import json
 import os
-import re
-import subprocess
-from collections import deque
 from logging import Logger
 
 import maicos
 import MDAnalysis as mda
 import numpy as np
 from maicos.core import ProfilePlanarBase
-from maicos.lib.weights import density_weights
 from maicos.lib.math import center_cluster
 from maicos.lib.util import get_compound
+from maicos.lib.weights import density_weights
+from tqdm import tqdm
 
 from fairmd.lipids.auxiliary.jsonEncoders import CompactJSONEncoder
 from fairmd.lipids.core import System
@@ -112,10 +109,10 @@ def traj_centering_for_maicos(
 
     if recompute:
         with mda.Writer(xtcwhole, universe.atoms.n_atoms) as W:
-            for ts in universe.trajectory[eq_frame:]:
+            for ts in tqdm(universe.trajectory[eq_frame:]):
                 # unwrap
                 universe.atoms.unwrap(compound=wrap_compound)
-                
+
                 # center on refgroup
                 com_refgroup = center_cluster(refgroup, ref_weights)
                 box_center = ts.dimensions[:3].astype(np.float64) / 2.0

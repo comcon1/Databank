@@ -17,7 +17,6 @@ import sys
 from logging import Logger
 
 import buildh
-import MDAnalysis as mda
 import numpy as np
 from maicos.core.base import AnalysisCollection
 from tqdm import tqdm
@@ -606,6 +605,7 @@ def computeMAICOS(  # noqa: N802 (API)
         eq_time = float(system["TIMELEFTOUT"]) * 1000
         last_atom, g3_atom = first_last_carbon(system, logger)
 
+        recompute_centered = recompute or (not os.path.isfile(os.path.join(spath, "whole.xtc")))
         # Center around one lipid tail CH3 to guarantee all lipids in the same box
         u = uc.build_universe()
         traj_centered = traj_centering_for_maicos(
@@ -614,10 +614,10 @@ def computeMAICOS(  # noqa: N802 (API)
             last_atom,
             g3_atom,
             eq_time,
-            recompute=recompute,
+            recompute=recompute_centered,
         )
         # replace trajectory in universe with centered one
-        u.load_new(traj_centered)
+        u.load_new(traj_centered, format="XTC")
 
         # -- PHILIP code starts here --
         # We us a hardoced bin width
