@@ -72,11 +72,13 @@ def first_last_carbon(system: System, logger: Logger) -> tuple[str, str]:
 
             # TODO: rewrite via lipid dictionary
             for c_idx in range(4, 30):
-                if "M_G1C4_M" in mapping:
+                if "M_G1C4_M" in mapping:  # glycerolipids
                     atom = "M_G1C" + str(c_idx) + "_M"
-                elif "M_G11C4_M" in mapping:
+                elif "M_N1C4_M" in mapping:  # sphingomyelins
+                    atom = "M_N1C" + str(c_idx) + "_M"
+                elif "M_G11C4_M" in mapping:  # other spec.cases
                     atom = "M_G11C" + str(c_idx) + "_M"
-                elif "M_CA4_M" in mapping:
+                elif "M_CA4_M" in mapping:  # other spec.cases
                     atom = "M_CA" + str(c_idx) + "_M"
                 else:
                     # cannot be determined for this particular lipid. Maybe another ..
