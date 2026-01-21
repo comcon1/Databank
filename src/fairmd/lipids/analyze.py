@@ -607,22 +607,17 @@ def computeMAICOS(  # noqa: N802 (API)
         last_atom, g3_atom = first_last_carbon(system, logger)
 
         # Center around one lipid tail CH3 to guarantee all lipids in the same box
-        if "gromacs" in system["SOFTWARE"] and uc.paths["top"] is not None:
-            # xtccentered
-            xtccentered = traj_centering_for_maicos(
-                spath,
-                uc.paths["traj"],
-                uc.paths["top"],
-                last_atom,
-                g3_atom,
-                eq_time,
-                recompute=recompute,
-            )
-            u = mda.Universe(uc.paths["top"], xtccentered)
-        else:
-            logger.warning("Centering for other than Gromacs is currently not implemented.")
-            # it may not work w/o TPR if there are jumps over periodic boundary conditions in z-direction.
-            u = uc.build_universe()
+        u = uc.build_universe()
+        traj_centered = traj_centering_for_maicos(
+            u,
+            spath,
+            last_atom,
+            g3_atom,
+            eq_time,
+            recompute=recompute,
+        )
+        # replace trajectory in universe with centered one
+        u.load_new(traj_centered)
 
         # -- PHILIP code starts here --
         # We us a hardoced bin width
