@@ -6,8 +6,12 @@ Wrappers for MAICoS calculations adapted to Databank needs.
 - Custom maicos analysis classes with save methods adapted to Databank needs
 """
 
+import contextlib
 import json
 import os
+import re
+import subprocess
+from collections import deque
 from logging import Logger
 
 import maicos
@@ -87,7 +91,148 @@ def first_last_carbon(system: System, logger: Logger) -> tuple[str, str]:
     return (last_atom, g3_atom)
 
 
-def traj_centering_for_maicos(
+def traj_centering_for_maicos_gromacs(
+    system_path: str,
+    trj_name: str,
+    tpr_name: str,
+    last_atom: str,
+    g3_atom: str,
+    eq_time: int = 0,
+    *,
+    recompute: bool = False,
+) -> str:
+    """Center trajectory around the center of mass of all methyl carbons."""
+    xtccentered = os.path.join(system_path, "centered.xtc")
+    if os.path.isfile(xtccentered) and not recompute:
+        return xtccentered  # already done
+    if recompute:
+        with contextlib.suppress(FileNotFoundError):
+            os.remove(xtccentered)
+
+    # make index
+    # TODO refactor to MDAnalysis
+    ndxpath = os.path.join(system_path, "foo.ndx")
+    try:
+        echo_input = f"a {last_atom}\nq\n".encode()
+        subprocess.run(["gmx", "make_ndx", "-f", tpr_name, "-o", ndxpath], input=echo_input, check=True)
+    except subprocess.CalledProcessError as e:
+        msg = f"Subprocess failed during ndx file creation: {e}"
+        raise RuntimeError(msg) from e
+    try:
+        with open(ndxpath) as f:
+            last_lines = deque(f, 1)
+        last_atom_id = int(re.split(r"\s+", last_lines[0].strip())[-1])
+        with open(ndxpath, "a") as f:
+            f.write("[ centralAtom ]\n")
+            f.write(f"{last_atom_id}\n")
+    except Exception as e:
+        msg = f"Some error occurred while reading the foo.ndx {ndxpath}"
+        raise RuntimeError(msg) from e
+
+    # start preparing centered trajectory
+    xtcwhole = os.path.join(system_path, "whole.xtc")
+    print("Make molecules whole in the trajectory")
+    with contextlib.suppress(FileNotFoundError):
+        os.remove(xtcwhole)
+    try:
+        echo_proc = b"System\n"
+        subprocess.run(
+            [
+                "gmx",
+                "trjconv",
+                "-f",
+                trj_name,
+                "-s",
+                tpr_name,
+                "-o",
+                xtcwhole,
+                "-pbc",
+                "mol",
+                "-b",
+                str(eq_time),
+            ],
+            input=echo_proc,
+            check=True,
+        )
+    except subprocess.CalledProcessError as e:
+        msg = "trjconv for whole.xtc failed"
+        raise RuntimeError(msg) from e
+
+    # centering irt methyl-groups
+    xtcfoo = os.path.join(system_path, "foo2.xtc")
+    with contextlib.suppress(FileNotFoundError):
+        os.remove(xtcfoo)
+    try:
+        echo_input = b"centralAtom\nSystem"
+        subprocess.run(
+            [
+                "gmx",
+                "trjconv",
+                "-center",
+                "-pbc",
+                "mol",
+                "-n",
+                ndxpath,
+                "-f",
+                xtcwhole,
+                "-s",
+                tpr_name,
+                "-o",
+                xtcfoo,
+            ],
+            input=echo_input,
+            check=True,
+        )
+    except subprocess.CalledProcessError as e:
+        msg = f"trjconv for center failed: {e}"
+        raise RuntimeError(msg) from e
+
+    try:
+        os.remove(ndxpath)
+        os.remove(xtcwhole)
+    except OSError as e:
+        msg = f"Failed to remove temporary files: {e}"
+        raise RuntimeError(msg) from e
+
+    # Center around the center of mass of all the g_3 carbons
+    try:
+        echo_input = f"a {g3_atom}\nq\n".encode()
+        subprocess.run(["gmx", "make_ndx", "-f", tpr_name, "-o", ndxpath], input=echo_input, check=True)
+        echo_input = f"{g3_atom}\nSystem".encode()
+        subprocess.run(
+            [
+                "gmx",
+                "trjconv",
+                "-center",
+                "-pbc",
+                "mol",
+                "-n",
+                ndxpath,
+                "-f",
+                xtcfoo,
+                "-s",
+                tpr_name,
+                "-o",
+                xtccentered,
+            ],
+            input=echo_input,
+            check=True,
+        )
+    except subprocess.CalledProcessError as e:
+        msg = "Failed during centering on g3 carbons."
+        raise RuntimeError(msg) from e
+
+    try:
+        os.remove(xtcfoo)
+        os.remove(ndxpath)
+    except OSError as e:
+        msg = f"A error occurred during removing temporary files {ndxpath} & {xtcfoo}."
+        raise RuntimeError(msg) from e
+
+    return xtccentered
+
+
+def traj_centering_for_maicos_mda(
     universe: mda.Universe,
     system_path: str,
     last_atom: str,
@@ -97,34 +242,35 @@ def traj_centering_for_maicos(
     recompute: bool = False,
 ) -> str:
     """Center trajectory around the center of mass of all methyl carbons."""
-
+    xtccentered = os.path.join(system_path, "whole.xtc")
+    if os.path.isfile(xtccentered) and not recompute:
+        return xtccentered  # already done
+    if recompute:
+        with contextlib.suppress(FileNotFoundError):
+            os.remove(xtccentered)
     # select refgroup based on g3 and last atom
     refgroup = universe.select_atoms(f"name {g3_atom} or name {last_atom}")
     ref_weights = refgroup.masses
-
     wrap_compound = get_compound(universe.atoms)
-
-    xtcwhole = os.path.join(system_path, "whole.xtc")
     eq_frame = int(eq_time / universe.trajectory.dt)
 
-    if recompute:
-        with mda.Writer(xtcwhole, universe.atoms.n_atoms) as W:
-            for ts in tqdm(universe.trajectory[eq_frame:]):
-                # unwrap
-                universe.atoms.unwrap(compound=wrap_compound)
+    with mda.Writer(xtccentered, universe.atoms.n_atoms) as W:
+        for ts in tqdm(universe.trajectory[eq_frame:]):
+            # unwrap
+            universe.atoms.unwrap(compound=wrap_compound)
 
-                # center on refgroup
-                com_refgroup = center_cluster(refgroup, ref_weights)
-                box_center = ts.dimensions[:3].astype(np.float64) / 2.0
-                t = box_center - com_refgroup
-                universe.atoms.translate(t)
+            # center on refgroup
+            com_refgroup = center_cluster(refgroup, ref_weights)
+            box_center = ts.dimensions[:3].astype(np.float64) / 2.0
+            t = box_center - com_refgroup
+            universe.atoms.translate(t)
 
-                # pack back into box
-                universe.atoms.wrap(compound=wrap_compound)
+            # pack back into box
+            universe.atoms.wrap(compound=wrap_compound)
 
-                W.write(universe.atoms)
+            W.write(universe.atoms)
 
-    return xtcwhole
+    return xtccentered
 
 
 class NumpyArrayEncoder(CompactJSONEncoder):

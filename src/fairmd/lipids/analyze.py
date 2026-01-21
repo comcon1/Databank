@@ -37,7 +37,8 @@ from fairmd.lipids.analib.maicos import (
     FormFactorPlanar,
     first_last_carbon,
     is_system_suitable_4_maicos,
-    traj_centering_for_maicos,
+    traj_centering_for_maicos_gromacs,
+    traj_centering_for_maicos_mda,
 )
 from fairmd.lipids.api import UniverseConstructor, mda_gen_selection_mols
 from fairmd.lipids.auxiliary import elements
@@ -609,17 +610,29 @@ def computeMAICOS(  # noqa: N802 (API)
         eq_time = float(system["TIMELEFTOUT"]) * 1000
         last_atom, g3_atom = first_last_carbon(system, logger)
 
-        recompute_centered = recompute or (not os.path.isfile(os.path.join(spath, "whole.xtc")))
         # Center around one lipid tail CH3 to guarantee all lipids in the same box
         u = uc.build_universe()
-        traj_centered = traj_centering_for_maicos(
-            u,
-            spath,
-            last_atom,
-            g3_atom,
-            eq_time,
-            recompute=recompute_centered,
-        )
+
+        if "gromacs" in system["SOFTWARE"]:
+            traj_centered = traj_centering_for_maicos_gromacs(
+                spath,
+                tpr_name=uc.paths["top"],
+                trj_name=uc.paths["traj"],
+                last_atom=last_atom,
+                g3_atom=g3_atom,
+                eq_time=eq_time,
+                recompute=recompute,
+            )
+        else:
+            # SLO-O-O-OW but does the job
+            traj_centered = traj_centering_for_maicos_mda(
+                u,
+                spath,
+                last_atom,
+                g3_atom,
+                eq_time,
+                recompute=recompute,
+            )
         # replace trajectory in universe with centered one
         u.load_new(traj_centered, format="XTC")
 
