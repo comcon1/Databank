@@ -236,7 +236,6 @@ def traj_centering_for_maicos_mda(
     universe: mda.Universe,
     system_path: str,
     last_atom: str,
-    g3_atom: str,
     eq_time: int = 0,
     *,
     recompute: bool = False,
@@ -249,7 +248,7 @@ def traj_centering_for_maicos_mda(
         with contextlib.suppress(FileNotFoundError):
             os.remove(xtccentered)
     # select refgroup based on g3 and last atom
-    refgroup = universe.select_atoms(f"name {g3_atom} or name {last_atom}")
+    refgroup = universe.select_atoms(f"name {last_atom}")
     ref_weights = refgroup.masses
     wrap_compound = get_compound(universe.atoms)
     eq_frame = int(eq_time / universe.trajectory.dt)
