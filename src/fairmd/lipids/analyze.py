@@ -629,7 +629,6 @@ def computeMAICOS(  # noqa: N802 (API)
                 u,
                 spath,
                 last_atom,
-                g3_atom,
                 eq_time,
                 recompute=recompute,
             )
