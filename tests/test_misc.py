@@ -28,6 +28,8 @@ def test_uname2element():
     check.equal(uname2element("M_C1N3_M"), "N")
     check.equal(uname2element("M_X_M"), "Dummy")
     check.equal(uname2element("M_D_M"), "Dummy")
+    check.equal(uname2element("M_G1D_M"), "Dummy")
+    check.equal(uname2element("M_G1O1D2_M"), "Dummy")
 
     with pytest.raises(KeyError):
         uname2element("UnknownElement")
