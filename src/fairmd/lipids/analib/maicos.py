@@ -18,7 +18,10 @@ import maicos
 import MDAnalysis as mda
 import numpy as np
 from maicos.core import ProfilePlanarBase
+from maicos.lib.math import center_cluster
+from maicos.lib.util import get_compound
 from maicos.lib.weights import density_weights
+from tqdm import tqdm
 
 from fairmd.lipids.auxiliary.jsonEncoders import CompactJSONEncoder
 from fairmd.lipids.core import System
@@ -70,11 +73,13 @@ def first_last_carbon(system: System, logger: Logger) -> tuple[str, str]:
 
             # TODO: rewrite via lipid dictionary
             for c_idx in range(4, 30):
-                if "M_G1C4_M" in mapping:
+                if "M_G1C4_M" in mapping:  # glycerolipids
                     atom = "M_G1C" + str(c_idx) + "_M"
-                elif "M_G11C4_M" in mapping:
+                elif "M_N1C4_M" in mapping:  # sphingomyelins
+                    atom = "M_N1C" + str(c_idx) + "_M"
+                elif "M_G11C4_M" in mapping:  # other spec.cases
                     atom = "M_G11C" + str(c_idx) + "_M"
-                elif "M_CA4_M" in mapping:
+                elif "M_CA4_M" in mapping:  # other spec.cases
                     atom = "M_CA" + str(c_idx) + "_M"
                 else:
                     # cannot be determined for this particular lipid. Maybe another ..
@@ -86,7 +91,7 @@ def first_last_carbon(system: System, logger: Logger) -> tuple[str, str]:
     return (last_atom, g3_atom)
 
 
-def traj_centering_for_maicos(
+def traj_centering_for_maicos_gromacs(
     system_path: str,
     trj_name: str,
     tpr_name: str,
@@ -223,6 +228,46 @@ def traj_centering_for_maicos(
     except OSError as e:
         msg = f"A error occurred during removing temporary files {ndxpath} & {xtcfoo}."
         raise RuntimeError(msg) from e
+
+    return xtccentered
+
+
+def traj_centering_for_maicos_mda(
+    universe: mda.Universe,
+    system_path: str,
+    last_atom: str,
+    eq_time: int = 0,
+    *,
+    recompute: bool = False,
+) -> str:
+    """Center trajectory around the center of mass of all methyl carbons."""
+    xtccentered = os.path.join(system_path, "whole.xtc")
+    if os.path.isfile(xtccentered) and not recompute:
+        return xtccentered  # already done
+    if recompute:
+        with contextlib.suppress(FileNotFoundError):
+            os.remove(xtccentered)
+    # select refgroup based on g3 and last atom
+    refgroup = universe.select_atoms(f"name {last_atom}")
+    ref_weights = refgroup.masses
+    wrap_compound = get_compound(universe.atoms)
+    eq_frame = int(eq_time / universe.trajectory.dt)
+
+    with mda.Writer(xtccentered, universe.atoms.n_atoms) as W:
+        for ts in tqdm(universe.trajectory[eq_frame:]):
+            # unwrap
+            universe.atoms.unwrap(compound=wrap_compound)
+
+            # center on refgroup
+            com_refgroup = center_cluster(refgroup, ref_weights)
+            box_center = ts.dimensions[:3].astype(np.float64) / 2.0
+            t = box_center - com_refgroup
+            universe.atoms.translate(t)
+
+            # pack back into box
+            universe.atoms.wrap(compound=wrap_compound)
+
+            W.write(universe.atoms)
 
     return xtccentered
 

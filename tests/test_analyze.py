@@ -209,7 +209,7 @@ def test_analyze_op(systems, systemLoadTraj, systemid, rcodex, logger):
         compareJSONsBtwSD(os.path.relpath(cFile, fmdl.FMDL_SIMU_PATH))
 
 
-@pytest.mark.parametrize("systemid, rcodex", [(281, 1), (566, 1), (787, 2), (243, 1), (86, 1)])
+@pytest.mark.parametrize("systemid, rcodex", [(281, 1), (566, 1), (787, 2), (243, 1), (86, 1), (731, 1)])
 def test_analyze_maicos(systems, systemLoadTraj, systemid, rcodex, logger):
     import fairmd.lipids as fmdl
     from fairmd.lipids.analyze import computeMAICOS
