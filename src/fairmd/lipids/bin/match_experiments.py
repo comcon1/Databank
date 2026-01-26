@@ -246,7 +246,7 @@ def log_pairs(pairs, fd: IO[str]) -> None:
         sysn = sim.system["SYSTEM"]
         simp = sim.idx_path
 
-        expp = exp.dataPath
+        expp = exp.path
         expd = exp.readme.get("ARTICLE_DOI", "[no article DOI]")
 
         fd.write(f"""

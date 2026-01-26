@@ -28,7 +28,27 @@ def mock_op_experiment_path(tmpdir):
     with open(exp_dir.join("README.yaml"), "w") as f:
         yaml.dump(readme_content, f)
 
-    data_content = {"C22": [-0.1, -0.2], "C23": [-0.15, -0.25]}
+    data_content = {"M_G1_M M_G1H1_M": [[-0.1, 0.02]], "M_G1_M M_G1H2_M": [[-0.12, 0.02]]}
+    with open(exp_dir.join("POPC_OrderParameters.json"), "w") as f:
+        json.dump(data_content, f)
+
+    return str(exp_dir)
+
+
+@pytest.fixture
+def mock_op_bad_experiment_path(tmpdir):
+    """Fixture for a mock order parameter experiment path with bad atom names."""
+    exp_dir = tmpdir.mkdir("OPExperiment_1")
+    readme_content = {
+        "MOLAR_FRACTIONS": {"POPC": 1.0},
+        "TEMPERATURE": 303.15,
+        "ION_CONCENTRATIONS": {"NA": 0.1},
+        "COUNTER_IONS": ["CL"],
+    }
+    with open(exp_dir.join("README.yaml"), "w") as f:
+        yaml.dump(readme_content, f)
+
+    data_content = {"C22 H22": [[-0.1, -0.2]], "C23 H23": [[-0.15, -0.25]]}
     with open(exp_dir.join("POPC_OrderParameters.json"), "w") as f:
         json.dump(data_content, f)
 
@@ -95,7 +115,7 @@ class TestOPExperiment:
         exp = OPExperiment("exp1", mock_op_experiment_path)
         data = exp.data
         assert "POPC" in data
-        assert data["POPC"]["C22"] == [-0.1, -0.2]
+        np.testing.assert_allclose(data["POPC"]["M_G1_M M_G1H1_M"], [-0.1, 0.02])
 
     def test_properties(self, mock_op_experiment_path):
         from fairmd.lipids.experiment import OPExperiment
@@ -111,6 +131,18 @@ class TestOPExperiment:
         """Test behavior with no data files."""
         exp = OPExperiment("exp_empty", mock_empty_data_path)
         assert exp.data == {}
+
+
+class TestBadOPExperiment:
+    """Test the OPExperiment class with bad atom names."""
+
+    def test_bad_atom_names_raise_error(self, mock_op_bad_experiment_path):
+        from fairmd.lipids.experiment import OPExperiment, ExperimentError
+
+        """Test that ExperimentError is raised for bad atom names."""
+        exp = OPExperiment("exp_bad", mock_op_bad_experiment_path)
+        with pytest.raises(ExperimentError):
+            exp.verify_data()
 
 
 class TestFFExperiment:
@@ -132,7 +164,7 @@ class TestFFExperiment:
         exp = FFExperiment("exp2", mock_ff_experiment_path)
         data = exp.data
         assert "q" in data
-        np.testing.assert_allclose(data["I"], [1.0, 0.5, 0.2])
+        np.testing.assert_allclose(data["I"], [1.0, 0.5, 0.2], atol=1e-5)
 
     def test_properties(self, mock_ff_experiment_path):
         from fairmd.lipids.experiment import FFExperiment

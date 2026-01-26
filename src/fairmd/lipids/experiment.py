@@ -21,9 +21,7 @@ class ExperimentError(BaseException):
 
 
 class Experiment(ABC):
-    """
-    Abstract base class representing an experimental dataset in the databank.
-    """
+    """Abstract base class representing an experimental dataset in the databank."""
 
     _exp_id: str
     _metadata: dict | None = None
@@ -41,15 +39,11 @@ class Experiment(ABC):
         self._populate_meta_data()
 
     def _get_path(self) -> str:
-        """
-        Return the absolute path to the experiment's directory.
-        """
+        """Return the absolute path to the experiment's directory."""
         return self._path
 
     def _populate_meta_data(self) -> None:
-        """
-        Populate metadata from the README.yaml file.
-        """
+        """Populate metadata from the README.yaml file."""
         self._metadata = {}
         meta_path = os.path.join(self._get_path(), "README.yaml")
         if os.path.isfile(meta_path):
@@ -82,14 +76,13 @@ class Experiment(ABC):
         return self._path
 
     @property
-    def dataPath(self) -> str:
-        """The absolute path to the experiment's directory (for backward compatibility)."""
-        return self._path
-
-    @property
     @abstractmethod
     def data(self) -> dict:
         """Provide access to the experiment's data."""
+
+    @abstractmethod
+    def verify_data(self) -> None:
+        """Verify the integrity and consistency of the experiment's data."""
 
     @property
     @abstractmethod
@@ -98,8 +91,9 @@ class Experiment(ABC):
 
     @classmethod
     def target_folder(cls) -> str:
-        """The target folder name for the experiment type."""
-        raise NotImplementedError("This method should be implemented in subclasses.")
+        """Get target folder name for the experiment type."""
+        msg = "This method should be implemented in subclasses."
+        raise NotImplementedError(msg)
 
     def get_lipids(self, molecules=lipids_set) -> list[str]:
         """Get lipids from molar fractions."""
@@ -143,8 +137,12 @@ class OPExperiment(Experiment):
                         raise ExperimentError(msg)
                     fpath = os.path.join(self._get_path(), fname)
                     with open(fpath) as json_file:
-                        self._data[molecule_name] = json.load(json_file)
+                        _tmpdic = json.load(json_file)
+                        self._data[molecule_name] = {k: v[0] for k, v in _tmpdic.items()}
         return self._data
+
+    def verify_data(self) -> None:
+        pass
 
     @property
     def exptype(self) -> str:
@@ -169,6 +167,9 @@ class FFExperiment(Experiment):
                         self._data = json.load(json_file)
                     break  # Assuming one form factor file per experiment
         return self._data
+
+    def verify_data(self) -> None:
+        pass
 
     @property
     def exptype(self) -> str:
