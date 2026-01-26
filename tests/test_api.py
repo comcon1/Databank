@@ -320,6 +320,7 @@ def test_get_OP_reads_valid_json(systems, systemid, lipid):
     resdic = get_OP(sys0)
 
     assert lipid in resdic
+    np.testing.assert_allclose(resdic[lipid]["M_G1_M M_G1H1_M"], np.array([-0.169826, 0.0268957, 0.00238661]))
 
 
 @pytest.mark.parametrize(

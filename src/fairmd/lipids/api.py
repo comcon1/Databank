@@ -115,10 +115,11 @@ def get_OP(system: System) -> dict:  # noqa: N802 (API name)
         try:
             with open(fname) as json_file:
                 op_data = json.load(json_file)
+            new_op_data = {s: v[0] for s, v in op_data.items()}  # get rid of [[...]] structure
         except json.JSONDecodeError as e:
             msg = f"Order parameter data in {fname} is invalid for {system['ID']}"
             raise ValueError(msg) from e
-        sim_op_data[mol] = op_data
+        sim_op_data[mol] = new_op_data
     return sim_op_data
 
 
