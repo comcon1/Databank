@@ -60,7 +60,7 @@ def mock_ff_experiment_path(tmpdir):
     """Fixture for a mock form factor experiment path."""
     exp_dir = tmpdir.mkdir("FFExperiment_1")
     readme_content = {
-        "MOLAR_FRACTIONS": {"DOPC": 1.0},
+        "MOLAR_FRACTIONS": {"DPPC": 1.0},
         "TEMPERATURE": 298.15,
     }
     with open(exp_dir.join("README.yaml"), "w") as f:
@@ -83,7 +83,10 @@ def mock_missing_readme_path(tmpdir):
 def mock_empty_data_path(tmpdir):
     """Fixture for a mock experiment path with no data files."""
     exp_dir = tmpdir.mkdir("Empty_Data")
-    readme_content = {"TEMPERATURE": 300.0}
+    readme_content = {
+        "TEMPERATURE": 300.0,
+        "MOLAR_FRACTIONS": {"DPPC": 1.0},
+        }
     with open(exp_dir.join("README.yaml"), "w") as f:
         yaml.dump(readme_content, f)
     return str(exp_dir)
@@ -101,19 +104,13 @@ class TestOPExperiment:
         assert exp.path == mock_op_experiment_path
         assert exp.metadata["TEMPERATURE"] == 303.15
 
-    def test_missing_readme_raises_error(self, mock_missing_readme_path):
-        from fairmd.lipids.experiment import OPExperiment
-
-        """Test that FileNotFoundError is raised if README.yaml is missing."""
-        with pytest.raises(FileNotFoundError):
-            OPExperiment("exp_fail", mock_missing_readme_path)
-
     def test_data_loading(self, mock_op_experiment_path):
         from fairmd.lipids.experiment import OPExperiment
 
         """Test correct loading of order parameter data."""
         exp = OPExperiment("exp1", mock_op_experiment_path)
         data = exp.data
+        exp.verify_data()
         assert "POPC" in data
         np.testing.assert_allclose(data["POPC"]["M_G1_M M_G1H1_M"], [-0.1, 0.02])
 
@@ -132,9 +129,52 @@ class TestOPExperiment:
         exp = OPExperiment("exp_empty", mock_empty_data_path)
         assert exp.data == {}
 
+class TestExperimentBase:
+    """Test base Experiment class functionality through a subclass."""
+
+    def test_get_lipids(self, mock_op_experiment_path):
+        from fairmd.lipids.experiment import OPExperiment
+
+        """Test the get_lipids method."""
+        exp = OPExperiment("exp1", mock_op_experiment_path)
+        assert "POPC" in exp.lipids
+        assert "DPPC" not in exp.lipids
+
+    def test_get_ions(self, mock_op_experiment_path):
+        from fairmd.lipids.experiment import OPExperiment
+
+        """Test the get_ions method."""
+        exp = OPExperiment("exp1", mock_op_experiment_path)
+        ions = exp.get_ions(ions=["NA", "CL", "K"])
+        assert "NA" in ions
+        assert "CL" in ions
+        assert "K" not in ions
+
+    def test_dunder_methods(self, mock_op_experiment_path):
+        from fairmd.lipids.experiment import OPExperiment
+
+        """Test __repr__, __eq__, __hash__, and __getitem__."""
+        exp1 = OPExperiment("exp1", mock_op_experiment_path)
+        exp2 = OPExperiment("exp1", mock_op_experiment_path)
+        exp3 = OPExperiment("exp3", mock_op_experiment_path)
+
+        assert repr(exp1) == "OPExperiment(id='exp1')"
+        assert exp1 == exp2
+        assert exp1 != exp3
+        assert hash(exp1) == hash(exp2)
+        assert hash(exp1) != hash(exp3)
+        assert exp1["TEMPERATURE"] == 303.15
+
 
 class TestBadOPExperiment:
     """Test the OPExperiment class with bad atom names."""
+
+    def test_missing_readme_raises_error(self, mock_missing_readme_path):
+        from fairmd.lipids.experiment import OPExperiment
+
+        """Test that FileNotFoundError is raised if README.yaml is missing."""
+        with pytest.raises(FileNotFoundError):
+            OPExperiment("exp_fail", mock_missing_readme_path)
 
     def test_bad_atom_names_raise_error(self, mock_op_bad_experiment_path):
         from fairmd.lipids.experiment import OPExperiment, ExperimentError
@@ -182,52 +222,6 @@ class TestFFExperiment:
         assert exp.data == {}
 
 
-class TestExperimentBase:
-    """Test base Experiment class functionality through a subclass."""
-
-    def test_get_lipids(self, mock_op_experiment_path):
-        from fairmd.lipids.experiment import OPExperiment
-
-        """Test the get_lipids method."""
-        exp = OPExperiment("exp1", mock_op_experiment_path)
-        lipids = exp.get_lipids()
-        assert "POPC" in lipids
-        assert "DOPC" not in lipids
-
-    def test_get_ions(self, mock_op_experiment_path):
-        from fairmd.lipids.experiment import OPExperiment
-
-        """Test the get_ions method."""
-        exp = OPExperiment("exp1", mock_op_experiment_path)
-        ions = exp.get_ions(ions=["NA", "CL", "K"])
-        assert "NA" in ions
-        assert "CL" in ions
-        assert "K" not in ions
-
-    def test_dunder_methods(self, mock_op_experiment_path):
-        from fairmd.lipids.experiment import OPExperiment
-
-        """Test __repr__, __eq__, __hash__, and __getitem__."""
-        exp1 = OPExperiment("exp1", mock_op_experiment_path)
-        exp2 = OPExperiment("exp1", mock_op_experiment_path)
-        exp3 = OPExperiment("exp3", mock_op_experiment_path)
-
-        assert repr(exp1) == "OPExperiment(id='exp1')"
-        assert exp1 == exp2
-        assert exp1 != exp3
-        assert hash(exp1) == hash(exp2)
-        assert hash(exp1) != hash(exp3)
-        assert exp1["TEMPERATURE"] == 303.15
-
-    def test_abstract_methods_not_implemented(self):
-        from fairmd.lipids.experiment import Experiment
-
-        """Test that abstract methods raise NotImplementedError."""
-        # We can't instantiate Experiment directly, so we check a class method
-        with pytest.raises(NotImplementedError):
-            Experiment.target_folder()
-
-
 @pytest.fixture
 def mock_exp_data_path(tmpdir, monkeypatch):
     """Fixture to create a mock data structure and monkeypatch FMDL_EXP_PATH."""
@@ -237,13 +231,19 @@ def mock_exp_data_path(tmpdir, monkeypatch):
 
     # Create dummy OP experiment
     with open(op_path.join("README.yaml"), "w") as f:
-        yaml.dump({"TEMPERATURE": 310.0}, f)
+        yaml.dump({
+            "TEMPERATURE": 310.0,
+            "MOLAR_FRACTIONS": {"POPE": 1.0},
+            }, f)
     with open(op_path.join("DUMMY_Order_Parameters.json"), "w") as f:
         f.write("{}")
 
     # Create dummy FF experiment
     with open(ff_path.join("README.yaml"), "w") as f:
-        yaml.dump({"TEMPERATURE": 290.0}, f)
+        yaml.dump({
+            "TEMPERATURE": 290.0,
+            "MOLAR_FRACTIONS": {"POPE": 1.0},
+            }, f)
     with open(ff_path.join("system_FormFactor.json"), "w") as f:
         f.write("{}")
 

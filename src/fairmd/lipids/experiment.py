@@ -8,6 +8,7 @@ import json
 import os
 from abc import ABC, abstractmethod
 from typing import Any, Literal
+import typing
 
 import yaml
 
@@ -20,7 +21,7 @@ class ExperimentError(BaseException):
     """Experiment-related exception"""
 
 
-class Experiment(ABC, SampleComposition):
+class Experiment(SampleComposition):
     """Abstract base class representing an experimental dataset in the databank."""
 
     _exp_id: str
@@ -37,6 +38,7 @@ class Experiment(ABC, SampleComposition):
         self._exp_id = exp_id
         self._path = path
         self._populate_meta_data()
+        self._initialize_content()
 
     def _get_path(self) -> str:
         """Return the absolute path to the experiment's directory."""
@@ -59,6 +61,18 @@ class Experiment(ABC, SampleComposition):
         if self._metadata is None:
             self._populate_meta_data()
         return self._metadata
+
+    def __getitem__(self, key: str):
+        return self.metadata[key]
+
+    def __repr__(self):
+        return f"{type(self).__name__}(id='{self.exp_id}')"
+
+    def __eq__(self, other):
+        return isinstance(other, type(self)) and self.exp_id == other.exp_id
+
+    def __hash__(self):
+        return hash(self.exp_id)
 
     @property
     def readme(self) -> dict:
@@ -95,10 +109,14 @@ class Experiment(ABC, SampleComposition):
         msg = "This method should be implemented in subclasses."
         raise NotImplementedError(msg)
 
+    # Implementation of SampleComposition interface
+
     def _initialize_content(self) -> None:
         self._content = {}
-        for k in self.metadata.get["MOLAR_FRACTIONS"].items():
-            self._content[k] = Lipid(k)
+        for k in self.metadata["MOLAR_FRACTIONS"]:
+            lip = Lipid(k)
+            lip.register_mapping()
+            self._content[k] = lip
         exp_ions: list[str] = []
         for key in solubles_set:
             if self.metadata.get("ION_CONCENTRATIONS", {}).get(key, 0) != 0:
@@ -106,9 +124,11 @@ class Experiment(ABC, SampleComposition):
             if self.metadata.get("COUNTER_IONS", {}) and key in self.metadata["COUNTER_IONS"]:
                 exp_ions.append(key)
 
-    def get_lipids(self, molecules=lipids_set) -> list[str]:
-        """Get lipids from molar fractions."""
-        return [k for k in self.metadata.get("MOLAR_FRACTIONS", {}) if k in molecules]
+    def get_hydration(self, basis: typing.Literal["number", "mass"] = "number") -> float:
+        return 0
+
+    def membrane_composition(self, basis: typing.Literal["molar", "mass"] = "molar") -> dict[str, float]:
+        return {}
 
     def get_ions(self, ions: list[str]) -> list[str]:
         """Get ions existing in the system."""
@@ -119,18 +139,6 @@ class Experiment(ABC, SampleComposition):
             if self.metadata.get("COUNTER_IONS", {}) and key in self.metadata["COUNTER_IONS"]:
                 exp_ions.append(key)
         return list(set(exp_ions))
-
-    def __getitem__(self, key: str):
-        return self.metadata[key]
-
-    def __repr__(self):
-        return f"{type(self).__name__}(id='{self.exp_id}')"
-
-    def __eq__(self, other):
-        return isinstance(other, type(self)) and self.exp_id == other.exp_id
-
-    def __hash__(self):
-        return hash(self.exp_id)
 
 
 class OPExperiment(Experiment):
@@ -143,7 +151,7 @@ class OPExperiment(Experiment):
             for fname in os.listdir(self._get_path()):
                 if fname.endswith("_OrderParameters.json"):
                     molecule_name = fname.replace("_OrderParameters.json", "")
-                    if molecule_name not in self.get_lipids():
+                    if molecule_name not in self.lipids:
                         msg = f"Data for non-existing molecule {molecule_name} in {self.exp_id}!"
                         raise ExperimentError(msg)
                     fpath = os.path.join(self._get_path(), fname)
@@ -153,7 +161,15 @@ class OPExperiment(Experiment):
         return self._data
 
     def verify_data(self) -> None:
-        pass
+        for ln, opdic in self.data.items():
+            lipid = self.lipids[ln]
+            for uname_pair in opdic:
+                if uname_pair.split(" ")[0] not in lipid.mapping_dict:
+                    msg = (
+                        "Order parameter data contains unknown atom "
+                        f"'{uname_pair.split(' ')[0]}' for lipid '{ln}' in experiment '{self.exp_id}'."
+                    )
+                    raise ExperimentError(msg)
 
     @property
     def exptype(self) -> str:

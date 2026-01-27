@@ -151,7 +151,7 @@ def find_pairs_and_change_sims(experiments: list[Experiment], simulations: list[
 
         for experiment in experiments:
             # check lipid composition matches the simulation
-            exp_lipids = experiment.get_lipids()
+            exp_lipids = experiment.lipids.keys()
 
             exp_total_lipid_concentration = experiment.readme["TOTAL_LIPID_CONCENTRATION"]
             exp_ions = experiment.get_ions(ions_list)

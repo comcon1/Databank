@@ -7,6 +7,7 @@ There is a dictionary of lipids, ions, etc. If you add a lipid which is not yet
 in the databank, you have to add it here!
 """
 
+from copy import copy
 import fnmatch
 import os
 import re
@@ -67,13 +68,21 @@ class Molecule(ABC):
         :return: str path
         """
 
-    def register_mapping(self, fname: str) -> None:
+    def register_mapping(self, fname: str | None = None) -> None:
         """
         Register mapping dictionary for the Molecule object
 
-        :param fname: mapping filename (without path)
+        :param fname: mapping filename (without path) or None to auto-detect
         :return:
         """
+        # iterate over possible paths
+        if fname is None:
+            _possible_mfiles = [f for f in os.listdir(self._get_path()) if f.endswith((".yaml", ".yml"))]
+            if len(_possible_mfiles) == 0:
+                msg = f"No mapping file found for in {self._get_path()}"
+                raise MoleculeMappingError(msg, mol=self)
+            fname = _possible_mfiles[0]  # take the first one
+        # set mapping file path
         self._disp_mapping = fname
         self._mapping_fpath = os.path.join(self._get_path(), fname)
         if not os.path.isfile(self._mapping_fpath):
@@ -438,7 +447,7 @@ class MoleculeSet(MutableSet[Molecule], ABC):
 
     def get(self, key: str, default=None) -> Molecule | None:
         """
-        Get a molecule by its name.
+        Get a molecule by its name (copy-object).
 
         :param key: The name of the molecule to retrieve.
         :param default: The value to return if the molecule is not found.
@@ -446,7 +455,7 @@ class MoleculeSet(MutableSet[Molecule], ABC):
         if key.upper() in self._names:
             for item in self._items:
                 if item.name.upper() == key.upper():
-                    return item
+                    return copy(item)
         return default
 
     def __repr__(self) -> str:
