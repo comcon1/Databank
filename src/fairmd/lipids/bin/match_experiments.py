@@ -154,7 +154,7 @@ def find_pairs_and_change_sims(experiments: list[Experiment], simulations: list[
             exp_lipids = experiment.lipids.keys()
 
             exp_total_lipid_concentration = experiment.readme["TOTAL_LIPID_CONCENTRATION"]
-            exp_ions = experiment.get_ions(ions_list)
+            exp_ions = experiment.solubles.keys()
             exp_counter_ions = experiment.readme.get("COUNTER_IONS")
 
             # calculate simulation ion concentrations

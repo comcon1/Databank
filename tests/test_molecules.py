@@ -36,7 +36,7 @@ def test_mapping_dict():
         _ = mol1.mapping_dict
 
     mol1.register_mapping()
-    _ = mol1.mapping_dict # should not raise
+    _ = mol1.mapping_dict  # should not raise
 
 
 def test_uan2selection(toy_mols):

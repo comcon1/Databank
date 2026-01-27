@@ -6,15 +6,15 @@
 
 import json
 import os
-from abc import ABC, abstractmethod
-from typing import Any, Literal
 import typing
+from abc import abstractmethod
+from typing import Any, Literal
 
 import yaml
 
 from fairmd.lipids import FMDL_EXP_PATH
 from fairmd.lipids._base import CollectionSingleton, SampleComposition
-from fairmd.lipids.molecules import Lipid, lipids_set, solubles_set
+from fairmd.lipids.molecules import Lipid, NonLipid
 
 
 class ExperimentError(BaseException):
@@ -117,28 +117,39 @@ class Experiment(SampleComposition):
             lip = Lipid(k)
             lip.register_mapping()
             self._content[k] = lip
-        exp_ions: list[str] = []
-        for key in solubles_set:
-            if self.metadata.get("ION_CONCENTRATIONS", {}).get(key, 0) != 0:
-                exp_ions.append(key)
-            if self.metadata.get("COUNTER_IONS", {}) and key in self.metadata["COUNTER_IONS"]:
-                exp_ions.append(key)
+        for k in self.metadata.get("ION_CONCENTRATIONS", {}):
+            self._content[k] = NonLipid(k)
+        for k in self.metadata.get("COUNTER_IONS", {}):
+            if k not in self._content:
+                self._content[k] = NonLipid(k)
 
     def get_hydration(self, basis: typing.Literal["number", "mass"] = "number") -> float:
-        return 0
+        if basis == "mass":
+            return float(self.metadata["TOTAL_HYDRATION"])
+        if basis == "number":
+            tlc = self.metadata["TOTAL_LIPID_CONCENTRATION"]
+            if tlc == "full hydration":
+                return 70
+            return 55.5 / float(tlc)  # water per lipid from outdated field
+        msg = "Basis must be 'molar' or 'mass'"
+        raise ValueError(msg)
 
     def membrane_composition(self, basis: typing.Literal["molar", "mass"] = "molar") -> dict[str, float]:
-        return {}
-
-    def get_ions(self, ions: list[str]) -> list[str]:
-        """Get ions existing in the system."""
-        exp_ions: list[str] = []
-        for key in ions:
-            if self.metadata.get("ION_CONCENTRATIONS", {}).get(key, 0) != 0:
-                exp_ions.append(key)
-            if self.metadata.get("COUNTER_IONS", {}) and key in self.metadata["COUNTER_IONS"]:
-                exp_ions.append(key)
-        return list(set(exp_ions))
+        if basis == "molar":
+            return self.metadata["MOLAR_FRACTIONS"]
+        if basis == "mass":
+            comp: dict[str, float] = {}
+            total_mass = 0.0
+            for k, v in self.metadata["MOLAR_FRACTIONS"].items():
+                mol: Lipid = self._content[k]
+                mw = float(mol.metadata["bioschema_properties"]["molecularWeight"])
+                comp[k] = v * mw
+                total_mass += comp[k]
+            for k in comp:
+                comp[k] /= total_mass
+            return comp
+        msg = "Basis must be 'molar' or 'mass'"
+        raise ValueError(msg)
 
 
 class OPExperiment(Experiment):
