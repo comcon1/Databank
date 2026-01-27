@@ -5,7 +5,6 @@ Helps to build a nicely formatted OP dictionary from raw OP data.
 Fragmentation is handled.
 """
 
-from fairmd.lipids.core import System
 from fairmd.lipids.molecules import Lipid
 
 
