@@ -12,15 +12,15 @@ from typing import Any, Literal
 import yaml
 
 from fairmd.lipids import FMDL_EXP_PATH
-from fairmd.lipids._base import CollectionSingleton
-from fairmd.lipids.molecules import lipids_set
+from fairmd.lipids._base import CollectionSingleton, SampleComposition
+from fairmd.lipids.molecules import Lipid, lipids_set, solubles_set
 
 
 class ExperimentError(BaseException):
     """Experiment-related exception"""
 
 
-class Experiment(ABC):
+class Experiment(ABC, SampleComposition):
     """Abstract base class representing an experimental dataset in the databank."""
 
     _exp_id: str
@@ -94,6 +94,17 @@ class Experiment(ABC):
         """Get target folder name for the experiment type."""
         msg = "This method should be implemented in subclasses."
         raise NotImplementedError(msg)
+
+    def _initialize_content(self) -> None:
+        self._content = {}
+        for k in self.metadata.get["MOLAR_FRACTIONS"].items():
+            self._content[k] = Lipid(k)
+        exp_ions: list[str] = []
+        for key in solubles_set:
+            if self.metadata.get("ION_CONCENTRATIONS", {}).get(key, 0) != 0:
+                exp_ions.append(key)
+            if self.metadata.get("COUNTER_IONS", {}) and key in self.metadata["COUNTER_IONS"]:
+                exp_ions.append(key)
 
     def get_lipids(self, molecules=lipids_set) -> list[str]:
         """Get lipids from molar fractions."""

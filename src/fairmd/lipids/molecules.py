@@ -511,16 +511,10 @@ class NonLipidSet(MoleculeSet):
 lipids_set: LipidSet = LipidSet.load_from_data()
 """ MutableSet of possible lipids """
 
-lipids_dict = lipids_set
-""" @deprecated: Use lipids_set instead. """
-
-molecules_set: NonLipidSet = NonLipidSet.load_from_data()
+solubles_set: NonLipidSet = NonLipidSet.load_from_data()
 """ Dictionary of other than lipid molecules. """
 
-molecules_dict = molecules_set
-""" @deprecated: Use molecules_set instead"""
-
-molecule_ff_set = {("FF" + x) for x in (lipids_set.names | molecules_set.names)}
+molecule_ff_set = {("FF" + x) for x in (lipids_set.names | solubles_set.names)}
 """
 Dictionary containing possible force-field labels for molecules given by the contributor
  (used for README/info fields validation)
