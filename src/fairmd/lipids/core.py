@@ -15,7 +15,7 @@ import yaml
 
 from fairmd.lipids import FMDL_SIMU_PATH
 from fairmd.lipids._base import CollectionSingleton, SampleComposition
-from fairmd.lipids.molecules import Lipid, NonLipid, lipids_set, molecules_set
+from fairmd.lipids.molecules import Lipid, NonLipid, lipids_set, solubles_set
 
 
 class System(MutableMapping, SampleComposition):
@@ -88,7 +88,7 @@ class System(MutableMapping, SampleComposition):
             mol = None
             if k in lipids_set:
                 mol = Lipid(k)
-            elif k in molecules_set:
+            elif k in solubles_set:
                 mol = NonLipid(k)
             else:
                 mol_not_found_msg = f"Molecule {k} is not in the set of lipids or molecules."

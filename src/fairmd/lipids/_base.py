@@ -5,7 +5,7 @@ from abc import ABC, abstractmethod
 from collections.abc import MutableSet
 from typing import Any, Generic, TypeVar
 
-from fairmd.lipids.molecules import Lipid, Molecule, NonLipid, lipids_set, molecules_set
+from fairmd.lipids.molecules import Lipid, Molecule, NonLipid, lipids_set, solubles_set
 
 
 class SampleComposition(ABC):
@@ -34,7 +34,7 @@ class SampleComposition(ABC):
     @property
     def solubles(self) -> dict[str, NonLipid]:
         """Returns dictionary of non-lipid molecule objects."""
-        return {k: v for k, v in self.content.items() if k in molecules_set}
+        return {k: v for k, v in self.content.items() if k in solubles_set}
 
     @abstractmethod
     def membrane_composition(self, basis: typing.Literal["molar", "mass"] = "molar") -> dict[str, float]:
