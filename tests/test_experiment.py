@@ -22,8 +22,8 @@ def mock_op_experiment_path(tmpdir):
     readme_content = {
         "MOLAR_FRACTIONS": {"POPC": 1.0},
         "TEMPERATURE": 303.15,
-        "ION_CONCENTRATIONS": {"NA": 0.1},
-        "COUNTER_IONS": ["CL"],
+        "ION_CONCENTRATIONS": {"CLA": 0.1},
+        "COUNTER_IONS": {"SOD": "POPC"},
     }
     with open(exp_dir.join("README.yaml"), "w") as f:
         yaml.dump(readme_content, f)
@@ -42,8 +42,8 @@ def mock_op_bad_experiment_path(tmpdir):
     readme_content = {
         "MOLAR_FRACTIONS": {"POPC": 1.0},
         "TEMPERATURE": 303.15,
-        "ION_CONCENTRATIONS": {"NA": 0.1},
-        "COUNTER_IONS": ["CL"],
+        "ION_CONCENTRATIONS": {"CLA": 0.1},
+        "COUNTER_IONS": {"SOD": "POPC"},
     }
     with open(exp_dir.join("README.yaml"), "w") as f:
         yaml.dump(readme_content, f)
@@ -86,7 +86,7 @@ def mock_empty_data_path(tmpdir):
     readme_content = {
         "TEMPERATURE": 300.0,
         "MOLAR_FRACTIONS": {"DPPC": 1.0},
-        }
+    }
     with open(exp_dir.join("README.yaml"), "w") as f:
         yaml.dump(readme_content, f)
     return str(exp_dir)
@@ -129,6 +129,7 @@ class TestOPExperiment:
         exp = OPExperiment("exp_empty", mock_empty_data_path)
         assert exp.data == {}
 
+
 class TestExperimentBase:
     """Test base Experiment class functionality through a subclass."""
 
@@ -141,14 +142,16 @@ class TestExperimentBase:
         assert "DPPC" not in exp.lipids
 
     def test_get_ions(self, mock_op_experiment_path):
+        from fairmd.lipids.molecules import solubles_set
         from fairmd.lipids.experiment import OPExperiment
 
         """Test the get_ions method."""
         exp = OPExperiment("exp1", mock_op_experiment_path)
-        ions = exp.get_ions(ions=["NA", "CL", "K"])
-        assert "NA" in ions
-        assert "CL" in ions
-        assert "K" not in ions
+        ions = exp.solubles.keys()
+        print(exp.content)
+        assert "SOD" in ions
+        assert "CLA" in ions
+        assert "POT" not in ions
 
     def test_dunder_methods(self, mock_op_experiment_path):
         from fairmd.lipids.experiment import OPExperiment
@@ -231,19 +234,25 @@ def mock_exp_data_path(tmpdir, monkeypatch):
 
     # Create dummy OP experiment
     with open(op_path.join("README.yaml"), "w") as f:
-        yaml.dump({
-            "TEMPERATURE": 310.0,
-            "MOLAR_FRACTIONS": {"POPE": 1.0},
-            }, f)
+        yaml.dump(
+            {
+                "TEMPERATURE": 310.0,
+                "MOLAR_FRACTIONS": {"POPE": 1.0},
+            },
+            f,
+        )
     with open(op_path.join("DUMMY_Order_Parameters.json"), "w") as f:
         f.write("{}")
 
     # Create dummy FF experiment
     with open(ff_path.join("README.yaml"), "w") as f:
-        yaml.dump({
-            "TEMPERATURE": 290.0,
-            "MOLAR_FRACTIONS": {"POPE": 1.0},
-            }, f)
+        yaml.dump(
+            {
+                "TEMPERATURE": 290.0,
+                "MOLAR_FRACTIONS": {"POPE": 1.0},
+            },
+            f,
+        )
     with open(ff_path.join("system_FormFactor.json"), "w") as f:
         f.write("{}")
 

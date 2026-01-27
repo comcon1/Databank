@@ -7,12 +7,12 @@ There is a dictionary of lipids, ions, etc. If you add a lipid which is not yet
 in the databank, you have to add it here!
 """
 
-from copy import copy
 import fnmatch
 import os
 import re
 from abc import ABC, abstractmethod
 from collections.abc import MutableSet
+from copy import copy
 from typing import Any
 
 import MDAnalysis as mda
