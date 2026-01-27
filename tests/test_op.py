@@ -16,15 +16,14 @@ import os
 import sys
 import warnings
 import numpy as np
-from fairmd.lipids.core import System
 import pytest
 import pytest_check as check
 
 # run only on sim2 mocking data
 pytestmark = [pytest.mark.sim2, pytest.mark.min]
 
-class TestBuildNiceOPdict:
 
+class TestBuildNiceOPdict:
     @pytest.fixture
     def systems(self):
         from fairmd.lipids.core import initialize_databank
@@ -38,6 +37,6 @@ class TestBuildNiceOPdict:
         sys = systems.loc(281)
         opdata = get_OP(sys)
         rdict = build_nice_OPdict(opdata["POPC"], sys.lipids["POPC"])
-        assert isinstance(rdict, dict) # dict expected
+        assert isinstance(rdict, dict)  # dict expected
         assert "sn-1" in rdict
-        assert "sn-2" in rdict # fragments at the top level
+        assert "sn-2" in rdict  # fragments at the top level
