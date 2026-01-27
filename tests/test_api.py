@@ -26,7 +26,7 @@ pytestmark = [pytest.mark.sim2, pytest.mark.min]
 # for vector comparisons with np.testing.assert_allclose
 MAXRELERR_COMPARE_THRESHOLD = 1e-2
 # testable constants
-N_SYSTEMS_IN_TESTSET = 5
+N_SYSTEMS_IN_TESTSET = 6
 
 
 @pytest.fixture(scope="module")
