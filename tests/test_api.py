@@ -402,7 +402,7 @@ def test_run_analysis_interface():
         id_range=(None, None),
     )
 
-    check.is_in("COMPUTED: 5", log_stream.getvalue())
+    check.is_in(f"COMPUTED: {N_SYSTEMS_IN_TESTSET}", log_stream.getvalue())
     check.is_in("SKIPPED: 0", log_stream.getvalue())
 
     run_analysis(
