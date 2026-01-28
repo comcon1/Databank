@@ -10,6 +10,7 @@ import typing
 from abc import abstractmethod
 from typing import Any, Literal
 
+import numpy as np
 import yaml
 
 from fairmd.lipids import FMDL_EXP_PATH
@@ -154,6 +155,26 @@ class Experiment(SampleComposition):
                 comp[k] /= total_mass
             return comp
         msg = "Basis must be 'molar' or 'mass'"
+        raise ValueError(msg)
+
+    def solution_composition(self, basis="molar"):
+        null_concentration_threshold = 1e-7  # 0.1 uM
+        if basis == "molar":
+            concs = {}
+            _tlc = 55.5 / self.get_hydration("number")
+            for k, v in self.metadata.get("ION_CONCENTRATIONS", {}).items():
+                if np.abs(float(v)) < null_concentration_threshold:
+                    continue
+                concs[k] = float(v)
+            for k, v in self.metadata.get("COUNTER_IONS", {}).items():
+                if k not in concs:
+                    concs[k] = 0.0
+                concs[k] += _tlc * self.membrane_composition("molar")[v]
+            return concs
+        if basis == "mass":
+            msg = "Mass basis for solution composition is not implemented yet"
+            raise NotImplementedError(msg)
+        msg = "Basis must be 'molar' or 'mass' (not implemented yet)"
         raise ValueError(msg)
 
 
