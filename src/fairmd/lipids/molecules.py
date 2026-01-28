@@ -77,7 +77,11 @@ class Molecule(ABC):
         """
         # iterate over possible paths
         if fname is None:
-            _possible_mfiles = [f for f in os.listdir(self._get_path()) if f.endswith((".yaml", ".yml"))]
+            _possible_mfiles = [
+                f
+                for f in os.listdir(self._get_path())
+                if f.endswith((".yaml", ".yml")) and not f.startswith("metadata")
+            ]
             if len(_possible_mfiles) == 0:
                 msg = f"No mapping file found for in {self._get_path()}"
                 raise MoleculeMappingError(msg, mol=self)
