@@ -201,6 +201,24 @@ def test_membrane_composition(systems, systemid, lipid, result_molar, result_mas
 
 
 @pytest.mark.parametrize(
+    "systemid, result_molar",
+    [
+        (243, {"SOD": 0.155, "CLA": 0.155}),
+        (787, {"SOD": 0.37}),
+        (281, {}),
+    ],
+)
+def test_solution_composition(systems, systemid, result_molar):
+    sys0 = systems.loc(systemid)
+    molar_fractions = sys0.solution_composition(basis="molar")
+    with check.raises(ValueError):
+        _ = sys0.solution_composition(basis="invalid_option")
+    check.equal(molar_fractions.keys(), result_molar.keys())
+    for k, v in result_molar.items():
+        check.almost_equal(molar_fractions[k], v, abs=1e-3)
+
+
+@pytest.mark.parametrize(
     "systemid, result",
     [
         (281, "resname POPC"),
