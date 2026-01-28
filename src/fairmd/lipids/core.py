@@ -135,6 +135,27 @@ class System(MutableMapping, SampleComposition):
             raise NotImplementedError(msg)
         return hyval
 
+    def solution_composition(self, basis="molar"):
+        if basis not in ["molar", "mass"]:
+            msg = "Basis must be 'molar' or 'mass'"
+            raise ValueError(msg)
+        if self["COMPOSITION"].get("SOL") is None:
+            msg = "Cannot compute solution composition for implicit water (system #{}).".format(self["ID"])
+            raise ValueError(msg)
+        n_water = self["COMPOSITION"].get("SOL")
+        comp: dict[str, float] = {}
+        for k, v in self["COMPOSITION"].items():
+            if k in lipids_set or k == "SOL":
+                continue
+            # convert to molar concentration
+            # NOTE: we assume dilute solution. Sometimes not true!
+            comp[k] = v["COUNT"] / n_water["COUNT"] * 55.5
+        if basis == "molar":
+            return comp
+        # TODO: solubles doesn't have mass data yet
+        msg = "Mass basis not implemented for solubles."
+        raise NotImplementedError(msg)
+
 
 class SystemsCollection(CollectionSingleton[System]):
     """Immutable collection of system dicts. Can be accessed by ID using loc()."""

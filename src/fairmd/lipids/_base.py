@@ -50,6 +50,10 @@ class SampleComposition(ABC):
     def get_hydration(self, basis: typing.Literal["number", "mass"] = "number") -> float:
         """Get system hydration."""
 
+    @abstractmethod
+    def solution_composition(self, basis: typing.Literal["molar", "mass"] = "molar") -> dict[str, float]:
+        """Return the composition of the solution in system."""
+
 
 T = TypeVar("T")
 
