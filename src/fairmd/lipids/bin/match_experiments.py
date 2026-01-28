@@ -79,7 +79,7 @@ class SearchSystem:
         lipids2 = []
         if exp_counter_ions and n_molecule != 0:
             for lipid in lipids1:
-                if molecule in exp_counter_ions.keys() and lipid == exp_counter_ions[molecule]:
+                if molecule in exp_counter_ions and lipid == exp_counter_ions[molecule]:
                     n_lipid = self.system["COMPOSITION"][lipid]["COUNT"]
                     lipids2.append(sum(n_lipid))
 
@@ -155,7 +155,7 @@ def find_pairs_and_change_sims(experiments: list[Experiment], simulations: list[
 
             exp_total_lipid_concentration = experiment.readme["TOTAL_LIPID_CONCENTRATION"]
             exp_ions = experiment.solubles.keys()
-            exp_counter_ions = experiment.readme.get("COUNTER_IONS")
+            exp_counter_ions = experiment.readme.get("COUNTER_IONS", {})
 
             # calculate simulation ion concentrations
             sim_concentrations = {}

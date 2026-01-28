@@ -288,7 +288,7 @@ class TestExperimentCollection:
 
         """Test loading experiments from a mock data directory."""
         ExperimentCollection.clear_instance()
-        collection = ExperimentCollection.load_from_data()
+        collection = ExperimentCollection.load_from_data("OPExperiment")
 
         # Should load OP experiments by default
         assert len(collection) == 1
