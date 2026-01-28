@@ -34,7 +34,7 @@ class SampleComposition(ABC):
     @property
     def solubles(self) -> dict[str, NonLipid]:
         """Returns dictionary of non-lipid molecule objects."""
-        return {k: v for k, v in self.content.items() if k in solubles_set}
+        return {k: v for k, v in self.content.items() if k in solubles_set and k != "SOL"}
 
     @abstractmethod
     def membrane_composition(self, basis: typing.Literal["molar", "mass"] = "molar") -> dict[str, float]:
