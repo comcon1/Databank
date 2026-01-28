@@ -51,6 +51,11 @@ class Experiment(SampleComposition):
         if os.path.isfile(meta_path):
             with open(meta_path) as yaml_file:
                 self._metadata = yaml.load(yaml_file, Loader=yaml.FullLoader)
+            # remove None entries
+            _keys_to_check = list(self._metadata.keys())
+            for k in _keys_to_check:
+                if self._metadata[k] is None:
+                    del self._metadata[k]
         else:
             msg = f"Metadata file (README.yaml) not found for experiment '{self._exp_id}'."
             raise FileNotFoundError(msg)
