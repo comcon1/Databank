@@ -118,12 +118,15 @@ class Experiment(SampleComposition):
     # Implementation of SampleComposition interface
 
     def _initialize_content(self) -> None:
+        null_concentration_threshold = 1e-7  # 0.1 uM
         self._content = {}
         for k in self.metadata["MOLAR_FRACTIONS"]:
             lip = Lipid(k)
             lip.register_mapping()
             self._content[k] = lip
-        for k in self.metadata.get("ION_CONCENTRATIONS", {}):
+        for k, v in self.metadata.get("ION_CONCENTRATIONS", {}).items():
+            if np.abs(float(v)) < null_concentration_threshold:
+                continue
             self._content[k] = NonLipid(k)
         for k in self.metadata.get("COUNTER_IONS", {}):
             if k not in self._content:
@@ -158,12 +161,11 @@ class Experiment(SampleComposition):
         raise ValueError(msg)
 
     def solution_composition(self, basis="molar"):
-        null_concentration_threshold = 1e-7  # 0.1 uM
         if basis == "molar":
             concs = {}
             _tlc = 55.5 / self.get_hydration("number")
             for k, v in self.metadata.get("ION_CONCENTRATIONS", {}).items():
-                if np.abs(float(v)) < null_concentration_threshold:
+                if k not in self.solubles:
                     continue
                 concs[k] = float(v)
             for k, v in self.metadata.get("COUNTER_IONS", {}).items():

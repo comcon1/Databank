@@ -60,45 +60,14 @@ class SearchSystem:
         all_counts = [i["COUNT"] for k, i in cmps.items() if k in molecules]
         return number / sum(map(sum, all_counts))
 
-    # concentration of other molecules than lipids
-    # change name to ionConcentration()
-
-    def ion_conc(self, molecule, exp_counter_ions):
-        lipids1 = self.get_lipids()
-        c_water = 55.5
-        n_water = self.system["COMPOSITION"]["SOL"]["COUNT"]
-        try:
-            n_molecule = self.system["COMPOSITION"][molecule]["COUNT"]  # number of ions
-        except KeyError:
-            n_molecule = 0
-
-        lipids2 = []
-        if exp_counter_ions and n_molecule != 0:
-            for lipid in lipids1:
-                if molecule in exp_counter_ions and lipid == exp_counter_ions[molecule]:
-                    n_lipid = self.system["COMPOSITION"][lipid]["COUNT"]
-                    lipids2.append(sum(n_lipid))
-
-        n_molecule = n_molecule - sum(lipids2)
-        c_molecule = (n_molecule * c_water) / n_water
-
-        return c_molecule
-
     def total_lipid_conc(self):
         c_water = 55.5
         n_water = self.system["COMPOSITION"]["SOL"]["COUNT"]
-        n_lipids = 0
-        for lipid in self.get_lipids():
-            try:
-                n_lipids += sum(self.system["COMPOSITION"][lipid]["COUNT"])
-            except KeyError as e:
-                print(self.system)
-                raise e
         try:
-            if (n_water / n_lipids) > 25:
+            if (n_water / self.system.n_lipids) > 25:
                 tot_lipid_c = "full hydration"
             else:
-                tot_lipid_c = (n_lipids * c_water) / n_water
+                tot_lipid_c = (self.system.n_lipids * c_water) / n_water
         except ZeroDivisionError:
             logger.warning("Division by zero when determining lipid concentration!")
             print(self.system)
@@ -135,11 +104,15 @@ def load_experiments(exp_type: str, all_experiments: ExperimentCollection) -> li
 def find_pairs_and_change_sims(experiments: list[Experiment], simulations: list[SearchSystem]):
     pairs = []
     for simulation in tqdm(simulations, desc="Simulation"):
+        if simulation.system["ID"] == 755:
+            continue
         sim_lipids = simulation.system.lipids.keys()
         sim_lipids_mf = simulation.system.membrane_composition(basis="molar")
         sim_ions = simulation.system.solubles.keys()
         sim_ions_mf = simulation.system.solution_composition(basis="molar")
-        sim_total_lipid_concentration = simulation.total_lipid_conc()
+        sim_tlc = simulation.total_lipid_conc()
+        if sim_tlc == "full hydration":
+            sim_tlc = 55.5 / 40
         t_sim = simulation.system["TEMPERATURE"]
 
         for experiment in experiments:
@@ -172,42 +145,33 @@ def find_pairs_and_change_sims(experiments: list[Experiment], simulations: list[
             if not solution_composition_ok:
                 continue
 
-            switch = 0
-            exp_total_lipid_concentration = experiment.readme["TOTAL_LIPID_CONCENTRATION"]
-            if isinstance(exp_total_lipid_concentration, (int, float)) and isinstance(
-                sim_total_lipid_concentration,
-                (int, float),
+            exp_tlc = experiment.readme["TOTAL_LIPID_CONCENTRATION"]
+            if exp_tlc == "full hydration":
+                exp_tlc = 55.5 / 40
+
+            if (
+                not (exp_tlc < 55.5 / 25 and sim_tlc < 55.5 / 25)  # both not full hydration
+                and np.abs(exp_tlc / sim_tlc - 1) > LIP_CONC_REL_THRESHOLD
             ):
-                if (exp_total_lipid_concentration / sim_total_lipid_concentration > 1 - LIP_CONC_REL_THRESHOLD) and (
-                    exp_total_lipid_concentration / sim_total_lipid_concentration < 1 + LIP_CONC_REL_THRESHOLD
-                ):
-                    switch = 1
-            elif (
-                (type(exp_total_lipid_concentration) is str)
-                and (type(sim_total_lipid_concentration) is str)
-                and (exp_total_lipid_concentration == sim_total_lipid_concentration)
-            ):
-                switch = 1
+                continue
 
-            if switch:
-                # check temperature +/- 2 degrees
-                t_exp = experiment.readme["TEMPERATURE"]
+            t_exp = experiment.readme["TEMPERATURE"]
+            abs_tolerance_t = 2.5
+            if np.abs(t_exp - t_sim) > abs_tolerance_t:
+                continue
 
-                if (t_exp > float(t_sim) - 2.5) and (t_exp < float(t_sim) + 2.5):
-                    # !we found the match!
-                    pairs.append([simulation, experiment])
+            # !we found the match!
+            pairs.append([simulation, experiment])
 
-                    # Add path to experiment into simulation README.yaml
-                    # many experiment entries can match to same simulation
-                    if experiment.exptype == "OrderParameters":
-                        for lipid in experiment.data:
-                            if lipid not in simulation.system["EXPERIMENT"]["ORDERPARAMETER"]:
-                                simulation.system["EXPERIMENT"]["ORDERPARAMETER"][lipid] = []
-                            simulation.system["EXPERIMENT"]["ORDERPARAMETER"][lipid].append(experiment.exp_id)
-                    elif experiment.exptype == "FormFactors":
-                        simulation.system["EXPERIMENT"]["FORMFACTOR"].append(experiment.exp_id)
-                else:
-                    continue
+            # Add path to experiment into simulation README.yaml
+            # many experiment entries can match to same simulation
+            if experiment.exptype == "OrderParameters":
+                for lipid in experiment.data:
+                    if lipid not in simulation.system["EXPERIMENT"]["ORDERPARAMETER"]:
+                        simulation.system["EXPERIMENT"]["ORDERPARAMETER"][lipid] = []
+                    simulation.system["EXPERIMENT"]["ORDERPARAMETER"][lipid].append(experiment.exp_id)
+            elif experiment.exptype == "FormFactors":
+                simulation.system["EXPERIMENT"]["FORMFACTOR"].append(experiment.exp_id)
 
         # sorting experiment lists to keep experimental order strict
         cur_exp = simulation.system["EXPERIMENT"]
@@ -258,7 +222,7 @@ def match_experiments() -> None:
         simulation.system["EXPERIMENT"] = {}
         simulation.system["EXPERIMENT"]["ORDERPARAMETER"] = {}
         simulation.system["EXPERIMENT"]["FORMFACTOR"] = []
-        for lipid in simulation.get_lipids():
+        for lipid in simulation.system.lipids:
             simulation.system["EXPERIMENT"]["ORDERPARAMETER"][lipid] = []
 
     # Pair each simulation with an experiment with the closest matching temperature

@@ -107,7 +107,7 @@ def main():
             if smileids:
                 print(f" -- SMILEIDX already present ({len(smileids)}). Skipping.")
                 continue
-
+            print("START WORKING -- ", s)
             if u is None:
                 uc = dlapi.UniverseConstructor(s)
                 uc.download_mddata(skip_traj=True)
@@ -141,7 +141,7 @@ def main():
                 try:
                     mol_from_md = mol_.atoms.convert_to("rdkit")
                     last_good_mol = mol_
-                except Chem.AtomValenceException:
+                except (Chem.AtomValenceException, KeyError):
                     print(f"Molecule {_} has bad conformation. Trying another one.", file=sys.stderr)
                     last_good_mol = None
                     continue
