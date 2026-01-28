@@ -36,7 +36,8 @@ def test_mapping_dict():
         _ = mol1.mapping_dict
 
     mol1.register_mapping()
-    _ = mol1.mapping_dict  # should not raise
+    mdic = mol1.mapping_dict  # should not raise
+    check.is_in("M_G1_M", mdic, "Mapping dict should contain key 'M_G1_M'")
 
 
 def test_uan2selection(toy_mols):
