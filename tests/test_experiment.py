@@ -20,7 +20,7 @@ def mock_op_experiment_path(tmpdir):
     """Fixture for a mock order parameter experiment path."""
     exp_dir = tmpdir.mkdir("OPExperiment_1")
     readme_content = {
-        "MOLAR_FRACTIONS": {"POPC": 1.0},
+        "MOLAR_FRACTIONS": {"POPC": 0.8, "DPPC": 0.2},
         "TEMPERATURE": 303.15,
         "ION_CONCENTRATIONS": {"CLA": 0.1},
         "COUNTER_IONS": {"SOD": "POPC"},
@@ -122,13 +122,6 @@ class TestOPExperiment:
         check.equal(exp.exptype, "OrderParameters")
         check.equal(OPExperiment.target_folder(), "OrderParameters")
 
-    def test_empty_data(self, mock_empty_data_path):
-        from fairmd.lipids.experiment import OPExperiment
-
-        """Test behavior with no data files."""
-        exp = OPExperiment("exp_empty", mock_empty_data_path)
-        assert exp.data == {}
-
 
 class TestExperimentBase:
     """Test base Experiment class functionality through a subclass."""
@@ -139,7 +132,7 @@ class TestExperimentBase:
         """Test the get_lipids method."""
         exp = OPExperiment("exp1", mock_op_experiment_path)
         assert "POPC" in exp.lipids
-        assert "DPPC" not in exp.lipids
+        assert "POPE" not in exp.lipids
 
     def test_get_ions(self, mock_op_experiment_path):
         from fairmd.lipids.molecules import solubles_set
@@ -187,6 +180,14 @@ class TestBadOPExperiment:
         with pytest.raises(ExperimentError):
             exp.verify_data()
 
+    def test_empty_data(self, mock_empty_data_path):
+        from fairmd.lipids.experiment import OPExperiment, ExperimentError
+
+        """Test behavior with no data files."""
+        exp = OPExperiment("exp_empty", mock_empty_data_path)
+        with pytest.raises(ExperimentError):
+            _ = exp.data
+
 
 class TestFFExperiment:
     """Test the FFExperiment class."""
@@ -218,11 +219,12 @@ class TestFFExperiment:
         assert FFExperiment.target_folder() == "FormFactors"
 
     def test_empty_data(self, mock_empty_data_path):
-        from fairmd.lipids.experiment import FFExperiment
+        from fairmd.lipids.experiment import FFExperiment, ExperimentError
 
         """Test behavior with no data files."""
         exp = FFExperiment("exp_empty", mock_empty_data_path)
-        assert exp.data == {}
+        with pytest.raises(ExperimentError):
+            _ = exp.data
 
 
 @pytest.fixture

@@ -197,6 +197,9 @@ class OPExperiment(Experiment):
                     with open(fpath) as json_file:
                         _tmpdic = json.load(json_file)
                         self._data[molecule_name] = {k: v[0] for k, v in _tmpdic.items()}
+            if not self._data:
+                msg = f"No order parameter data files found for experiment '{self.exp_id}'."
+                raise ExperimentError(msg)
         return self._data
 
     def verify_data(self) -> None:
@@ -232,6 +235,9 @@ class FFExperiment(Experiment):
                     with open(fpath) as json_file:
                         self._data = json.load(json_file)
                     break  # Assuming one form factor file per experiment
+            if not self._data:
+                msg = f"No form factor data file found for experiment '{self.exp_id}'."
+                raise ExperimentError(msg)
         return self._data
 
     def verify_data(self) -> None:
