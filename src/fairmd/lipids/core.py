@@ -139,6 +139,8 @@ class System(MutableMapping, SampleComposition):
         if basis not in ["molar", "mass"]:
             msg = "Basis must be 'molar' or 'mass'"
             raise ValueError(msg)
+        if not self.solubles:
+            return {}  # pure water is allowed here (even for implicit water)
         if self["COMPOSITION"].get("SOL") is None:
             msg = "Cannot compute solution composition for implicit water (system #{}).".format(self["ID"])
             raise ValueError(msg)
