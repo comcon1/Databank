@@ -26,7 +26,6 @@ import yaml
 from tqdm import tqdm
 
 from fairmd.lipids import FMDL_SIMU_PATH
-from fairmd.lipids.api import lipids_set
 from fairmd.lipids.core import System, initialize_databank
 from fairmd.lipids.experiment import Experiment, ExperimentCollection
 
@@ -47,18 +46,6 @@ class SearchSystem:
     def __init__(self, readme):
         self.system: System = readme
         self.idx_path = readme["path"]
-
-    def get_ions(self, ions):
-        """Return list of non-zero ions"""
-        sim_ions = [k for k in self.system["COMPOSITION"] if k in ions]
-        return sim_ions
-
-    # fraction of each lipid with respect to total amount of lipids (only for lipids!)
-    def molar_fraction(self, molecule, molecules=lipids_set) -> float:
-        cmps = self.system["COMPOSITION"]
-        number = sum(cmps[molecule]["COUNT"])
-        all_counts = [i["COUNT"] for k, i in cmps.items() if k in molecules]
-        return number / sum(map(sum, all_counts))
 
     def total_lipid_conc(self):
         c_water = 55.5
@@ -106,9 +93,9 @@ def find_pairs_and_change_sims(experiments: list[Experiment], simulations: list[
     for simulation in tqdm(simulations, desc="Simulation"):
         if simulation.system["ID"] == 755:
             continue
-        sim_lipids = simulation.system.lipids.keys()
+        sim_lipids_set = simulation.system.lipids.keys()
         sim_lipids_mf = simulation.system.membrane_composition(basis="molar")
-        sim_ions = simulation.system.solubles.keys()
+        sim_ions_set = simulation.system.solubles.keys()
         sim_ions_mf = simulation.system.solution_composition(basis="molar")
         sim_tlc = simulation.total_lipid_conc()
         if sim_tlc == "full hydration":
@@ -118,7 +105,7 @@ def find_pairs_and_change_sims(experiments: list[Experiment], simulations: list[
         for experiment in experiments:
             # compare molar fractions
             # TODO: BAD! use relative threshold instead!
-            if set(sim_lipids) != set(experiment.lipids.keys()):
+            if set(sim_lipids_set) != set(experiment.lipids.keys()):
                 continue
             exp_mf = experiment.membrane_composition(basis="molar")
             abs_tolerance_molfraction = 0.03
@@ -134,11 +121,11 @@ def find_pairs_and_change_sims(experiments: list[Experiment], simulations: list[
             # BAD! use relative threshold instead!
             # BAD! use logarithmic scale instead!
             abs_tolerance_solutionconc = 0.05
-            if set(sim_ions) != set(experiment.solubles.keys()):
+            if set(sim_ions_set) != set(experiment.solubles.keys()):
                 continue
             exp_ions_mf = experiment.solution_composition(basis="molar")
             solution_composition_ok = True
-            for key in sim_ions:
+            for key in sim_ions_set:
                 if (exp_ions_mf[key] - sim_ions_mf[key]) < abs_tolerance_solutionconc:
                     solution_composition_ok = False
                     break
