@@ -18,7 +18,7 @@ from fairmd.lipids._base import CollectionSingleton, SampleComposition
 from fairmd.lipids.molecules import Lipid, NonLipid
 
 
-class ExperimentError(BaseException):
+class ExperimentError(Exception):
     """Experiment-related exception"""
 
 
