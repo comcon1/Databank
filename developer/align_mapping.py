@@ -22,13 +22,14 @@ from rdkit.Chem import MolStandardize
 
 import fairmd.lipids.api as dlapi
 import fairmd.lipids.core as dlc
+import fairmd.lipids.molecules as dlm
 from fairmd.lipids.auxiliary import elements
 
 lg = RDLogger.logger()
 lg.setLevel(RDLogger.CRITICAL)
 
 
-def get_1mol_selstr(comp_name: str, mol_obj: dlc.Molecule) -> str:
+def get_1mol_selstr(comp_name: str, mol_obj: dlm.Molecule) -> str:
     """Return selection string for a single molecule"""
     res_set = set()
     try:
