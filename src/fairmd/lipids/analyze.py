@@ -43,8 +43,7 @@ from fairmd.lipids.analib.maicos import (
     traj_centering_for_maicos_mda_parallel,
 )
 from fairmd.lipids.api import UniverseConstructor, mda_gen_selection_mols
-from fairmd.lipids.auxiliary import elements
-from fairmd.lipids.auxiliary.jsonEncoders import CompactJSONEncoder
+from fairmd.lipids.auxiliary import CompactJSONEncoder, elements
 from fairmd.lipids.core import System
 from fairmd.lipids.molecules import lipids_set
 
