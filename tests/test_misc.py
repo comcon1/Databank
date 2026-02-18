@@ -24,7 +24,7 @@ pytestmark = [pytest.mark.sim1, pytest.mark.min]
 
 def test_uname2element():
     """Test uname2element function."""
-    from fairmd.lipids.auxiliary.elements import uname2element
+    from fairmd.lipids.auxiliary.mollib import uname2element
 
     check.equal(uname2element("M_C1_M"), "C")
     check.equal(uname2element("M_G1_M"), "C")
@@ -195,6 +195,29 @@ def test_maicos_what_to_compute(caplog, logger):
         check.is_not_in("Dielectric", line)
         check.is_not_in("ChargeDensity", line)
         check.equal(rcode, RCODE_ERROR)
+
+
+def test_get_tails():
+    """Test Lipid.get_tails function."""
+    from fairmd.lipids.molecules import Lipid
+    from fairmd.lipids.auxiliary.mollib import get_tails_of_lipid
+
+    lipid = Lipid(name="DPPC")
+    lipid.register_mapping("mappingDPPCberger.yaml")
+
+    tails = get_tails_of_lipid(lipid)
+    check.is_instance(tails, set)
+    check.equal(len(tails), 2)
+    check.is_in("sn-1", tails)
+    check.is_in("sn-2", tails)
+
+    lipid = Lipid(name="TOCL")
+    lipid.register_mapping("mappingTOCLcharmm.yaml")
+
+    tails = get_tails_of_lipid(lipid)
+    check.equal(len(tails), 4)
+    check.is_in("sn-1 1", tails)
+    check.is_in("sn-2 1", tails)
 
 
 def test_json_encoder(tmpdir):

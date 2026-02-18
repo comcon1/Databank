@@ -43,7 +43,7 @@ from fairmd.lipids.analib.maicos import (
     traj_centering_for_maicos_mda_parallel,
 )
 from fairmd.lipids.api import UniverseConstructor, mda_gen_selection_mols
-from fairmd.lipids.auxiliary import CompactJSONEncoder, elements
+from fairmd.lipids.auxiliary import CompactJSONEncoder, mollib
 from fairmd.lipids.core import System
 from fairmd.lipids.molecules import lipids_set
 
@@ -68,36 +68,22 @@ def computeNMRPCA(  # noqa: N802 (API)
     # TODO: 2test|    parser = Parser(FMDL_SIMU_PATH, readme, eq_time_fname, testTraj)
     try:
         parser = nmrpca.Parser(system, "eq_times.json")
-        # Check trajectory
         print(parser._path)
-        vpcode = parser.validate_path()
-        print("ValidatePath code: ", vpcode)
     except Exception:
         logger.exception("Error initializing NMRPCA parser.")
         return RCODE_ERROR
 
-    if vpcode > 0:
-        logger.error("Some errors in analyze_nmrpca.py::Parser constructor.")
-        return RCODE_ERROR
-
     if (
-        (vpcode < 0 and not recompute)
+        (os.path.isfile(os.path.join(FMDL_SIMU_PATH, system["path"], "eq_times.json")) and not recompute)
         or ("WARNINGS" in system and system["WARNINGS"] is not None and "AMBIGUOUS_ATOMNAMES" in system["WARNINGS"])
         or ("WARNINGS" in system and system["WARNINGS"] is not None and "SKIP_EQTIMES" in system["WARNINGS"])
     ):
         return RCODE_SKIPPED
 
-    # Check if TPR is defined and non-null or ""
     try:
-        __ = system["TPR"][0][0]
-        _ = __[0]
-    except (KeyError, TypeError):
-        logger.exception("TPR is required for NMRPCA analysis (%d})!", system["ID"])
-        return RCODE_ERROR
-
-    try:
-        # TODO: REPLACE WTIH UNIVERSE_CONSTRUCTOR
-        parser.download_traj()
+        # Download md data
+        uc = UniverseConstructor(system)
+        uc.download_mddata()
         # Prepare trajectory
         parser.prepare_traj()
         # Concatenate trajectory
@@ -671,7 +657,7 @@ def computeMAICOS(  # noqa: N802 (API)
         # introduce elements attribute (if it's empty)
         # and make initial guess (just in case)
         u.guess_TopologyAttrs(force_guess=["elements"])
-        elements.guess_elements(system, u)
+        mollib.guess_elements(system, u)
 
         # Adjust the group selection to be general for analysis
         water = u.select_atoms(f"resname {system['COMPOSITION']['SOL']['NAME']}")
