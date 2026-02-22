@@ -287,90 +287,18 @@ def systemQuality(system_fragment_qualities, simulation):
     return system_quality
 
 
-def calc_k_e(SimExpData: list) -> float:
-    """Scaling factor as defined by Kučerka et al. 2008b,
-
-    doi:10.1529/biophysj.107.122465
+def calc_ff_quality(ffd_sim: np.ndarray, ffd_exp: np.ndarray) -> float:
     """
+    Calculate form factor quality.
 
-    if not SimExpData:
-        return -1
-
-    sum1 = 0
-    sum2 = 0
-
-    for data in SimExpData:
-        F_e = data[1]
-        deltaF_e = data[2]
-        F_s = data[3]
-
-        sum1 += np.abs(F_s) * np.abs(F_e) / (deltaF_e**2)
-        sum2 += np.abs(F_e) ** 2 / deltaF_e**2
-
-    return sum1 / sum2
-
-
-def get_ffq_scaling(ffd_sim: np.ndarray, ffd_exp: np.ndarray) -> tuple[float, float] | None:
-    """Calculate form factor quality and plot scaling factor for a simulation-experiment pair.
+    Quality calculation is performed as defined by Kučerka et al. 2010, doi:10.1007/s00232-010-9254-5
 
     :param ffd_sim: Simulation FF data (float 2D list)
     :param ffd_exp: Experiment FF data (float 2D list)
 
-    Quality calculation is performed as defined by Kučerka et al. 2010, doi:10.1007/s00232-010-9254-5
+    :return: Quality value.
     """
-    # SAMULI: This creates a array containing experiments and simualtions with
-    # the overlapping x-axis values
-    # TODO: this is NOT HOW IT SHOULD BE DONE. interp1d MUST BE USED
-    sim_exp_data = []
-    for sim_vals in ffd_sim:
-        for exp_vals in ffd_exp:
-            if np.abs(sim_vals[0] - exp_vals[0]) < 0.0005:  # and ExpValues[0] < 0.41:
-                sim_exp_data.append(
-                    [exp_vals[0], exp_vals[1], exp_vals[2], sim_vals[1]],
-                )
-
-    # Calculates the scaling factor for plotting
-    scf = calc_k_e(sim_exp_data)
-
     sim_min = get_mins_from_ffdata(ffd_sim)
     exp_min = get_mins_from_ffdata(ffd_exp)
 
-    ffq: float = np.abs(sim_min[0] - exp_min[0]) * 100
-
-    print(sim_min, exp_min, ffq)
-
-    return (ffq, scf) if len(sim_exp_data) > 0 else None
-
-
-def formfactorQualitySIMtoEXP(simFFdata, expFFdata):
-    """
-    Calculate form factor quality for a simulation.
-
-    Quality as defined by Kučerka et al. 2010, doi:10.1007/s00232-010-9254-5
-    """
-    # SAMULI: This creates a array containing experiments and simualtions with
-    # the overlapping x-axis values
-    SimExpData = []
-    for SimValues in simFFdata:
-        for ExpValues in expFFdata:
-            if np.abs(SimValues[0] - ExpValues[0]) < 0.0005:  # and ExpValues[0] < 0.41:
-                SimExpData.append(
-                    [ExpValues[0], ExpValues[1], ExpValues[2], SimValues[1]],
-                )
-
-    k_e = calc_k_e(SimExpData)
-
-    sum1 = 0
-    N = len(SimExpData)
-    for i in range(len(SimExpData)):
-        F_e = SimExpData[i][1]
-        deltaF_e = expFFdata[i][2]
-        F_s = SimExpData[i][3]
-
-        sum1 = sum1 + (np.abs(F_s) - k_e * np.abs(F_e)) ** 2 / (k_e * deltaF_e) ** 2
-
-        khi2 = np.sqrt(sum1) / np.sqrt(N - 1)
-
-    if N > 0:
-        return khi2, k_e
-    return ""
+    return np.abs(sim_min[0] - exp_min[0]) * 100

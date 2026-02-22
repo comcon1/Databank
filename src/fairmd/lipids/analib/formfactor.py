@@ -1,6 +1,7 @@
 """Analysis module for FormFactor curve."""
 
 import numpy as np
+import scipy.interpolate
 import scipy.signal
 
 
@@ -21,3 +22,37 @@ def get_mins_from_ffdata(ffdata: np.ndarray) -> float:
     min_peak_q = 0.1
 
     return [ffdata[i, 0] for i in peak_ind[0] if ffdata[i, 0] > min_peak_q]
+
+
+def calc_ff_scaling_distance(ffd_exp: np.ndarray, ffd_sim: np.ndarray) -> tuple[float, float]:
+    """
+    Calculate scaling factor and Chi2-distance for exp SAXS values.
+
+    Scaling as defined by Kučerka et al. 2008b, doi:10.1529/biophysj.107.122465
+    Quality as defined by Kučerka et al. 2010, doi:10.1007/s00232-010-9254-5
+
+    :param ffd_sim: Simulation FF data (float 2D list)
+    :param ffd_exp: Experiment FF data (float 2D list)
+
+    :return: [scaling coeffitient, Chi2-distance] (floats)
+    """
+    min_q = max(ffd_sim[:, 0].min(), ffd_exp[:, 0].min())
+    max_q = min(ffd_sim[:, 0].max(), ffd_exp[:, 0].max())
+
+    val_interpolator = scipy.interpolate.interp1d(ffd_exp[:, 0], ffd_exp[:, 1])
+    err_interpolator = scipy.interpolate.interp1d(ffd_exp[:, 0], ffd_exp[:, 2])
+    min_i = ffd_sim[:, 0].searchsorted(min_q)
+    max_i = ffd_sim[:, 0].searchsorted(max_q)
+    exp_vals = val_interpolator(ffd_sim[min_i:max_i, 0])
+    exp_errs = err_interpolator(ffd_sim[min_i:max_i, 0])
+    md_vals = ffd_sim[min_i:max_i, 1]
+
+    sum1 = (np.abs(md_vals * exp_vals) / exp_errs**2).sum()
+    sum2 = (exp_vals**2 / exp_errs**2).sum()
+
+    scf = sum1 / sum2
+
+    sum1 = (np.abs(md_vals) - scf * np.abs(exp_vals)) ** 2 / (scf * exp_errs) ** 2
+    chi = np.sqrt(sum1.sum()) / np.sqrt(max_i - min_i - 1)
+
+    return [scf, chi]
