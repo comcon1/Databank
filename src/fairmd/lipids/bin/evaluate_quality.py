@@ -19,6 +19,7 @@ import os
 
 import numpy as np
 
+import fairmd.lipids.analib.formfactor as ff
 import fairmd.lipids.quality as qq
 from fairmd.lipids import FMDL_SIMU_PATH
 from fairmd.lipids.auxiliary import CompactJSONEncoder
@@ -163,7 +164,10 @@ def _evaluate_ff_qualities(simulations) -> int:
         results_ff = {}
         for expid in simulation["EXPERIMENT"]["FORMFACTOR"]:
             exp_ff_data = np.array(ffexps.loc(expid).data)
-            results_ff[expid] = qq.get_ffq_scaling(simulation.ff_data, exp_ff_data)
+            results_ff[expid] = [
+                qq.calc_ff_quality(simulation.ff_data, exp_ff_data),
+                ff.calc_ff_scaling_distance(exp_ff_data, simulation.ff_data)[0],
+            ]
 
         # TODO: handle multiple FF experiments better
         # currently, just pick the best one
@@ -193,10 +197,10 @@ def _evaluate_ff_qualities(simulations) -> int:
 def evaluate_quality():
     simulations = qq.QualSimulation.load_all_paired()
 
-    evaluated_op_counter = _evaluate_op_qualities(simulations)
+    # evaluated_op_counter = _evaluate_op_qualities(simulations)
     evaluated_ff_counter = _evaluate_ff_qualities(simulations)
 
-    print("The number of systems with evaluated order parameters:", evaluated_op_counter)
+    # print("The number of systems with evaluated order parameters:", evaluated_op_counter)
     print("The number of systems with evaluated form factors:", evaluated_ff_counter)
 
 
