@@ -5,53 +5,47 @@ TODO: remove code duplication and commented code
 """
 
 import decimal as dc
-import json
-import os
 import re
-from typing import Optional, Tuple
+import warnings
 
 import numpy as np
 import scipy.stats
 
-from fairmd.lipids import FMDL_SIMU_PATH
 from fairmd.lipids.analib.formfactor import get_mins_from_ffdata
-from fairmd.lipids.api import get_FF
-from fairmd.lipids.core import System, initialize_databank, lipids_set
+from fairmd.lipids.api import get_FF, get_OP
+from fairmd.lipids.core import System, initialize_databank
 
 
-# TODO: inherit from System
-class QualSimulation:
-    def __init__(self, system: System, op_data, ff_data, idx_path):
-        self.system: System = system
-        # dictionary where key is the lipid type and value is order parameter file
-        self.op_data = op_data
-        self.ff_data = ff_data
-        self.idx_path = idx_path
+class QualSimulation(System):
+    def __init__(self, s: System):
+        super().__init__(s)
+        self.op_data = get_OP(s)
+        try:
+            self.ff_data = get_FF(s)
+        except FileNotFoundError:
+            msg = f"System #{s['ID']} doesn't have computed FF data."
+            warnings.warn(msg, stacklevel=2)
+            self.ff_data = None
 
-    def get_lipids(self, molecules=lipids_set):
-        lipids = [k for k in self.system["COMPOSITION"] if k in molecules]
-        return lipids
+    @staticmethod
+    def load_all_paired() -> list["QualSimulation"]:
+        """Load simulations with experimental pairings."""
+        systems = initialize_databank()
 
-    # fraction of each lipid with respect to total amount of lipids (only for lipids!)
-    def molar_fraction(self, molecule, molecules=lipids_set) -> float:
-        cmps = self.system["COMPOSITION"]
-        number = sum(cmps[molecule]["COUNT"])
-        all_counts = [i["COUNT"] for k, i in cmps.items() if k in molecules]
-        return number / sum(map(sum, all_counts))
+        simulations = []
+        for system in systems:
+            experiments = system.get("EXPERIMENT", {})
+            if any(experiments.values()):  # if experiments is not empty
+                s = QualSimulation(system)
+                simulations.append(s)
+        print(f"Loaded {len(simulations)} that has some experimental pairings.")
 
-
-class Experiment:
-    pass
-
-
-# ------------------------------------
+        return simulations
 
 
-# Quality evaluation of simulated data
 # Order parameters
 def prob_S_in_g(OP_exp: float, exp_error: float, OP_sim: float, op_sim_sd: float) -> float:
-    """Main quality function computing the quality value from experimental and
-    simulation OP data.
+    """Compute the quality value from experimental and simulation OP data.
 
     Args:
         OP_exp (float): Experimental OP value
@@ -316,7 +310,7 @@ def calc_k_e(SimExpData: list) -> float:
     return sum1 / sum2
 
 
-def get_ffq_scaling(ffd_sim: list, ffd_exp: list) -> Optional[Tuple[float, float]]:
+def get_ffq_scaling(ffd_sim: np.ndarray, ffd_exp: np.ndarray) -> tuple[float, float] | None:
     """Calculate form factor quality and plot scaling factor for a simulation-experiment pair.
 
     :param ffd_sim: Simulation FF data (float 2D list)
@@ -380,46 +374,3 @@ def formfactorQualitySIMtoEXP(simFFdata, expFFdata):
     if N > 0:
         return khi2, k_e
     return ""
-
-
-def load_simulation_qe() -> list[QualSimulation]:
-    """Load simulations for quality evaluation."""
-    systems = initialize_databank()
-
-    simulations = []
-    for system in systems:
-        if "EXPERIMENT" not in system:
-            print("The simulation does not have experimental field. Run fmdl_match_experiments to fix it.")
-            continue
-        experiments = system["EXPERIMENT"]
-        if any(experiments.values()):  # if experiments is not empty
-            sim_op_data = {}  # order parameter files for each type of lipid
-            for lip_mol in system["COMPOSITION"]:
-                if lip_mol not in lipids_set:
-                    continue
-                filename2 = os.path.join(
-                    FMDL_SIMU_PATH,
-                    system["path"],
-                    lip_mol + "OrderParameters.json",
-                )
-                op_data = {}
-                try:
-                    with open(filename2) as json_file:
-                        op_data = json.load(json_file)
-                except FileNotFoundError:
-                    # OP data for this lipid is missed
-                    pass
-                sim_op_data[lip_mol] = op_data
-
-            try:
-                sim_ff_data = get_FF(system)
-            except FileNotFoundError:
-                # FormFactor data for this system is missed
-                sim_ff_data = {}  # form factor data
-            simulations.append(
-                QualSimulation(system, sim_op_data, sim_ff_data, system["path"]),
-            )
-        else:
-            print("The simulation does not have experimental data.")
-
-    return simulations
