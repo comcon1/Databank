@@ -18,18 +18,15 @@ import json
 import os
 
 import numpy as np
-import yaml
 
 import fairmd.lipids.quality as qq
-from fairmd.lipids import FMDL_EXP_PATH, FMDL_SIMU_PATH
+from fairmd.lipids import FMDL_SIMU_PATH
 from fairmd.lipids.auxiliary import CompactJSONEncoder
+from fairmd.lipids.experiment import ExperimentCollection
 
 
 def _round_quality_values(obj: dict | list, ndigits: int = 4) -> dict | list:
-    """
-    Round all floating-point values in a nested dict/list structure.
-
-    """
+    """Round all floating-point values in a nested dict/list structure."""
     stack = [obj]
 
     while stack:
@@ -52,61 +49,29 @@ def _round_quality_values(obj: dict | list, ndigits: int = 4) -> dict | list:
     return obj
 
 
-def evaluate_quality():
-    simulations = qq.load_simulation_qe()
-
-    evaluated_op_counter = 0
-    evaluated_ff_counter = 0
-
+def _evaluate_op_qualities(simulations) -> int:
+    counter = 0
+    opexps = ExperimentCollection.load_from_data("OPExperiment")
     for simulation in simulations:
-        # save OP quality and FF quality here
-        DATAdir = os.path.join(FMDL_SIMU_PATH, simulation.idx_path)
-        print("Analyzing: ", DATAdir)
+        wdir = os.path.join(FMDL_SIMU_PATH, simulation["path"])
 
         # Order Parameters
         system_quality = {}
-        for lipid1 in simulation.get_lipids():
-            print(f"\nEvaluating order parameter quality of simulation data in {simulation.idx_path}")
+        for lipid1 in simulation.lipids:
+            print(f"\nEvaluating order parameter quality of simulation data in {simulation['path']}")
 
-            OP_data_lipid = {}
-            # convert elements to float because in some files the elements are strings
-            try:
-                for key, _ in simulation.op_data[lipid1].items():
-                    OP_array = [float(x) for x in simulation.op_data[lipid1][key][0]]
-                    OP_data_lipid[key] = OP_array
-            except Exception:
-                continue
+            OP_data_lipid = simulation.op_data[lipid1]
 
             # go through file paths in simulation.readme['EXPERIMENT']
             fragment_qual_dict = {}
             data_dict = {}
 
-            for path in simulation.system["EXPERIMENT"]["ORDERPARAMETER"][lipid1]:
+            for expid in simulation["EXPERIMENT"]["ORDERPARAMETER"][lipid1]:
                 print(
-                    f"Evaluating {lipid1} lipid using experimental data from {FMDL_EXP_PATH}/OrderParameters/{path}",
+                    f"Evaluating {lipid1} lipid using experimental data from {expid}",
                 )
                 OP_qual_data = {}
-                # get readme file of the experiment
-                exp_fpath = os.path.join(FMDL_EXP_PATH, "OrderParameters", path)
-                print("Experimental data available at " + exp_fpath)
-
-                READMEfilepathExperiment = os.path.join(exp_fpath, "README.yaml")
-                experiment = qq.Experiment()
-                with open(READMEfilepathExperiment) as yaml_file_exp:
-                    readme_exp = yaml.load(yaml_file_exp, Loader=yaml.FullLoader)
-                    experiment.readme = readme_exp
-
-                exp_op_fpath = os.path.join(exp_fpath, lipid1 + "_OrderParameters.json")
-                exp_op_data = {}
-                try:
-                    with open(exp_op_fpath) as json_file:
-                        exp_op_data = json.load(json_file)
-                except FileNotFoundError:
-                    print(f"Experimental order parameter data do not exist for lipid {lipid1}.")
-                    continue
-                except Exception as e:
-                    raise RuntimeError(f"Unexpected error during loading {exp_op_fpath}") from e
-
+                exp_op_data = opexps.loc(expid)
                 exp_error = 0.02
 
                 for key, op_array_ in OP_data_lipid.items():
@@ -128,11 +93,11 @@ def evaluate_quality():
                     OP_qual_data[key] = OP_array
 
                 # save qualities of simulation-vs-experiment into a dictionary
-                data_dict[path] = OP_qual_data
+                data_dict[expid] = OP_qual_data
 
                 # calculate quality for molecule fragments headgroup, sn-1, sn-2
-                fragments = qq.get_fragments(simulation.system.content[lipid1].mapping_dict)
-                fragment_qual_dict[path] = qq.fragmentQuality(fragments, exp_op_data, OP_data_lipid)
+                fragments = qq.get_fragments(simulation.content[lipid1].mapping_dict)
+                fragment_qual_dict[expid] = qq.fragmentQuality(fragments, exp_op_data, OP_data_lipid)
 
             try:
                 fragment_quality_output = qq.fragmentQualityAvg(lipid1, fragment_qual_dict, fragments)
@@ -146,11 +111,10 @@ def evaluate_quality():
                 print("no system quality")
                 system_quality[lipid1] = {}
 
-            fragment_quality_file = os.path.join(DATAdir, lipid1 + "_FragmentQuality.json")
+            fragment_quality_file = os.path.join(wdir, lipid1 + "_FragmentQuality.json")
 
             FGout = False
             for FG in fragment_quality_output:
-                # print(FG,fragment_quality_output[FG])
                 if np.isnan(fragment_quality_output[FG]):
                     continue
                 if fragment_quality_output[FG] > 0:
@@ -163,7 +127,7 @@ def evaluate_quality():
                     json.dump(fragment_quality_output, f)
 
             # write into the OrderParameters_quality.json quality data file
-            outfile1 = os.path.join(DATAdir, lipid1 + "_OrderParameters_quality.json")
+            outfile1 = os.path.join(wdir, lipid1 + "_OrderParameters_quality.json")
             try:
                 _round_quality_values(data_dict)
                 with open(outfile1, "w") as f:
@@ -174,7 +138,7 @@ def evaluate_quality():
         system_qual_output = qq.systemQuality(system_quality, simulation)
         # make system quality file
 
-        outfile2 = os.path.join(DATAdir, "SYSTEM_quality.json")
+        outfile2 = os.path.join(wdir, "SYSTEM_quality.json")
         SQout = any(v > 0 for v in system_qual_output.values())
 
         if SQout:
@@ -182,26 +146,24 @@ def evaluate_quality():
             with open(outfile2, "w") as f:
                 json.dump(system_qual_output, f)
             print("Order parameter quality evaluated for " + simulation.idx_path)
-            evaluated_op_counter += 1
+            counter += 1
             print()
+    return counter
 
-        ###############################################################################
-        # Form factor quality
+
+def _evaluate_ff_qualities(simulations) -> int:
+    counter = 0
+    ffexps = ExperimentCollection.load_from_data("FFExperiment")
+    for simulation in simulations:
+        wdir = os.path.join(FMDL_SIMU_PATH, simulation["path"])
+        if "FORMFACTOR" not in simulation.get("EXPERIMENT", {}):
+            continue
+        if simulation.ff_data is None:
+            continue
         results_ff = {}
-        for exp_ff_path in simulation.system["EXPERIMENT"]["FORMFACTOR"]:
-            exp_ff_data = {}
-            if len(exp_ff_path) > 0:
-                exp_ff_path_full = os.path.join(FMDL_EXP_PATH, "FormFactors", exp_ff_path)
-                for _, _, files in os.walk(exp_ff_path_full):
-                    for filename in files:
-                        filepath = os.path.join(exp_ff_path_full, filename)
-                        if filename.endswith(".json"):
-                            with open(filepath) as json_file:
-                                exp_ff_data = json.load(json_file)
-
-            if len(exp_ff_path) > 0 and len(simulation.ff_data) > 0:
-                results_ff[exp_ff_path] = qq.get_ffq_scaling(simulation.ff_data, exp_ff_data)
-        # end cycle over FF experiments
+        for expid in simulation["EXPERIMENT"]["FORMFACTOR"]:
+            exp_ff_data = np.array(ffexps.loc(expid).data)
+            results_ff[expid] = qq.get_ffq_scaling(simulation.ff_data, exp_ff_data)
 
         # TODO: handle multiple FF experiments better
         # currently, just pick the best one
@@ -215,8 +177,8 @@ def evaluate_quality():
             print(f"Form factor quality for experiment data from {best_ep}:")
             print("Distance =", results_ff[best_ep][0], "; scaling factor =", results_ff[best_ep][1])
 
-            print("Form factor quality evaluated for ", DATAdir)
-            outfile3 = os.path.join(DATAdir, "FormFactorQuality.json")
+            print("Form factor quality evaluated for ", wdir)
+            outfile3 = os.path.join(wdir, "FormFactorQuality.json")
 
             ff_quality = list(results_ff[best_ep])
             _round_quality_values(ff_quality)
@@ -224,7 +186,15 @@ def evaluate_quality():
             with open(outfile3, "w") as f:
                 json.dump(ff_quality, f)
 
-            evaluated_ff_counter += 1
+            counter += 1
+    return counter
+
+
+def evaluate_quality():
+    simulations = qq.QualSimulation.load_all_paired()
+
+    evaluated_op_counter = _evaluate_op_qualities(simulations)
+    evaluated_ff_counter = _evaluate_ff_qualities(simulations)
 
     print("The number of systems with evaluated order parameters:", evaluated_op_counter)
     print("The number of systems with evaluated form factors:", evaluated_ff_counter)
