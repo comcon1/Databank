@@ -9,10 +9,11 @@ Quality evaluation in the FairMD databank
 The simulations contained in the FairMD databank are quality evaluated against experiments.
 A simulation is connected to an experimental data set if the molar concentrations of all
 molecules are within :math:`\pm 3` percentage units, charged lipids have the same
-counterions, and temperatures are within :math:`\pm 2\,\mathrm{K}`.
+counterions, and temperatures are within :math:`\pm 2.5\,\mathrm{K}`.
 For molar concentrations of water, the exact hydration level is considered only for
 systems with molar water-to-lipid ratio below 25; otherwise the systems are considered
-fully hydrated.
+fully hydrated. For dehydrated systems the hydration has to agree with :math:`\pm 15` 
+percentages relative to the simulated value.
 
 Two types of experimental data are used in quality evaluation: SAXS form factors and
 C–H order parameters. For the latter, a quality is calculated both for the entire
