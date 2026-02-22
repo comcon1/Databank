@@ -72,6 +72,8 @@ We define the average qualities for different fragments
 (frag = *sn-1*, *sn-2*, *headgroup*, or *total*, with the last referring to all order
 parameters within a molecule) within each lipid type in a simulation as
 
+NOTE!!! it seems that total value is actually the average of fragemnst!!!
+
 .. math::
 
    P^\mathrm{frag}[\mathrm{lipid}]
@@ -84,8 +86,16 @@ individual :math:`S_\mathrm{CH}` qualities within the fragment, and
 :math:`F_\mathrm{frag}[\mathrm{lipid}]` is the percentage of order parameters for which
 the quality is available within the fragment.
 
-The overall quality of different fragments in a simulation
-(frag = *tails*, *headgroup*, or *total*) is then defined as a molar-fraction–weighted
+If multiple sources, the quality is averaged over them at the fragment level. If a 
+molecule fragment has no corresponding experimental data, it gets assigned a NaN 
+quality value.
+
+The order parameter quality value for the molecule (fragment="total") is the average 
+of fragment values of the molecule subparts. If one of the fragments has a NaN value,
+the total quality of the molecule is also NaN.
+
+The overall quality of different fragments for the simulated system,
+(frag = *tails*, *headgroup*, or *total*) is defined as a molar-fraction–weighted
 average over different lipid components:
 
 .. math::
@@ -97,7 +107,10 @@ average over different lipid components:
    P^\mathrm{frag}[\mathrm{lipid}],
 
 where :math:`\chi_\mathrm{lipid}` is the molar fraction of a lipid in the bilayer and
-*tails* refers to the average over all acyl chains.
+*tails* refers to the average over all acyl chains. If for a lipid in the 
+system a fragment quality is NaN, then the overal system quality for that fragment 
+gets weighted with :math:`(1-w)` where :math:`w` is the is the molar fraction of that 
+lipid.
 
 
 Quality evaluation of X-ray scattering form factors
@@ -123,6 +136,8 @@ locations:
    =
    \left| FF_\mathrm{min}^\mathrm{sim} - FF_\mathrm{min}^\mathrm{exp} \right| \times 100.
 
+If a simulation is linked to multiple form factors, the experimental data that produces the 
+best form factor quality is chosen.
 
 .. _Ranking files:
    https://github.com/NMRLipids/BilayerData/blob/view-new-rankings/Ranking/
