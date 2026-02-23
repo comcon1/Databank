@@ -85,7 +85,7 @@ def _evaluate_op_qualities(simulations) -> int:
                             op_sim_STEM = OP_array[2]
                             # changing to use shitness(TM) scale.
                             # This code needs to be cleaned
-                            op_quality = qq.prob_S_in_g(OP_exp, exp_error, OP_sim, op_sim_STEM)
+                            op_quality = qq.prob_op_within_trustinterval(OP_exp, exp_error, OP_sim, op_sim_STEM)
                             OP_array.append(OP_exp)
                             OP_array.append(exp_error)  # hardcoded!!! 0.02 for all exps
                             OP_array.append(op_quality)
