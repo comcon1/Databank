@@ -45,8 +45,13 @@ class QualSimulation(System):
 
 
 # Order parameters
-def prob_S_in_g(OP_exp: float, exp_error: float, OP_sim: float, op_sim_sd: float) -> float:
-    """Compute the quality value from experimental and simulation OP data.
+def prob_op_within_trustinterval(OP_exp: float, exp_error: float, OP_sim: float, op_sim_sd: float) -> float:
+    """
+    Compute the quality value from experimental and simulation OP data.
+
+    NOTE: Computing the probability taking into account small values using
+    scipy.special.log1p is not required if sd is above 1e-5, which is
+    currently the case for all OP data.
 
     Args:
         OP_exp (float): Experimental OP value
@@ -64,35 +69,11 @@ def prob_S_in_g(OP_exp: float, exp_error: float, OP_sim: float, op_sim_sd: float
 
     a_rel = (OP_sim - a) / op_sim_sd
     b_rel = (OP_sim - b) / op_sim_sd
-    p_s = scipy.stats.t.sf(b_rel, df=1, loc=0, scale=1) - scipy.stats.t.sf(a_rel, df=1, loc=0, scale=1)
 
-    if np.isnan(p_s):
-        return p_s
+    p_b = scipy.stats.t.sf(b_rel, df=1, loc=0, scale=1)
+    p_a = scipy.stats.t.sf(a_rel, df=1, loc=0, scale=1)
 
-    # this is an attempt to deal with precision, max set manually to 70
-    dc.getcontext().prec = 70
-    _ = -dc.Decimal(p_s).log10()
-
-    return float(p_s)
-
-
-def prob_op_within_trustinterval(op_exp: float, exp_error: float, op_sim: float, op_sim_sd: float) -> float:
-    a = op_exp - exp_error
-    b = op_exp + exp_error
-
-    a_rel = (op_sim - a) / op_sim_sd
-    b_rel = (op_sim - b) / op_sim_sd
-
-    a_logprob = scipy.stats.t.logsf(a_rel, df=1, loc=0, scale=1)
-    b_logprob = scipy.stats.t.logsf(b_rel, df=1, loc=0, scale=1)
-
-    # log(b - a) = log(exp(logb) - exp(loga)) = logb + log(1 - exp(loga - logb))
-    log_ab = b_logprob + log1p(-expm1(a_logprob - b_logprob))
-
-    if np.isnan(log_ab):
-        return np.nan
-
-    return -log_ab / np.log(10)
+    return p_b - p_a
 
 
 # quality of molecule fragments
@@ -181,7 +162,7 @@ def fragmentQuality(fragments, exp_op_data, sim_op_data):
                             # fragments. Warning big numbers will dominate
                             # TODO: remove commented
                             # if OP_exp != float("NaN"):
-                            QE = prob_S_in_g(OP_exp, exp_error, OP_sim, op_sim_STEM)
+                            QE = prob_op_within_trustinterval(OP_exp, exp_error, OP_sim, op_sim_STEM)
                             # print(OP_exp, OP_sim ,QE)
                             # print(QE, 10**(-QE))
 
