@@ -65,18 +65,18 @@ def _evaluate_op_qualities(simulations) -> int:
             fragment_qual_dict = {}
             data_dict = {}
 
-            for expid in simulation["EXPERIMENT"]["ORDERPARAMETER"][lipid1]:
+            for expid in simulation["EXPERIMENT"]["ORDERPARAMETER"].get(lipid1, []):
                 print(
                     f"Evaluating {lipid1} lipid using experimental data from {expid}",
                 )
                 OP_qual_data = {}
-                exp_lipid_ops = opexps.loc(expid)
+                exp_lipid_ops = opexps.loc(expid).data[lipid1]
                 exp_error = 0.02
 
                 for key, op_array_ in md_lipid_ops.items():
                     OP_array = op_array_.copy()
-                    try:
-                        OP_exp = exp_lipid_ops[key][0][0]
+                    try:  # TODO: very bad! must remove TRY-EXCEPT BLOCK
+                        OP_exp = exp_lipid_ops[key][0]
                     except KeyError:
                         continue
                     else:
@@ -144,7 +144,7 @@ def _evaluate_op_qualities(simulations) -> int:
             _round_quality_values(system_qual_output)
             with open(outfile2, "w") as f:
                 json.dump(system_qual_output, f)
-            print("Order parameter quality evaluated for " + simulation.idx_path)
+            print("Order parameter quality evaluated for " + simulation["path"])
             counter += 1
             print()
     return counter
@@ -195,10 +195,10 @@ def _evaluate_ff_qualities(simulations) -> int:
 def evaluate_quality():
     simulations = qq.QualSimulation.load_all_paired()
 
-    # evaluated_op_counter = _evaluate_op_qualities(simulations)
+    evaluated_op_counter = _evaluate_op_qualities(simulations)
     evaluated_ff_counter = _evaluate_ff_qualities(simulations)
 
-    # print("The number of systems with evaluated order parameters:", evaluated_op_counter)
+    print("The number of systems with evaluated order parameters:", evaluated_op_counter)
     print("The number of systems with evaluated form factors:", evaluated_ff_counter)
 
 

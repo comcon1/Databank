@@ -4,7 +4,6 @@ TODO: add tests
 TODO: remove code duplication and commented code
 """
 
-import decimal as dc
 import re
 import warnings
 
@@ -84,7 +83,7 @@ def prob_op_within_trustinterval(
 
 
 # quality of molecule fragments
-def get_fragments(mapping_dict: dict):
+def get_fragments(mapping_dict: dict) -> dict:
     fragments = {}
 
     for key_m, value in mapping_dict.items():
@@ -124,7 +123,7 @@ def evaluated_percentage(fragments, exp_op_data):
         for key, value in exp_op_data.items():
             if key.split(" ")[0] in fragments[fragment_key]:  # check if atom belongs to the fragment
                 fragment_size += 1
-                if not np.isnan(value[0][0]):
+                if not np.isnan(value[0]):
                     count_value += 1
         if fragment_size != 0:
             frag_percentage[fragment_key] = count_value / fragment_size
@@ -137,7 +136,7 @@ def evaluated_percentage(fragments, exp_op_data):
     return frag_percentage
 
 
-def fragmentQuality(fragments, exp_op_data, sim_op_data):
+def fragmentQuality(fragments: dict, exp_op_data: dict, sim_op_data: dict):
     # depends on the experiment file what fragments are in this dictionary
     p_F = evaluated_percentage(fragments, exp_op_data)
     exp_error = 0.02
@@ -156,8 +155,8 @@ def fragmentQuality(fragments, exp_op_data, sim_op_data):
         else:
             if p_F[fragment_key] != 0:
                 for key_exp, value_exp in exp_op_data.items():
-                    if key_exp.split()[0] in fragments[fragment_key] and not np.isnan(value_exp[0][0]):
-                        OP_exp = value_exp[0][0]
+                    if key_exp.split()[0] in fragments[fragment_key] and not np.isnan(value_exp[0]):
+                        OP_exp = value_exp[0]
                         try:
                             OP_sim = sim_op_data[key_exp][0]
                         except (KeyError, TypeError):
@@ -242,7 +241,7 @@ def fragmentQualityAvg(
 
 
 # fragments is different for each lipid ---> need to make individual dictionaries
-def systemQuality(system_fragment_qualities, simulation):
+def systemQuality(system_fragment_qualities, simulation: QualSimulation):
     system_dict = {}
     lipid_dict = {}
     w_nan = []
@@ -251,7 +250,7 @@ def systemQuality(system_fragment_qualities, simulation):
         # copy keys to new dictionary
         lipid_dict = dict.fromkeys(system_fragment_qualities[lipid].keys(), 0)
 
-        w = simulation.molar_fraction(lipid)
+        w = simulation.membrane_composition(basis="molar")[lipid]
 
         for key, value in system_fragment_qualities[lipid].items():
             if not np.isnan(value):
