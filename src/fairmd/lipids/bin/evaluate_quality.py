@@ -56,14 +56,12 @@ def _evaluate_op_qualities(simulations) -> int:
     for simulation in simulations:
         wdir = os.path.join(FMDL_SIMU_PATH, simulation["path"])
 
-        # Order Parameters
         system_quality = {}
         for lipid1 in simulation.lipids:
             print(f"\nEvaluating order parameter quality of simulation data in {simulation['path']}")
 
-            OP_data_lipid = simulation.op_data[lipid1]
+            md_lipid_ops = simulation.op_data[lipid1]
 
-            # go through file paths in simulation.readme['EXPERIMENT']
             fragment_qual_dict = {}
             data_dict = {}
 
@@ -72,13 +70,13 @@ def _evaluate_op_qualities(simulations) -> int:
                     f"Evaluating {lipid1} lipid using experimental data from {expid}",
                 )
                 OP_qual_data = {}
-                exp_op_data = opexps.loc(expid)
+                exp_lipid_ops = opexps.loc(expid)
                 exp_error = 0.02
 
-                for key, op_array_ in OP_data_lipid.items():
+                for key, op_array_ in md_lipid_ops.items():
                     OP_array = op_array_.copy()
                     try:
-                        OP_exp = exp_op_data[key][0][0]
+                        OP_exp = exp_lipid_ops[key][0][0]
                     except KeyError:
                         continue
                     else:
@@ -98,7 +96,7 @@ def _evaluate_op_qualities(simulations) -> int:
 
                 # calculate quality for molecule fragments headgroup, sn-1, sn-2
                 fragments = qq.get_fragments(simulation.content[lipid1].mapping_dict)
-                fragment_qual_dict[expid] = qq.fragmentQuality(fragments, exp_op_data, OP_data_lipid)
+                fragment_qual_dict[expid] = qq.fragmentQuality(fragments, exp_lipid_ops, md_lipid_ops)
 
             try:
                 fragment_quality_output = qq.fragmentQualityAvg(lipid1, fragment_qual_dict, fragments)
