@@ -19,6 +19,7 @@ import pytest_check as check
 # run only on sim2 mocking data
 pytestmark = [pytest.mark.nodata, pytest.mark.min]
 
+
 def test_prob_op_within_trustinterval():
     from fairmd.lipids.quality import prob_op_within_trustinterval
 
@@ -47,4 +48,3 @@ def test_prob_op_within_trustinterval():
 
     p2 = prob_op_within_trustinterval(op_exp, exp_error, op_sim, op_sim_sd)
     npt.assert_allclose(p2, [0.505148, np.nan, 0.526465], atol=1e-6)
-
