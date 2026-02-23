@@ -9,8 +9,8 @@ import re
 import warnings
 
 import numpy as np
+import numpy.typing as npt
 import scipy.stats
-from scipy.special import log1p, expm1
 
 from fairmd.lipids.analib.formfactor import get_mins_from_ffdata
 from fairmd.lipids.api import get_FF, get_OP
@@ -45,30 +45,37 @@ class QualSimulation(System):
 
 
 # Order parameters
-def prob_op_within_trustinterval(OP_exp: float, exp_error: float, OP_sim: float, op_sim_sd: float) -> float:
+def prob_op_within_trustinterval(
+    op_exp: npt.ArrayLike,
+    exp_error: npt.ArrayLike,
+    op_sim: npt.ArrayLike,
+    op_sim_sd: npt.ArrayLike,
+) -> npt.ArrayLike:
     """
     Compute the quality value from experimental and simulation OP data.
+
+    Probability is computed using Eq. (3) [10.1038/s41467-024-45189-z].
 
     NOTE: Computing the probability taking into account small values using
     scipy.special.log1p is not required if sd is above 1e-5, which is
     currently the case for all OP data.
 
     Args:
-        OP_exp (float): Experimental OP value
-        exp_error (float): Experimental error
-        OP_sim (float): Simulated OP value
-        op_sim_sd (float): Standard deviation from simulation
+        OP_exp: Experimental OP value (all float/arrays)
+        exp_error: Experimental error
+        OP_sim: Simulated OP value
+        op_sim_sd: Standard deviation from simulation
 
     Returns
     -------
-        float: single-OP quality value or NaN
+        float/ndarray: probability value(s) or nans
     """
     # normal distribution N(s, OP_sim, op_sim_sd)
-    a = OP_exp - exp_error
-    b = OP_exp + exp_error
+    a = op_exp - exp_error
+    b = op_exp + exp_error
 
-    a_rel = (OP_sim - a) / op_sim_sd
-    b_rel = (OP_sim - b) / op_sim_sd
+    a_rel = (op_sim - a) / op_sim_sd
+    b_rel = (op_sim - b) / op_sim_sd
 
     p_b = scipy.stats.t.sf(b_rel, df=1, loc=0, scale=1)
     p_a = scipy.stats.t.sf(a_rel, df=1, loc=0, scale=1)
