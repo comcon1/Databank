@@ -10,6 +10,7 @@ import warnings
 
 import numpy as np
 import scipy.stats
+from scipy.special import log1p, expm1
 
 from fairmd.lipids.analib.formfactor import get_mins_from_ffdata
 from fairmd.lipids.api import get_FF, get_OP
@@ -73,6 +74,25 @@ def prob_S_in_g(OP_exp: float, exp_error: float, OP_sim: float, op_sim_sd: float
     _ = -dc.Decimal(p_s).log10()
 
     return float(p_s)
+
+
+def prob_op_within_trustinterval(op_exp: float, exp_error: float, op_sim: float, op_sim_sd: float) -> float:
+    a = op_exp - exp_error
+    b = op_exp + exp_error
+
+    a_rel = (op_sim - a) / op_sim_sd
+    b_rel = (op_sim - b) / op_sim_sd
+
+    a_logprob = scipy.stats.t.logsf(a_rel, df=1, loc=0, scale=1)
+    b_logprob = scipy.stats.t.logsf(b_rel, df=1, loc=0, scale=1)
+
+    # log(b - a) = log(exp(logb) - exp(loga)) = logb + log(1 - exp(loga - logb))
+    log_ab = b_logprob + log1p(-expm1(a_logprob - b_logprob))
+
+    if np.isnan(log_ab):
+        return np.nan
+
+    return -log_ab / np.log(10)
 
 
 # quality of molecule fragments
