@@ -83,24 +83,6 @@ def prob_op_within_trustinterval(
 
 
 # quality of molecule fragments
-def get_fragments(mapping_dict: dict) -> dict:
-    fragments = {}
-
-    for key_m, value in mapping_dict.items():
-        try:
-            key_f = value["FRAGMENT"]
-        except KeyError:
-            key_f = "n/d"
-        fragments.setdefault(key_f, []).append(key_m)
-
-    # merge glycerol backbone fragment into headgroup fragment
-    if "glycerol backbone" in fragments and "headgroup" in fragments:
-        fragments["headgroup"] += fragments["glycerol backbone"]
-        fragments.pop("glycerol backbone")
-
-    return fragments
-
-
 def filterCH(fragment_key, fragments):
     re_CH = re.compile(r"M_([GC0-9]*[A-Z0-9]*C[0-9]*H[0-9]*)*([GC0-9]*H[0-9]*)*_M")
     filtered = list(filter(re_CH.match, fragments[fragment_key]))
@@ -136,8 +118,12 @@ def evaluated_percentage(fragments, exp_op_data):
     return frag_percentage
 
 
-def fragmentQuality(fragments: dict, exp_op_data: dict, sim_op_data: dict):
-    # depends on the experiment file what fragments are in this dictionary
+def fragment_quality(fragments: dict, exp_op_data: dict, sim_op_data: dict):
+    """
+    Calculate quality for fragmented molecule.
+
+    Depends on the experiment file what fragments are in this dictionary.
+    """
     p_F = evaluated_percentage(fragments, exp_op_data)
     exp_error = 0.02
 
@@ -163,28 +149,7 @@ def fragmentQuality(fragments: dict, exp_op_data: dict, sim_op_data: dict):
                             continue
                         else:
                             op_sim_STEM = sim_op_data[key_exp][2]
-
-                            # change here if you want to use shitness(TM) scale for
-                            # fragments. Warning big numbers will dominate
-                            # TODO: remove commented
-                            # if OP_exp != float("NaN"):
                             QE = prob_op_within_trustinterval(OP_exp, exp_error, OP_sim, op_sim_STEM)
-                            # print(OP_exp, OP_sim ,QE)
-                            # print(QE, 10**(-QE))
-
-                            # print('prob_S')
-                            # print(QE)
-                            #  if QE >0:
-                            #   if QE == float("NaN"):
-                            #    E_sum = E_sum
-                            #    if QE == float("inf"): #'Infinity' or QE == 'inf':
-                            #         E_sum += 300
-                            #         AV_sum += 1
-                            #    else:
-                            #        print(QE)
-                            #        E_sum += prob_S_in_g(OP_exp, exp_error, OP_sim,
-                            #                               op_sim_STEM)
-                            #        AV_sum += 1
                             E_sum += QE
                             AV_sum += 1
                 if AV_sum > 0:

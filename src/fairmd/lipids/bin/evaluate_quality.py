@@ -22,7 +22,7 @@ import numpy as np
 import fairmd.lipids.analib.formfactor as ff
 import fairmd.lipids.quality as qq
 from fairmd.lipids import FMDL_SIMU_PATH
-from fairmd.lipids.auxiliary import CompactJSONEncoder
+from fairmd.lipids.auxiliary import CompactJSONEncoder, mollib
 from fairmd.lipids.experiment import ExperimentCollection
 
 
@@ -92,8 +92,10 @@ def _evaluate_op_qualities(simulations) -> int:
                 data_dict[expid] = OP_qual_data
 
                 # calculate quality for molecule fragments headgroup, sn-1, sn-2
-                fragments = qq.get_fragments(simulation.content[lipid1].mapping_dict)
-                fragment_qual_dict[expid] = qq.fragmentQuality(fragments, exp_lipid_ops, md_lipid_ops)
+                # TODO: bb is merged into headgroup. But sn-s do not.. Cryptic rule.
+                # TODO: What to do with other types of lipids?
+                fragments = mollib.get_fragments(simulation.content[lipid1].mapping_dict)
+                fragment_qual_dict[expid] = qq.fragment_quality(fragments, exp_lipid_ops, md_lipid_ops)
 
             try:
                 fragment_quality_output = qq.fragmentQualityAvg(lipid1, fragment_qual_dict, fragments)
