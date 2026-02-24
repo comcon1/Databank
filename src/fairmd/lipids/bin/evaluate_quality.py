@@ -58,16 +58,15 @@ def _evaluate_op_qualities(simulations) -> int:
 
         system_quality = {}
         for lipid1 in simulation.lipids:
-            print(f"\nEvaluating order parameter quality of simulation data in {simulation['path']}")
-
             md_lipid_ops = simulation.op_data[lipid1]
 
             fragment_qual_dict = {}
             data_dict = {}
 
             for expid in simulation["EXPERIMENT"]["ORDERPARAMETER"].get(lipid1, []):
+                print(f"OP quality of simulation data in {simulation['path']}")
                 print(
-                    f"Evaluating {lipid1} lipid using experimental data from {expid}",
+                    f".. evaluating {lipid1} lipid using experimental data from {expid}",
                 )
                 OP_qual_data = {}
                 exp_lipid_ops = opexps.loc(expid).data[lipid1]

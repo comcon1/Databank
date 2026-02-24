@@ -122,11 +122,15 @@ def weights_of_fragments_in_data(fragments: dict, exp_op_data: dict) -> dict:
 
 def fragment_quality(fragments: dict, exp_op_data: dict, sim_op_data: dict):
     """
-    Calculate quality for a fragmented molecule.
-
-    :param fragments: dictionary of type {fragment:lists of unames}.
+    Calculate quality for a fragmented molecule (times their weights in exp data).
 
     Depends on the experiment file what fragments are in this dictionary.
+
+    :param fragments: dictionary of type {fragment:lists of unames}.
+    :param exp_op_data: dictionary of type {op_uname: [op_value]}.
+    :param sim_op_data: dictionary of type {op_uname: [op_value, op_sigma, op_sd]}.
+
+    :return: dictionary of type {fragment: quality value}.
     """
     fragment_weights = weights_of_fragments_in_data(fragments, exp_op_data)
     exp_error = 0.02  # TODO: hardcoded error value, should be taken from experiment data when available
@@ -137,28 +141,32 @@ def fragment_quality(fragments: dict, exp_op_data: dict, sim_op_data: dict):
     for frg_name, frg_atoms in fragments.items():
         E_sum = 0
         AV_sum = 0
-        if fragment_weights[frg_name] != 0:
-            for key_exp, value_exp in exp_op_data.items():
-                if key_exp.split()[0] in frg_atoms and not np.isnan(value_exp[0]):
-                    OP_exp = value_exp[0]
-                    try:
-                        OP_sim = sim_op_data[key_exp][0]
-                    except (KeyError, TypeError):
-                        continue
-                    else:
-                        op_sim_STEM = sim_op_data[key_exp][2]
-                        QE = prob_op_within_trustinterval(OP_exp, exp_error, OP_sim, op_sim_STEM)
-                        E_sum += QE
-                        AV_sum += 1
-            if AV_sum > 0:
-                E_F = (E_sum / AV_sum) * fragment_weights[frg_name]
-                fragment_quality[frg_name] = E_F
-            else:
-                fragment_quality[frg_name] = np.nan
+        if fragment_weights[frg_name] == 0:
+            fragment_quality[frg_name] = np.nan
+            continue
+        for key_exp, value_exp in exp_op_data.items():
+            if (
+                key_exp.split()[0] in frg_atoms  # process for 1 fragm
+                and not np.isnan(value_exp[0])
+                and key_exp in sim_op_data
+                # If the last is not true, then simulation value is missing.
+                # This allows to happen for, e.g. CH3-groups in
+                # UA force fields as CH-bond cannot be reconstructed for this carbon.
+            ):
+                QE = prob_op_within_trustinterval(
+                    op_exp=value_exp[0],
+                    exp_error=exp_error,
+                    op_sim=sim_op_data[key_exp][0],
+                    op_sim_sd=sim_op_data[key_exp][2],
+                )
+                E_sum += QE
+                AV_sum += 1
+        if AV_sum > 0:
+            E_F = (E_sum / AV_sum) * fragment_weights[frg_name]
+            fragment_quality[frg_name] = E_F
         else:
             fragment_quality[frg_name] = np.nan
 
-    print("fragment quality ", fragment_quality)
     return fragment_quality
 
 
@@ -166,7 +174,12 @@ def fragmentQualityAvg(
     lipid,
     fragment_qual_dict,
     fragments,
-):  # handles one lipid at a time
+):
+    """
+    Condition fragment qualities.
+
+    The second-layer function.
+    """
     sums_dict = {}
 
     for doi in fragment_qual_dict.keys():
