@@ -81,28 +81,23 @@ def prob_op_within_trustinterval(
     return p_b - p_a
 
 
-def get_fragments_coverage(fragments: dict, exp_op_data: dict) -> dict:
+def get_fragments_coverage(fragments: dict, q_data: dict) -> dict:
     """
     Calculate the coverage in data of each fragment.
 
-    It currently calculates the percent of non-nans.
+    The coverage is implemented as the percent of non-nans.
 
-    :param fragments: Description
-    :param exp_op_data: Description
+    :param fragments: Dictionary of type {fragment: lists of unames}.
+    :param q_data: Dictionary of type {op_uname: quality value}.
 
     :return: Dictionary of type {fragment: percentage of evaluated OPs}
     """
     frag_percentage = dict.fromkeys(fragments, 0)
 
     for frg_name, frg_atoms in fragments.items():
-        count_value = 0
-        fragment_size = 0
-        for key, value in exp_op_data.items():
-            if key.split(" ")[0] in frg_atoms:
-                fragment_size += 1
-                if not np.isnan(value[0]):
-                    count_value += 1
-        frag_percentage[frg_name] = count_value / fragment_size if fragment_size > 0 else 0
+        frg_atoms_set = set(frg_atoms)
+        nan_mask = [np.isnan(v) for k, v in q_data.items() if k.split(" ")[0] in frg_atoms_set]
+        frag_percentage[frg_name] = 1 - sum(nan_mask) / len(nan_mask) if len(nan_mask) > 0 else 0
 
     return frag_percentage
 
