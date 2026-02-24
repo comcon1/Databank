@@ -71,24 +71,21 @@ def _evaluate_op_qualities(simulations) -> int:
                 )
                 OP_qual_data = {}
                 exp_lipid_ops = opexps.loc(expid).data[lipid1]
-                exp_error = 0.02
+                exp_error = 0.02  # TODO: hardcoded error value, should be taken from experiment data when available
 
                 for key, op_array_ in md_lipid_ops.items():
                     OP_array = op_array_.copy()
-                    try:  # TODO: very bad! must remove TRY-EXCEPT BLOCK
-                        OP_exp = exp_lipid_ops[key][0]
-                    except KeyError:
+                    if key not in exp_lipid_ops:
                         continue
-                    else:
-                        if not np.isnan(OP_exp):
-                            OP_sim = OP_array[0]
-                            op_sim_STEM = OP_array[2]
-                            # changing to use shitness(TM) scale.
-                            # This code needs to be cleaned
-                            op_quality = qq.prob_op_within_trustinterval(OP_exp, exp_error, OP_sim, op_sim_STEM)
-                            OP_array.append(OP_exp)
-                            OP_array.append(exp_error)  # hardcoded!!! 0.02 for all exps
-                            OP_array.append(op_quality)
+                    OP_exp_val = exp_lipid_ops[key][0]
+                    if not np.isnan(OP_exp_val):
+                        op_quality = qq.prob_op_within_trustinterval(
+                            op_exp=OP_exp_val,
+                            exp_error=exp_error,
+                            op_sim=OP_array[0],
+                            op_sim_sd=OP_array[2],
+                        )
+                        OP_array += [OP_exp_val, exp_error, op_quality]
                     OP_qual_data[key] = OP_array
 
                 # save qualities of simulation-vs-experiment into a dictionary
