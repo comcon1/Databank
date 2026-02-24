@@ -82,15 +82,10 @@ def prob_op_within_trustinterval(
     return p_b - p_a
 
 
-# quality of molecule fragments
-def filterCH(fragment_key, fragments):
-    re_CH = re.compile(r"M_([GC0-9]*[A-Z0-9]*C[0-9]*H[0-9]*)*([GC0-9]*H[0-9]*)*_M")
-    filtered = list(filter(re_CH.match, fragments[fragment_key]))
-    return filtered
-
-
-def checkForCH(fragment_key, fragments):
-    filtered = filterCH(fragment_key, fragments)
+def _has_CH_bonds(uname_list):
+    """Check if the list contains CH bonds."""
+    ptrn = re.compile(r"M_([GC0-9]*[A-Z0-9]*C[0-9]*H[0-9]*)*([GC0-9]*H[0-9]*)*_M")
+    filtered = list(filter(ptrn.match, uname_list))
     return bool(filtered)
 
 
@@ -170,40 +165,35 @@ def fragment_quality(fragments: dict, exp_op_data: dict, sim_op_data: dict):
     return fragment_quality
 
 
-def fragmentQualityAvg(
+def fragment_quality_unite_multexp(
     lipid,
-    fragment_qual_dict,
-    fragments,
+    fragment_qual_dict: dict,
+    fragments: dict,
 ):
     """
     Condition fragment qualities.
 
     The second-layer function.
+
+    :param lipid: ...
+    :param fragment_qual_perexp: dictionary of type {expid: {fragment: quality value}}.
+    :param fragments: dictionary of type {fragment:lists of unames}.
+
+    :return: dictionary of type {fragment: average quality value}.
     """
     sums_dict = {}
+    for exp_frag_qual in fragment_qual_dict.values():
+        for frag_name, frag_qual in exp_frag_qual.items():
+            sums_dict.setdefault(frag_name, []).append(frag_qual)
 
-    for doi in fragment_qual_dict.keys():
-        for key_fragment in fragment_qual_dict[doi].keys():
-            f_value = fragment_qual_dict[doi][key_fragment]
-            sums_dict.setdefault(key_fragment, []).append(f_value)
-
-    avg_total_quality = {}
-
-    for key_fragment in sums_dict:
-        # remove nan values
-        to_be_summed = [x for x in sums_dict[key_fragment] if not np.isnan(x)]
-        if to_be_summed:
-            avg_value = sum(to_be_summed) / len(to_be_summed)
-        else:
-            avg_value = np.nan
-        avg_total_quality.setdefault(key_fragment, avg_value)
+    avg_total_quality = {frag_name: np.nanmean(frag_vals) for frag_name, frag_vals in sums_dict.items()}
 
     # if average fragment quality exists for all fragments that contain CH bonds then
     # calculate total quality over all fragment quality averages
     if [
         x
         for x in avg_total_quality
-        if (checkForCH(x, fragments) and not np.isnan(avg_total_quality[x])) or (not checkForCH(x, fragments))
+        if (_has_CH_bonds(fragments[x]) and not np.isnan(avg_total_quality[x])) or (not _has_CH_bonds(fragments[x]))
     ]:
         list_values = [x for x in avg_total_quality.values() if not np.isnan(x)]
         avg_total_quality["total"] = sum(list_values) / len(list_values)
