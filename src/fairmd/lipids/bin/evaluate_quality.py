@@ -83,7 +83,7 @@ def _evaluate_op_qualities(simulations) -> int:
                 fragment_qual_perexp[expid] = {k: _frq[k] * _frw[k] for k in fragments}
 
             # Experiment-merged fragment quality for the lipid
-            fragment_quality_merged = qq.fragment_quality_unite_multexp(lipidname, fragment_qual_perexp, fragments)
+            fragment_quality_merged = qq.fragment_quality_unite_multexp(fragment_qual_perexp)
             system_quality[lipidname] = fragment_quality_merged
 
             # Write FQ for the lipid
