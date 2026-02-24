@@ -82,13 +82,6 @@ def prob_op_within_trustinterval(
     return p_b - p_a
 
 
-def _has_CH_bonds(uname_list):
-    """Check if the list contains CH bonds."""
-    ptrn = re.compile(r"M_([GC0-9]*[A-Z0-9]*C[0-9]*H[0-9]*)*([GC0-9]*H[0-9]*)*_M")
-    filtered = list(filter(ptrn.match, uname_list))
-    return bool(filtered)
-
-
 def weights_of_fragments_in_data(fragments: dict, exp_op_data: dict) -> dict:
     """
     Calculate the percentage of evaluated OPs for each fragment.
@@ -113,6 +106,31 @@ def weights_of_fragments_in_data(fragments: dict, exp_op_data: dict) -> dict:
         frag_percentage[frg_name] = count_value / fragment_size if fragment_size > 0 else 0
 
     return frag_percentage
+
+
+def atomic_quality(exp_op_data: dict, sim_op_data: dict):
+    """
+    Calculate quality for a molecule (times their weights in exp data).
+
+    :param exp_op_data: dictionary of type {op_uname: [op_value]}.
+    :param sim_op_data: dictionary of type {op_uname: [op_value, op_sigma, op_sd]}.
+
+    :return: dictionary of type {"nC nH": quality value}.
+    """
+    exp_error = 0.02  # TODO: hardcoded error value, should be taken from experiment data when available
+    res_dict = {}
+
+    for key_exp, value_exp in exp_op_data.items():
+        if not np.isnan(value_exp[0]) and key_exp in sim_op_data:
+            q = prob_op_within_trustinterval(
+                op_exp=value_exp[0],
+                exp_error=exp_error,
+                op_sim=sim_op_data[key_exp][0],
+                op_sim_sd=sim_op_data[key_exp][2],
+            )
+            res_dict[key_exp] = q
+
+    return res_dict
 
 
 def fragment_quality(fragments: dict, exp_op_data: dict, sim_op_data: dict):
@@ -187,21 +205,7 @@ def fragment_quality_unite_multexp(
             sums_dict.setdefault(frag_name, []).append(frag_qual)
 
     avg_total_quality = {frag_name: np.nanmean(frag_vals) for frag_name, frag_vals in sums_dict.items()}
-
-    # if average fragment quality exists for all fragments that contain CH bonds then
-    # calculate total quality over all fragment quality averages
-    if [
-        x
-        for x in avg_total_quality
-        if (_has_CH_bonds(fragments[x]) and not np.isnan(avg_total_quality[x])) or (not _has_CH_bonds(fragments[x]))
-    ]:
-        list_values = [x for x in avg_total_quality.values() if not np.isnan(x)]
-        avg_total_quality["total"] = sum(list_values) / len(list_values)
-    else:
-        avg_total_quality["total"] = np.nan
-
-    print("fragment avg")
-    print(avg_total_quality)
+    avg_total_quality["total"] = np.nanmean(list(avg_total_quality.values()))
 
     return avg_total_quality
 

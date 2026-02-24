@@ -57,19 +57,20 @@ def _evaluate_op_qualities(simulations) -> int:
         wdir = os.path.join(FMDL_SIMU_PATH, simulation["path"])
 
         system_quality = {}
-        for lipid1 in simulation.lipids:
-            md_lipid_ops = simulation.op_data[lipid1]
+        for lipidname, lipid in simulation.lipids.items():
+            md_lipid_ops = simulation.op_data[lipidname]
 
+            fragments = mollib.get_fragments(lipid.mapping_dict)
             fragment_qual_dict = {}
             data_dict = {}
 
-            for expid in simulation["EXPERIMENT"]["ORDERPARAMETER"].get(lipid1, []):
+            for expid in simulation["EXPERIMENT"]["ORDERPARAMETER"].get(lipidname, []):
                 print(f"OP quality of simulation data in {simulation['path']}")
                 print(
-                    f".. evaluating {lipid1} lipid using experimental data from {expid}",
+                    f".. evaluating {lipidname} lipid using experimental data from {expid}",
                 )
                 OP_qual_data = {}
-                exp_lipid_ops = opexps.loc(expid).data[lipid1]
+                exp_lipid_ops = opexps.loc(expid).data[lipidname]
                 exp_error = 0.02  # TODO: hardcoded error value, should be taken from experiment data when available
 
                 for key, op_array_ in md_lipid_ops.items():
@@ -93,44 +94,31 @@ def _evaluate_op_qualities(simulations) -> int:
                 # calculate quality for molecule fragments headgroup, sn-1, sn-2
                 # TODO: bb is merged into headgroup. But sn-s do not.. Cryptic rule.
                 # TODO: What to do with other types of lipids?
-                fragments = mollib.get_fragments(simulation.content[lipid1].mapping_dict)
                 fragment_qual_dict[expid] = qq.fragment_quality(fragments, exp_lipid_ops, md_lipid_ops)
 
-            try:
-                fragment_quality_output = qq.fragment_quality_unite_multexp(lipid1, fragment_qual_dict, fragments)
-            except Exception:
-                print("no fragment quality")
-                fragment_quality_output = {}
+            # Experiment-merged fragment quality for the lipid
+            fragment_quality_merged = qq.fragment_quality_unite_multexp(lipidname, fragment_qual_dict, fragments)
+            system_quality[lipidname] = fragment_quality_merged
 
-            try:
-                system_quality[lipid1] = fragment_quality_output
-            except Exception:
-                print("no system quality")
-                system_quality[lipid1] = {}
-
-            fragment_quality_file = os.path.join(wdir, lipid1 + "_FragmentQuality.json")
-
+            # Write FQ for the lipid
+            fragment_quality_file = os.path.join(wdir, lipidname + "_FragmentQuality.json")
             FGout = False
-            for FG in fragment_quality_output:
-                if np.isnan(fragment_quality_output[FG]):
+            for FG in fragment_quality_merged:
+                if np.isnan(fragment_quality_merged[FG]):
                     continue
-                if fragment_quality_output[FG] > 0:
+                if fragment_quality_merged[FG] > 0:
                     FGout = True
             if FGout:
                 # write fragment qualities into a file for a molecule
-                _round_quality_values(fragment_quality_output)
-
+                _round_quality_values(fragment_quality_merged)
                 with open(fragment_quality_file, "w") as f:
-                    json.dump(fragment_quality_output, f)
+                    json.dump(fragment_quality_merged, f)
 
             # write into the OrderParameters_quality.json quality data file
-            outfile1 = os.path.join(wdir, lipid1 + "_OrderParameters_quality.json")
-            try:
-                _round_quality_values(data_dict)
-                with open(outfile1, "w") as f:
-                    json.dump(data_dict, f, cls=CompactJSONEncoder)
-            except Exception:
-                pass
+            outfile1 = os.path.join(wdir, lipidname + "_OrderParameters_quality.json")
+            _round_quality_values(data_dict)
+            with open(outfile1, "w") as f:
+                json.dump(data_dict, f, cls=CompactJSONEncoder)
 
         system_qual_output = qq.systemQuality(system_quality, simulation)
         # make system quality file
