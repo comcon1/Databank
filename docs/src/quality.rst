@@ -12,7 +12,7 @@ molecules are within :math:`\pm 3` percentage units, charged lipids have the sam
 counterions, and temperatures are within :math:`\pm 2.5\,\mathrm{K}`.
 For molar concentrations of water, the exact hydration level is considered only for
 systems with molar water-to-lipid ratio below 25; otherwise the systems are considered
-fully hydrated. For dehydrated systems the hydration has to agree with :math:`\pm 15` 
+fully hydrated. For dehydrated systems the hydration has to agree with :math:`\pm 15`
 percentages relative to the simulated value.
 
 Two types of experimental data are used in quality evaluation: SAXS form factors and
@@ -87,11 +87,11 @@ individual :math:`S_\mathrm{CH}` qualities within the fragment, and
 :math:`F_\mathrm{frag}[\mathrm{lipid}]` is the percentage of order parameters for which
 the quality is available within the fragment.
 
-If multiple sources, the quality is averaged over them at the fragment level. If a 
-molecule fragment has no corresponding experimental data, it gets assigned a NaN 
+If multiple sources, the quality is averaged over them at the fragment level. If a
+molecule fragment has no corresponding experimental data, it gets assigned a NaN
 quality value.
 
-The order parameter quality value for the molecule (fragment="total") is the average 
+The order parameter quality value for the molecule (fragment="total") is the average
 of fragment values of the molecule subparts. If one of the fragments has a NaN value,
 the total quality of the molecule is also NaN.
 
@@ -108,9 +108,9 @@ average over different lipid components:
    P^\mathrm{frag}[\mathrm{lipid}],
 
 where :math:`\chi_\mathrm{lipid}` is the molar fraction of a lipid in the bilayer and
-*tails* refers to the average over all acyl chains. If for a lipid in the 
-system a fragment quality is NaN, then the overal system quality for that fragment 
-gets weighted with :math:`(1-w)` where :math:`w` is the is the molar fraction of that 
+*tails* refers to the average over all acyl chains. If for a lipid in the
+system a fragment quality is NaN, then the overal system quality for that fragment
+gets weighted with :math:`(1-w)` where :math:`w` is the is the molar fraction of that
 lipid.
 
 
@@ -137,7 +137,7 @@ locations:
    =
    \left| FF_\mathrm{min}^\mathrm{sim} - FF_\mathrm{min}^\mathrm{exp} \right| \times 100.
 
-If a simulation is linked to multiple form factors, the experimental data that produces the 
+If a simulation is linked to multiple form factors, the experimental data that produces the
 best form factor quality is chosen.
 
 .. _Ranking files:

@@ -81,27 +81,6 @@ def prob_op_within_trustinterval(
     return p_b - p_a
 
 
-def get_fragments_coverage(fragments: dict, q_data: dict) -> dict:
-    """
-    Calculate the coverage in data of each fragment.
-
-    The coverage is implemented as the percent of non-nans.
-
-    :param fragments: Dictionary of type {fragment: lists of unames}.
-    :param q_data: Dictionary of type {op_uname: quality value}.
-
-    :return: Dictionary of type {fragment: percentage of evaluated OPs}
-    """
-    frag_percentage = dict.fromkeys(fragments, 0)
-
-    for frg_name, frg_atoms in fragments.items():
-        frg_atoms_set = set(frg_atoms)
-        nan_mask = [np.isnan(v) for k, v in q_data.items() if k.split(" ")[0] in frg_atoms_set]
-        frag_percentage[frg_name] = 1 - sum(nan_mask) / len(nan_mask) if len(nan_mask) > 0 else 0
-
-    return frag_percentage
-
-
 def atomic_quality(exp_op_data: dict, sim_op_data: dict):
     """
     Calculate quality for a molecule (times their weights in exp data).
@@ -132,6 +111,27 @@ def atomic_quality(exp_op_data: dict, sim_op_data: dict):
     return res_dict
 
 
+def get_fragments_coverage(fragments: dict, q_data: dict) -> dict:
+    """
+    Calculate the coverage in data of each fragment.
+
+    The coverage is implemented as the percent of non-nans.
+
+    :param fragments: Dictionary of type {fragment: lists of unames}.
+    :param q_data: Dictionary of type {op_uname: quality value}.
+
+    :return: Dictionary of type {fragment: percentage of evaluated OPs}
+    """
+    frag_percentage = dict.fromkeys(fragments, 0)
+
+    for frg_name, frg_atoms in fragments.items():
+        frg_atoms_set = set(frg_atoms)
+        nan_mask = [np.isnan(v) for k, v in q_data.items() if k.split(" ")[0] in frg_atoms_set]
+        frag_percentage[frg_name] = 1 - sum(nan_mask) / len(nan_mask) if len(nan_mask) > 0 else 0
+
+    return frag_percentage
+
+
 def atomic2fragment_quality(atomic_qual_dict: dict, fragments: dict):
     fqdict = dict.fromkeys(fragments.keys())
     for frg_name, frg_atoms in fragments.items():
@@ -140,19 +140,13 @@ def atomic2fragment_quality(atomic_qual_dict: dict, fragments: dict):
     return fqdict
 
 
-def fragment_quality_unite_multexp(
-    lipid,
-    fragment_qual_dict: dict,
-    fragments: dict,
-):
+def fragment_quality_unite_multexp(fragment_qual_dict: dict):
     """
     Condition fragment qualities.
 
     The second-layer function.
 
-    :param lipid: ...
     :param fragment_qual_perexp: dictionary of type {expid: {fragment: quality value}}.
-    :param fragments: dictionary of type {fragment:lists of unames}.
 
     :return: dictionary of type {fragment: average quality value}.
     """
