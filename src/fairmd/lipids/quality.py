@@ -4,7 +4,6 @@ TODO: add tests
 TODO: remove code duplication and commented code
 """
 
-import re
 import warnings
 
 import numpy as np
@@ -118,69 +117,32 @@ def atomic_quality(exp_op_data: dict, sim_op_data: dict):
     :return: dictionary of type {"nC nH": quality value}.
     """
     exp_error = 0.02  # TODO: hardcoded error value, should be taken from experiment data when available
+
+    # union of keys in exp_op_data and sim_op_data
+    all_keys = set(exp_op_data.keys()) | set(sim_op_data.keys())
     res_dict = {}
 
-    for key_exp, value_exp in exp_op_data.items():
-        if not np.isnan(value_exp[0]) and key_exp in sim_op_data:
-            q = prob_op_within_trustinterval(
-                op_exp=value_exp[0],
-                exp_error=exp_error,
-                op_sim=sim_op_data[key_exp][0],
-                op_sim_sd=sim_op_data[key_exp][2],
-            )
-            res_dict[key_exp] = q
+    for key in all_keys:
+        if key not in exp_op_data or key not in sim_op_data:
+            res_dict[key] = np.nan
+            continue
+        q = prob_op_within_trustinterval(
+            op_exp=exp_op_data[key][0],
+            exp_error=exp_error,
+            op_sim=sim_op_data[key][0],
+            op_sim_sd=sim_op_data[key][2],
+        )
+        res_dict[key] = q
 
     return res_dict
 
 
-def fragment_quality(fragments: dict, exp_op_data: dict, sim_op_data: dict):
-    """
-    Calculate quality for a fragmented molecule (times their weights in exp data).
-
-    Depends on the experiment file what fragments are in this dictionary.
-
-    :param fragments: dictionary of type {fragment:lists of unames}.
-    :param exp_op_data: dictionary of type {op_uname: [op_value]}.
-    :param sim_op_data: dictionary of type {op_uname: [op_value, op_sigma, op_sd]}.
-
-    :return: dictionary of type {fragment: quality value}.
-    """
-    fragment_weights = weights_of_fragments_in_data(fragments, exp_op_data)
-    exp_error = 0.02  # TODO: hardcoded error value, should be taken from experiment data when available
-
-    # empty dictionary with fragment names as keys
-    fragment_quality = dict.fromkeys(fragments.keys())
-
+def atomic2fragment_quality(atomic_qual_dict: dict, fragments: dict):
+    fqdict = dict.fromkeys(fragments.keys())
     for frg_name, frg_atoms in fragments.items():
-        E_sum = 0
-        AV_sum = 0
-        if fragment_weights[frg_name] == 0:
-            fragment_quality[frg_name] = np.nan
-            continue
-        for key_exp, value_exp in exp_op_data.items():
-            if (
-                key_exp.split()[0] in frg_atoms  # process for 1 fragm
-                and not np.isnan(value_exp[0])
-                and key_exp in sim_op_data
-                # If the last is not true, then simulation value is missing.
-                # This allows to happen for, e.g. CH3-groups in
-                # UA force fields as CH-bond cannot be reconstructed for this carbon.
-            ):
-                QE = prob_op_within_trustinterval(
-                    op_exp=value_exp[0],
-                    exp_error=exp_error,
-                    op_sim=sim_op_data[key_exp][0],
-                    op_sim_sd=sim_op_data[key_exp][2],
-                )
-                E_sum += QE
-                AV_sum += 1
-        if AV_sum > 0:
-            E_F = (E_sum / AV_sum) * fragment_weights[frg_name]
-            fragment_quality[frg_name] = E_F
-        else:
-            fragment_quality[frg_name] = np.nan
-
-    return fragment_quality
+        q_list = [v for k, v in atomic_qual_dict.items() if k.split(" ")[0] in frg_atoms]
+        fqdict[frg_name] = np.nanmean(q_list) if len(q_list) > 0 else np.nan
+    return fqdict
 
 
 def fragment_quality_unite_multexp(

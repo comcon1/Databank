@@ -60,44 +60,30 @@ def _evaluate_op_qualities(simulations) -> int:
         for lipidname, lipid in simulation.lipids.items():
             md_lipid_ops = simulation.op_data[lipidname]
 
+            # TODO: bb is merged into headgroup. But sn-s do not.. Cryptic rule.
+            # TODO: What to do with other types of lipids?
             fragments = mollib.get_fragments(lipid.mapping_dict)
-            fragment_qual_dict = {}
-            data_dict = {}
+            fragment_qual_perexp = {}
+            lipid_quality_perexp = {}
+            lipid_quality_perexp = {}
 
             for expid in simulation["EXPERIMENT"]["ORDERPARAMETER"].get(lipidname, []):
                 print(f"OP quality of simulation data in {simulation['path']}")
                 print(
                     f".. evaluating {lipidname} lipid using experimental data from {expid}",
                 )
-                OP_qual_data = {}
                 exp_lipid_ops = opexps.loc(expid).data[lipidname]
-                exp_error = 0.02  # TODO: hardcoded error value, should be taken from experiment data when available
-
-                for key, op_array_ in md_lipid_ops.items():
-                    OP_array = op_array_.copy()
-                    if key not in exp_lipid_ops:
-                        continue
-                    OP_exp_val = exp_lipid_ops[key][0]
-                    if not np.isnan(OP_exp_val):
-                        op_quality = qq.prob_op_within_trustinterval(
-                            op_exp=OP_exp_val,
-                            exp_error=exp_error,
-                            op_sim=OP_array[0],
-                            op_sim_sd=OP_array[2],
-                        )
-                        OP_array += [OP_exp_val, exp_error, op_quality]
-                    OP_qual_data[key] = OP_array
-
                 # save qualities of simulation-vs-experiment into a dictionary
-                data_dict[expid] = OP_qual_data
+                lipid_quality_perexp[expid] = qq.atomic_quality(exp_lipid_ops, md_lipid_ops)
 
                 # calculate quality for molecule fragments headgroup, sn-1, sn-2
-                # TODO: bb is merged into headgroup. But sn-s do not.. Cryptic rule.
-                # TODO: What to do with other types of lipids?
-                fragment_qual_dict[expid] = qq.fragment_quality(fragments, exp_lipid_ops, md_lipid_ops)
+                _frq = qq.atomic2fragment_quality(lipid_quality_perexp[expid], fragments)
+                _frw = qq.weights_of_fragments_in_data(fragments, exp_lipid_ops)
+                # dot product [ qualities * weights ]
+                fragment_qual_perexp[expid] = {k: _frq[k] * _frw[k] for k in fragments}
 
             # Experiment-merged fragment quality for the lipid
-            fragment_quality_merged = qq.fragment_quality_unite_multexp(lipidname, fragment_qual_dict, fragments)
+            fragment_quality_merged = qq.fragment_quality_unite_multexp(lipidname, fragment_qual_perexp, fragments)
             system_quality[lipidname] = fragment_quality_merged
 
             # Write FQ for the lipid
@@ -116,9 +102,9 @@ def _evaluate_op_qualities(simulations) -> int:
 
             # write into the OrderParameters_quality.json quality data file
             outfile1 = os.path.join(wdir, lipidname + "_OrderParameters_quality.json")
-            _round_quality_values(data_dict)
+            _round_quality_values(lipid_quality_perexp)
             with open(outfile1, "w") as f:
-                json.dump(data_dict, f, cls=CompactJSONEncoder)
+                json.dump(lipid_quality_perexp, f, cls=CompactJSONEncoder)
 
         system_qual_output = qq.systemQuality(system_quality, simulation)
         # make system quality file
