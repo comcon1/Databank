@@ -97,7 +97,7 @@ def _evaluate_op_qualities(simulations) -> int:
                 fragment_qual_dict[expid] = qq.fragment_quality(fragments, exp_lipid_ops, md_lipid_ops)
 
             try:
-                fragment_quality_output = qq.fragmentQualityAvg(lipid1, fragment_qual_dict, fragments)
+                fragment_quality_output = qq.fragment_quality_unite_multexp(lipid1, fragment_qual_dict, fragments)
             except Exception:
                 print("no fragment quality")
                 fragment_quality_output = {}
