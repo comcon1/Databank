@@ -117,15 +117,12 @@ def get_fragments(mapping_dict: dict) -> dict:
     """
     Get dictionary {fragment:[uname1,uname2,...]} from a mapping dictionary.
 
-    TODO: This is a function for molecule class.
+    TODO: This is a function for molecule class. Should be moved there.
     """
     fragments = {}
 
     for key_m, value in mapping_dict.items():
-        try:
-            key_f = value["FRAGMENT"]
-        except KeyError:
-            key_f = "n/d"
+        key_f = value.get("FRAGMENT", "n/d")
         fragments.setdefault(key_f, []).append(key_m)
 
     # merge glycerol backbone fragment into headgroup fragment

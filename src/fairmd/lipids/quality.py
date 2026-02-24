@@ -94,71 +94,69 @@ def checkForCH(fragment_key, fragments):
     return bool(filtered)
 
 
-def evaluated_percentage(fragments, exp_op_data):
-    # C-H bonds only???
+def weights_of_fragments_in_data(fragments: dict, exp_op_data: dict) -> dict:
+    """
+    Calculate the percentage of evaluated OPs for each fragment.
 
+    It currently calculates how one experiment data points are distributed among the fragments.
+
+    :param fragments: Description
+    :param exp_op_data: Description
+
+    :return: Dictionary of type {fragment: percentage of evaluated OPs}
+    """
     frag_percentage = dict.fromkeys(fragments, 0)
 
-    for fragment_key in fragments.keys():  # go through fragments
+    for frg_name, frg_atoms in fragments.items():
         count_value = 0
         fragment_size = 0
         for key, value in exp_op_data.items():
-            if key.split(" ")[0] in fragments[fragment_key]:  # check if atom belongs to the fragment
+            if key.split(" ")[0] in frg_atoms:
                 fragment_size += 1
                 if not np.isnan(value[0]):
                     count_value += 1
-        if fragment_size != 0:
-            frag_percentage[fragment_key] = count_value / fragment_size
-        else:
-            frag_percentage[fragment_key] = 0
-
-    print("experiment data availability percentage")
-    print(frag_percentage)
+        frag_percentage[frg_name] = count_value / fragment_size if fragment_size > 0 else 0
 
     return frag_percentage
 
 
 def fragment_quality(fragments: dict, exp_op_data: dict, sim_op_data: dict):
     """
-    Calculate quality for fragmented molecule.
+    Calculate quality for a fragmented molecule.
+
+    :param fragments: dictionary of type {fragment:lists of unames}.
 
     Depends on the experiment file what fragments are in this dictionary.
     """
-    p_F = evaluated_percentage(fragments, exp_op_data)
-    exp_error = 0.02
+    fragment_weights = weights_of_fragments_in_data(fragments, exp_op_data)
+    exp_error = 0.02  # TODO: hardcoded error value, should be taken from experiment data when available
 
     # empty dictionary with fragment names as keys
     fragment_quality = dict.fromkeys(fragments.keys())
 
-    for fragment_key in fragments.keys():
+    for frg_name, frg_atoms in fragments.items():
         E_sum = 0
         AV_sum = 0
-        try:
-            _ = p_F[fragment_key]
-        except KeyError:
-            fragment_quality[fragment_key] = np.nan
-            continue
-        else:
-            if p_F[fragment_key] != 0:
-                for key_exp, value_exp in exp_op_data.items():
-                    if key_exp.split()[0] in fragments[fragment_key] and not np.isnan(value_exp[0]):
-                        OP_exp = value_exp[0]
-                        try:
-                            OP_sim = sim_op_data[key_exp][0]
-                        except (KeyError, TypeError):
-                            continue
-                        else:
-                            op_sim_STEM = sim_op_data[key_exp][2]
-                            QE = prob_op_within_trustinterval(OP_exp, exp_error, OP_sim, op_sim_STEM)
-                            E_sum += QE
-                            AV_sum += 1
-                if AV_sum > 0:
-                    E_F = (E_sum / AV_sum) * p_F[fragment_key]
-                    fragment_quality[fragment_key] = E_F
-                else:
-                    fragment_quality[fragment_key] = np.nan
+        if fragment_weights[frg_name] != 0:
+            for key_exp, value_exp in exp_op_data.items():
+                if key_exp.split()[0] in frg_atoms and not np.isnan(value_exp[0]):
+                    OP_exp = value_exp[0]
+                    try:
+                        OP_sim = sim_op_data[key_exp][0]
+                    except (KeyError, TypeError):
+                        continue
+                    else:
+                        op_sim_STEM = sim_op_data[key_exp][2]
+                        QE = prob_op_within_trustinterval(OP_exp, exp_error, OP_sim, op_sim_STEM)
+                        E_sum += QE
+                        AV_sum += 1
+            if AV_sum > 0:
+                E_F = (E_sum / AV_sum) * fragment_weights[frg_name]
+                fragment_quality[frg_name] = E_F
             else:
-                fragment_quality[fragment_key] = np.nan
+                fragment_quality[frg_name] = np.nan
+        else:
+            fragment_quality[frg_name] = np.nan
 
     print("fragment quality ", fragment_quality)
     return fragment_quality
