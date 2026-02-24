@@ -78,7 +78,7 @@ def _evaluate_op_qualities(simulations) -> int:
 
                 # calculate quality for molecule fragments headgroup, sn-1, sn-2
                 _frq = qq.atomic2fragment_quality(lipid_quality_perexp[expid], fragments)
-                _frw = qq.weights_of_fragments_in_data(fragments, exp_lipid_ops)
+                _frw = qq.get_fragments_coverage(fragments, exp_lipid_ops)
                 # dot product [ qualities * weights ]
                 fragment_qual_perexp[expid] = {k: _frq[k] * _frw[k] for k in fragments}
 

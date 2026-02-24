@@ -81,11 +81,11 @@ def prob_op_within_trustinterval(
     return p_b - p_a
 
 
-def weights_of_fragments_in_data(fragments: dict, exp_op_data: dict) -> dict:
+def get_fragments_coverage(fragments: dict, exp_op_data: dict) -> dict:
     """
-    Calculate the percentage of evaluated OPs for each fragment.
+    Calculate the coverage in data of each fragment.
 
-    It currently calculates how one experiment data points are distributed among the fragments.
+    It currently calculates the percent of non-nans.
 
     :param fragments: Description
     :param exp_op_data: Description
@@ -119,7 +119,7 @@ def atomic_quality(exp_op_data: dict, sim_op_data: dict):
     exp_error = 0.02  # TODO: hardcoded error value, should be taken from experiment data when available
 
     # union of keys in exp_op_data and sim_op_data
-    all_keys = set(exp_op_data.keys()) | set(sim_op_data.keys())
+    all_keys = sorted(set(exp_op_data.keys()) | set(sim_op_data.keys()))
     res_dict = {}
 
     for key in all_keys:
