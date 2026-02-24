@@ -111,3 +111,26 @@ def get_tails_of_lipid(lipid: Lipid) -> set[str]:
             if tail_id not in tails:
                 tails.append(tail_id)
     return set(tails)
+
+
+def get_fragments(mapping_dict: dict) -> dict:
+    """
+    Get dictionary {fragment:[uname1,uname2,...]} from a mapping dictionary.
+
+    TODO: This is a function for molecule class.
+    """
+    fragments = {}
+
+    for key_m, value in mapping_dict.items():
+        try:
+            key_f = value["FRAGMENT"]
+        except KeyError:
+            key_f = "n/d"
+        fragments.setdefault(key_f, []).append(key_m)
+
+    # merge glycerol backbone fragment into headgroup fragment
+    if "glycerol backbone" in fragments and "headgroup" in fragments:
+        fragments["headgroup"] += fragments["glycerol backbone"]
+        fragments.pop("glycerol backbone")
+
+    return fragments
