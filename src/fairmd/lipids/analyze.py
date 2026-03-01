@@ -157,13 +157,13 @@ def computeAPL(  # noqa: N802 (API)
 
         # this calculates the area per lipid as a function of time and stores it
         # in the databank
-        apl = {}
+        apl = []
         nlipids = system.n_lipids
         for _ts in progress(u.trajectory, desc="Scanning the trajectory"):
             if u.trajectory.time >= system["TIMELEFTOUT"] * 1000:
                 dims = u.dimensions
                 apl_frame = dims[0] * dims[1] * 2 / nlipids
-                apl[u.trajectory.time] = apl_frame
+                apl.append([u.trajectory.time, apl_frame])
 
         with open(outfilename, "w") as f:
             json.dump(apl, f, cls=CompactJSONEncoder)
