@@ -1,10 +1,8 @@
 """
-:module: settings/molecules.py
+Define classes for molecules (lipids, ions, etc.) and their sets.
 
-:description: Module file with definition of different global-level dictionaries.
-
-There is a dictionary of lipids, ions, etc. If you add a lipid which is not yet
-in the databank, you have to add it here!
+File defines crucial API classes for working with molecules.
+There is a dictionary of lipids, ions, etc. with their metadata and mapping files.
 """
 
 import fnmatch
@@ -42,10 +40,11 @@ class MoleculeMappingError(MoleculeError):
     def __init__(self, message: str, mol=None) -> None:
         if mol is None:
             msg = message
-        elif mol.mapping_file is None:
+        elif not mol.is_mapping_registered:
             msg = f"From {mol}: {message}"
         else:
-            msg = f"From {mol}[{mol.mapping_file}]: {message}" if mol is not None else message
+            disp_name = os.path.relpath(mol._mapping_fpath, FMDL_MOL_PATH)
+            msg = f"From {mol}[{disp_name}]: {message}" if mol is not None else message
         super().__init__(msg, mol=mol)
 
 
@@ -85,7 +84,6 @@ class Molecule(ABC):
                 raise MoleculeMappingError(msg, mol=self)
             fname = _possible_mfiles[0]  # take the first one
         # set mapping file path
-        self._disp_mapping = fname
         self._mapping_fpath = os.path.join(self._get_path(), fname)
         if not os.path.isfile(self._mapping_fpath):
             msg = f"Cannot find '{self._mapping_fpath}' mapping for molecule {self.name}"
@@ -172,7 +170,6 @@ class Molecule(ABC):
         """
         self.__check_name(name)
         self._molname = name
-        self._disp_mapping = None
         self._mapping_fpath = None
         self._mapping_dict = None
 
@@ -215,9 +212,9 @@ class Molecule(ABC):
         return self._molname
 
     @property
-    def mapping_file(self) -> str:
-        """Mapping file name"""
-        return self._disp_mapping
+    def is_mapping_registered(self) -> bool:
+        """Is mapping registered for the molecule?"""
+        return self._mapping_fpath is not None
 
     # comparison by name to behave in a set
     # It's case-insesitive as folder structure should work on mac/win

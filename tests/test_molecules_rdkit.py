@@ -30,8 +30,6 @@ def test_lipid_smarts():
     with check.raises(KeyError):
         popc.atoms_by("N", 1)  # 0 is max here
 
-    popc.register_mapping("mappingPOPCcharmm.yaml")
-
     # Test that we can retrieve atoms by SMARTS
     nitrg_atoms = popc.atoms_by("N", 0)  # can call
     check.is_instance(nitrg_atoms, list, "Should return a list of atom universal names")
