@@ -47,6 +47,8 @@ class NamingRegistry:
     def _initialize(cls):
         def _snX_c_renamer(row: dict) -> dict:
             match = re.match(r"M_G[12]C([0-9]{1,2})_M", row["C"])
+            if not match or len(match.groups()) < 1:
+                raise ValueError(f"Unexpected C format: {row['C']}")
             idx = int(match[1])
             row["C"] = str(idx - 1)
             return row
@@ -55,6 +57,8 @@ class NamingRegistry:
 
         def _gbb_c_renamer(row: dict) -> dict:
             match = re.match(r"M_G([1-3])_M", row["C"])
+            if not match or len(match.groups()) < 1:
+                raise ValueError(f"Unexpected C format: {row['C']}")
             idx = int(match[1])
             row["C"] = f"g{idx}"
             return row
@@ -63,8 +67,11 @@ class NamingRegistry:
 
         def _h_renamer(row: dict) -> dict:
             match = re.match(r"M_.+H([1-4])", row["H"])
+            if not match or len(match.groups()) < 1:
+                raise ValueError(f"Unexpected H format: {row['H']}")
             idx = int(match[1])
             row["H"] = str(idx)
+
             return row
 
         cls._register("_all_", _h_renamer)
@@ -80,15 +87,27 @@ def build_nice_OPdict(src: dict, lipid: Lipid) -> dict:
     :return: nicely formatted OP dictionary
     """
 
-    def _fragmentize(src, mdict):
+    # Helper function to convert NaN to None for better
+    # JSON compatibility in output
+    def _rnan(x: float) -> float | None:
+        return None if x != x else x
+
+    def _fragmentize(src: dict, mdict: dict) -> dict:
         r = {}
         for apair, opvals in src.items():
             atom_c, atom_h = apair.split(" ")
+            if atom_c not in mdict:
+                raise ValueError(f"Atom {atom_c} not found in mapping dictionary.")
             frag_c = mdict[atom_c].get("FRAGMENT", "total")
             if frag_c not in r:
                 r[frag_c] = []
             r[frag_c].append(
-                {"C": atom_c, "H": atom_h, "OP": opvals[0], "STD": opvals[1]},
+                {
+                    "C": atom_c,
+                    "H": atom_h,
+                    "OP": opvals[0],
+                    "STD": _rnan(opvals[1]) if len(opvals) > 1 else None,
+                },
             )
             r[frag_c].sort(key=lambda x: x["C"])
         return r
