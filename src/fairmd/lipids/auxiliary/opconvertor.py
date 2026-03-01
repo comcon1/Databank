@@ -41,7 +41,7 @@ class NamingRegistry:
     def _apply_sorting(cls, opdic: dict) -> None:
         """Sort every fragment list by C atom number."""
         for frag_name in opdic:
-            opdic[frag_name] = natsorted(opdic[frag_name], key=lambda x: x["C"])
+            opdic[frag_name] = natsorted(opdic[frag_name], key=lambda x: x["C"] + "__" + x["H"])
 
     @classmethod
     def _apply_naming(cls, opdic: dict) -> None:

@@ -50,6 +50,26 @@ class TestBuildNiceOPdict:
         assert "sn-1" in rdict
         assert "sn-2" in rdict  # fragments at the top level
 
+    def test_mockdicts(self):
+        from fairmd.lipids.auxiliary.opconvertor import build_nice_OPdict
+        from fairmd.lipids.molecules import Lipid
+
+        lipid = Lipid("POPE")
+        lipid.register_mapping()
+        mock_opdata = {
+            "M_G1C3_M M_G1C3H2_M": [0.1, 0.01, 0.001],
+            "M_G1C3_M M_G1C3H1_M": [0.1, 0.01, 0.001],
+            "M_G1C4_M M_G1C4H1_M": [0.2, 0.02, 0.002],
+            "M_G1C4_M M_G1C4H2_M": [0.2, 0.02, 0.002],
+            "M_G1C5_M M_G1C5H1_M": [0.3, 0.03, 0.003],
+        }
+        rdict = build_nice_OPdict(mock_opdata, lipid)
+        check.is_in("sn-1", rdict)
+        check.is_not_in("sn-2", rdict)
+        check.equal(len(rdict["sn-1"]), 5)
+        h_order = [int(x["H"]) for x in rdict["sn-1"]]
+        check.is_true(h_order[:6] == [1, 2, 1, 2, 1], "sn-1 H ordering is not sorted")
+
     def test_cnames_pl(self, systems):
         from fairmd.lipids.auxiliary.opconvertor import build_nice_OPdict
         from fairmd.lipids.api import get_OP
@@ -57,9 +77,6 @@ class TestBuildNiceOPdict:
         sys = systems.loc(281)
         opdata = get_OP(sys)
         rdict = build_nice_OPdict(opdata["POPC"], sys.lipids["POPC"])
-        from pprint import pprint
-
-        pprint(rdict)
 
         # C check numbers
         def has_c(cname: str, flist: dict) -> bool:
