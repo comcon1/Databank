@@ -113,6 +113,8 @@ If Data folder was not created, please create it by using
 and then specify by FMDL_DATA_PATH environment variable."""
     raise RuntimeError(msg)
 
+# reexport progress to use globally instead of tqdm
+from fairmd.lipids._base import progress  # noqa: E402
 
 __all__ = [
     "FMDL_DATA_PATH",
@@ -129,4 +131,5 @@ __all__ = [
     "__license__",
     "__url__",
     "__version__",
+    "progress",
 ]

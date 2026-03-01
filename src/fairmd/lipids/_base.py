@@ -1,11 +1,40 @@
 """Base abstract classes for the FairMD Lipid Databank."""
 
+import sys
 import typing
 from abc import ABC, abstractmethod
-from collections.abc import MutableSet
+from collections.abc import Iterable, MutableSet
 from typing import Any, Generic, TypeVar
 
+from tqdm import tqdm
+
 from fairmd.lipids.molecules import Lipid, Molecule, NonLipid, lipids_set, solubles_set
+
+
+def progress(
+    iterable: Iterable | None = None,
+    /,
+    *,
+    desc: str | None = None,
+    total: int | None = None,
+    disable: bool = False,
+    **kwargs,
+):
+    """
+    Wrap around tqdm with FAIRMD defaults.
+
+    - Always writes to stdout
+    - Progress is shown by default (including CI)
+    - Can be explicitly disabled if needed
+    """
+    return tqdm(
+        iterable or kwargs.pop("iter", None) or [],
+        desc=desc,
+        total=total,
+        disable=disable,
+        file=sys.stdout,
+        **kwargs,
+    )
 
 
 class SampleComposition(ABC):
