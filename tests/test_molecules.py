@@ -7,7 +7,7 @@ import pytest_check as check
 # run only on sim2 mocking data
 pytestmark = [pytest.mark.sim2, pytest.mark.min]
 
-LIPIDS_SET_LENGTH = 5
+LIPIDS_SET_LENGTH = 6
 POPE_MOLECULAR_WEIGHT = 717.5
 
 
@@ -33,15 +33,35 @@ def toy_mols_no_mapping() -> dict:
     from fairmd.lipids import FMDL_MOL_PATH
     from fairmd.lipids.molecules import lipids_set
 
-    mol1 = lipids_set.get("POPE")
-    mol2 = lipids_set.get("POPC")
+    mol1 = lipids_set.get("BOG")
 
-    return {"pope": mol1, "popc": mol2}
+    return {"bog": mol1}
 
 
-def tests_molecule_fragments(toy_mols_no_mapping):
-    pope = toy_mols_no_mapping["pope"]
+def tests_molecule_fragments(toy_mols_no_mapping, toy_mols_w_mapping):
+    bog = toy_mols_no_mapping["bog"]
+    check.is_instance(bog.fragments, list, "Should return a list of fragment names")
+    check.equal(bog.fragments, ["glucose", "tail"], "BOG fragments should be ['head', 'tail']")
+
+    pope = toy_mols_w_mapping["pope/charmm"]
     check.is_instance(pope.fragments, list, "Should return a list of fragment names")
+    check.equal(
+        sorted(pope.fragments),
+        sorted(["headgroup", "glycerol backbone", "sn-1", "sn-2"]),
+        "POPE fragments are improper",
+    )
+
+
+def tests_try_access_nomap(toy_mols_no_mapping):
+    from fairmd.lipids.molecules import Lipid, MoleculeMappingError
+
+    bog: Lipid = toy_mols_no_mapping["bog"]
+    bog.mapping_dict  # should not raise because mapping naming mapping exists
+    with pytest.raises(MoleculeMappingError, match="MD mapping is not possible"):
+        _ = bog.uan2selection("M_G0C1_M", "BOG")
+    # md2uan should also raise
+    with pytest.raises(MoleculeMappingError, match="MD mapping is not possible"):
+        _ = bog.md2uan("C1", "BOG")
 
 
 def test_mapping_dict():

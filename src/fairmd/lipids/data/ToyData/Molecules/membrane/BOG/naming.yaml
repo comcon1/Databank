@@ -1,0 +1,116 @@
+M_G0C1_M:
+  FRAGMENT: glucose
+  SMILEIDX: 9
+M_G0C1H1_M:
+  FRAGMENT: glucose
+M_G0C1O1_M:
+  FRAGMENT: glucose
+  SMILEIDX: 8
+M_G0C2_M:
+  FRAGMENT: glucose
+  SMILEIDX: 10
+M_G0C2H1_M:
+  FRAGMENT: glucose
+M_G0C2O1_M:
+  FRAGMENT: glucose
+  SMILEIDX: 19
+M_G0C2O1H1_M:
+  FRAGMENT: glucose
+M_G0C3_M:
+  FRAGMENT: glucose
+  SMILEIDX: 11
+M_G0C3H1_M:
+  FRAGMENT: glucose
+M_G0C3O1_M:
+  FRAGMENT: glucose
+  SMILEIDX: 18
+M_G0C3O1H1_M:
+  FRAGMENT: glucose
+M_G0C4_M:
+  FRAGMENT: glucose
+  SMILEIDX: 12
+M_G0C4H1_M:
+  FRAGMENT: glucose
+M_G0C4O1_M:
+  FRAGMENT: glucose
+  SMILEIDX: 17
+M_G0C4O1H1_M:
+  FRAGMENT: glucose
+M_G0C5_M:
+  FRAGMENT: glucose
+  SMILEIDX: 13
+M_G0C5H1_M:
+  FRAGMENT: glucose
+M_G0C5O1_M:
+  FRAGMENT: glucose
+  SMILEIDX: 14
+M_G0C6_M:
+  FRAGMENT: glucose
+  SMILEIDX: 15
+M_G0C6H1_M:
+  FRAGMENT: glucose
+M_G0C6H2_M:
+  FRAGMENT: glucose
+M_G0C6O1_M:
+  FRAGMENT: glucose
+  SMILEIDX: 16
+M_G0C6O1H1_M:
+  FRAGMENT: glucose
+M_C1_M:
+  FRAGMENT: tail
+  SMILEIDX: 7
+M_C1H1_M:
+  FRAGMENT: tail
+M_C1H2_M:
+  FRAGMENT: tail
+M_C2_M:
+  FRAGMENT: tail
+  SMILEIDX: 6
+M_C2H1_M:
+  FRAGMENT: tail
+M_C2H2_M:
+  FRAGMENT: tail
+M_C3_M:
+  FRAGMENT: tail
+  SMILEIDX: 5
+M_C3H1_M:
+  FRAGMENT: tail
+M_C3H2_M:
+  FRAGMENT: tail
+M_C4_M:
+  FRAGMENT: tail
+  SMILEIDX: 4
+M_C4H1_M:
+  FRAGMENT: tail
+M_C4H2_M:
+  FRAGMENT: tail
+M_C5_M:
+  FRAGMENT: tail
+  SMILEIDX: 3
+M_C5H1_M:
+  FRAGMENT: tail
+M_C5H2_M:
+  FRAGMENT: tail
+M_C6_M:
+  FRAGMENT: tail
+  SMILEIDX: 2
+M_C6H1_M:
+  FRAGMENT: tail
+M_C6H2_M:
+  FRAGMENT: tail
+M_C7_M:
+  FRAGMENT: tail
+  SMILEIDX: 1
+M_C7H1_M:
+  FRAGMENT: tail
+M_C7H2_M:
+  FRAGMENT: tail
+M_C8_M:
+  FRAGMENT: tail
+  SMILEIDX: 0
+M_C8H1_M:
+  FRAGMENT: tail
+M_C8H2_M:
+  FRAGMENT: tail
+M_C8H3_M:
+  FRAGMENT: tail
