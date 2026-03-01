@@ -495,7 +495,7 @@ def computeOP(  # noqa: N802 (API)
                     if "openMM" in software or "NAMD" in software:
                         op_obj = find_OP(
                             system.content[key].mapping_dict,
-                            uc.paths["struc"],
+                            uc.paths["top"],
                             uc.paths["traj"],
                             resname,
                         )
