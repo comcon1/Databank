@@ -57,6 +57,9 @@ class TestBuildNiceOPdict:
         sys = systems.loc(281)
         opdata = get_OP(sys)
         rdict = build_nice_OPdict(opdata["POPC"], sys.lipids["POPC"])
+        from pprint import pprint
+
+        pprint(rdict)
 
         # C check numbers
         def has_c(cname: str, flist: dict) -> bool:
@@ -66,6 +69,10 @@ class TestBuildNiceOPdict:
         check.is_true(has_c("16", rdict["sn-1"]))
         check.is_false(has_c("1", rdict["sn-1"]))
         check.is_false(has_c("17", rdict["sn-1"]))
+        check.is_true(has_c("2", rdict["sn-2"]))
+        check.is_true(has_c("18", rdict["sn-2"]))
+        check.is_false(has_c("1", rdict["sn-2"]))
+        check.is_false(has_c("19", rdict["sn-2"]))
         # H check names
         check.is_true(all(_c["H"] in ["1", "2", "3"] for _c in rdict["sn-1"]))
         check.is_true(all(_c["H"] in ["1", "2", "3"] for _c in rdict["sn-2"]))
@@ -73,3 +80,8 @@ class TestBuildNiceOPdict:
         check.is_true(has_c("g1", rdict["glycerol backbone"]))
         check.is_true(has_c("g2", rdict["glycerol backbone"]))
         check.is_true(has_c("g3", rdict["glycerol backbone"]))
+        # check ordering
+        c_order = [int(x["C"]) for x in rdict["sn-1"]]
+        check.is_true(c_order == sorted(c_order), "sn-1 C ordering is not sorted")
+        h_order = [int(x["H"]) for x in rdict["sn-1"]]
+        check.is_true(h_order[:6] == [1, 2, 1, 2, 1, 2], "sn-1 H ordering is not sorted")
