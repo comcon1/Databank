@@ -93,6 +93,16 @@ class NamingRegistry:
 
         cls._register("_all_", _h_renamer)
 
+        def _plain_c_renamer(row: dict) -> dict:
+            match = re.match(r"M_C([0-9]+)_M", row["C"])
+            if not match or len(match.groups()) < 1:
+                return row
+            idx = int(match[1])
+            row["C"] = str(idx)
+            return row
+
+        cls._register("_all_", _plain_c_renamer)
+
 
 def build_nice_OPdict(src: dict, lipid: Lipid) -> dict:
     """Build nicely formatted OP dictionary from raw OP data.
