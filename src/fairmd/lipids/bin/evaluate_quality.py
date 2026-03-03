@@ -59,6 +59,8 @@ def _evaluate_op_qualities(simulations) -> int:
         system_quality = {}
         for lipidname, lipid in simulation.lipids.items():
             md_lipid_ops = simulation.op_data[lipidname]
+            if md_lipid_ops is None:
+                continue
 
             # TODO: bb is merged into headgroup. But sn-s do not.. Cryptic rule.
             # TODO: What to do with other types of lipids?
