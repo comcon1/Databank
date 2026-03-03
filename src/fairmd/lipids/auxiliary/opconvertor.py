@@ -78,6 +78,17 @@ class NamingRegistry:
 
         cls._register("glycerol backbone", _gbb_c_renamer)
 
+        def _headgroup_c_renamer(row: dict) -> dict:
+            if row["C"] == "M_G3C4_M":
+                row["C"] = "α"
+            elif row["C"] == "M_G3C5_M":
+                row["C"] = "β"
+            elif re.match(r"M_G3N6C[1-3]_M", row["C"]):
+                row["C"] = "γ"
+            return row
+
+        cls._register("headgroup", _headgroup_c_renamer)
+
         def _h_renamer(row: dict) -> dict:
             match = re.match(r"M_.+H([1-4])_M", row["H"])
             if match and len(match.groups()) == 1:

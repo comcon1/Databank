@@ -97,6 +97,8 @@ class TestBuildNiceOPdict:
         check.is_true(has_c("g1", rdict["glycerol backbone"]))
         check.is_true(has_c("g2", rdict["glycerol backbone"]))
         check.is_true(has_c("g3", rdict["glycerol backbone"]))
+        # check headgroup
+        check.is_true(has_c("α", rdict["headgroup"]))
         # check ordering
         c_order = [int(x["C"]) for x in rdict["sn-1"]]
         check.is_true(c_order == sorted(c_order), "sn-1 C ordering is not sorted")
