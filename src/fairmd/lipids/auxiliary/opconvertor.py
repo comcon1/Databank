@@ -7,13 +7,15 @@ Fragmentation is handled.
 
 import re
 
+from natsort import natsorted
+
 from fairmd.lipids.molecules import Lipid
 
 
 class NamingRegistry:
     """Registry for naming conventions."""
 
-    _registry: dict = {}
+    _registry: list = []
 
     @classmethod
     def _register(cls, name: str, func) -> None:
@@ -22,18 +24,30 @@ class NamingRegistry:
         :param name: Name of the fragment.
         :param func: Function implementing the convention.
         """
-        cls._registry[name] = func
+        cls._registry += [(name, func)]
 
     @classmethod
-    def apply(cls, opdic: dict):
-        """Apply a naming convention functions.
+    def apply(cls, opdic: dict) -> None:
+        """Make whatever required to apply naming conventions to fragmentized dictionary.
 
         :param opdic: Fragmented dictionary.
-        :return: Function implementing the convention.
         """
         if not cls._registry:
             cls._initialize()
-        for frag_name, func in cls._registry.items():
+        cls._apply_naming(opdic)
+        cls._apply_sorting(opdic)
+
+    @classmethod
+    def _apply_sorting(cls, opdic: dict) -> None:
+        """Sort every fragment list by C atom number."""
+        for frag_name in opdic:
+            opdic[frag_name] = natsorted(opdic[frag_name], key=lambda x: x["C"] + "__" + x["H"])
+
+    @classmethod
+    def _apply_naming(cls, opdic: dict) -> None:
+        """Apply naming conventions to the fragmented dictionary."""
+        for frag_func in cls._registry:
+            frag_name, func = frag_func
             if frag_name in opdic:
                 for i in range(len(opdic[frag_name])):
                     opdic[frag_name][i] = func(opdic[frag_name][i])
@@ -45,36 +59,53 @@ class NamingRegistry:
     # initialize the registry
     @classmethod
     def _initialize(cls):
-        def _snX_c_renamer(row: dict) -> dict:
+        def _snX_c_renamer(row: dict) -> dict:  # noqa: N802
             match = re.match(r"M_G[12]C([0-9]{1,2})_M", row["C"])
-            if not match or len(match.groups()) < 1:
-                raise ValueError(f"Unexpected C format: {row['C']}")
-            idx = int(match[1])
-            row["C"] = str(idx - 1)
+            if match and len(match.groups()) == 1:
+                idx = int(match[1])
+                row["C"] = str(idx - 1)
             return row
 
         cls._register("sn-1", _snX_c_renamer)
+        cls._register("sn-2", _snX_c_renamer)
 
         def _gbb_c_renamer(row: dict) -> dict:
             match = re.match(r"M_G([1-3])_M", row["C"])
-            if not match or len(match.groups()) < 1:
-                raise ValueError(f"Unexpected C format: {row['C']}")
-            idx = int(match[1])
-            row["C"] = f"g{idx}"
+            if match and len(match.groups()) == 1:
+                idx = int(match[1])
+                row["C"] = f"g{idx}"
             return row
 
         cls._register("glycerol backbone", _gbb_c_renamer)
 
-        def _h_renamer(row: dict) -> dict:
-            match = re.match(r"M_.+H([1-4])", row["H"])
-            if not match or len(match.groups()) < 1:
-                raise ValueError(f"Unexpected H format: {row['H']}")
-            idx = int(match[1])
-            row["H"] = str(idx)
+        def _headgroup_c_renamer(row: dict) -> dict:
+            if row["C"] == "M_G3C4_M":
+                row["C"] = "α"
+            elif row["C"] == "M_G3C5_M":
+                row["C"] = "β"
+            elif re.match(r"M_G3N6C[1-3]_M", row["C"]):
+                row["C"] = "γ"
+            return row
 
+        cls._register("headgroup", _headgroup_c_renamer)
+
+        def _h_renamer(row: dict) -> dict:
+            match = re.match(r"M_.+H([1-4])_M", row["H"])
+            if match and len(match.groups()) == 1:
+                idx = int(match[1])
+                row["H"] = str(idx)
             return row
 
         cls._register("_all_", _h_renamer)
+
+        def _plain_c_renamer(row: dict) -> dict:
+            match = re.match(r"M_C([0-9]+)_M", row["C"])
+            if match and len(match.groups()) == 1:
+                idx = int(match[1])
+                row["C"] = str(idx)
+            return row
+
+        cls._register("_all_", _plain_c_renamer)
 
 
 def build_nice_OPdict(src: dict, lipid: Lipid) -> dict:
@@ -97,7 +128,8 @@ def build_nice_OPdict(src: dict, lipid: Lipid) -> dict:
         for apair, opvals in src.items():
             atom_c, atom_h = apair.split(" ")
             if atom_c not in mdict:
-                raise ValueError(f"Atom {atom_c} not found in mapping dictionary.")
+                msg = f"Atom {atom_c} not found in mapping dictionary."
+                raise ValueError(msg)
             frag_c = mdict[atom_c].get("FRAGMENT", "total")
             if frag_c not in r:
                 r[frag_c] = []
