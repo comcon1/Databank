@@ -162,25 +162,31 @@ def fragment_quality_unite_multexp(fragment_qual_dict: dict):
 
 
 # fragments is different for each lipid ---> need to make individual dictionaries
-def systemQuality(system_fragment_qualities, simulation: QualSimulation):
+def system_quality_gather_lipids(system_fragment_qualities: dict, molar_composition: dict):
+    """
+    Gather fragment qualities for each lipid in a system and compute system-wide quality.
+
+    :param system_fragment_qualities: dictionary of type {lipidname: {fragment: quality value}}.
+    :param molar_composition: dictionary of type {lipidname: molar fraction}.
+    """
     system_dict = {}
     lipid_dict = {}
     w_nan = []
 
-    for lipid in system_fragment_qualities:
+    for lname, lqual in system_fragment_qualities.items():
         # copy keys to new dictionary
-        lipid_dict = dict.fromkeys(system_fragment_qualities[lipid].keys(), 0)
+        lipid_dict = dict.fromkeys(lqual.keys(), 0)
 
-        w = simulation.membrane_composition(basis="molar")[lipid]
+        w = molar_composition[lname]
 
-        for key, value in system_fragment_qualities[lipid].items():
+        for key, value in lqual.items():
             if not np.isnan(value):
                 lipid_dict[key] += w * value
             else:
                 # save 1 - w of a lipid into a list if the fragment quality is nan
                 w_nan.append(1 - w)
 
-        system_dict[lipid] = lipid_dict
+        system_dict[lname] = lipid_dict
 
     system_quality = {}
 
@@ -188,29 +194,22 @@ def systemQuality(system_fragment_qualities, simulation: QualSimulation):
     tails = 0
     total = 0
 
-    for lipid_key in system_dict:
-        for key, value in system_dict[lipid_key].items():
+    for ldict in system_dict.values():
+        for key, value in ldict.items():
             if key == "total":
                 total += value
             elif key == "headgroup":
                 headgroup += value
-            elif key == "sn-1" or key == "sn-2":
+            elif key in {"sn-1", "sn-2"}:
                 tails += value / 2
             else:
-                tails += value
+                tails += value # everything non head is tail??
 
-    if np.prod(w_nan) > 0:
-        # multiply all elements of w_nan and divide the sum by the product
-        system_quality["headgroup"] = headgroup * np.prod(w_nan)
-        system_quality["tails"] = tails * np.prod(w_nan)
-        system_quality["total"] = total * np.prod(w_nan)
-    else:
-        system_quality["headgroup"] = headgroup
-        system_quality["tails"] = tails
-        system_quality["total"] = total
+    penalty = np.prod(w_nan) if w_nan else 1
 
-    print("system_quality")
-    print(system_quality)
+    system_quality["headgroup"] = headgroup * penalty
+    system_quality["tails"] = tails * penalty
+    system_quality["total"] = total * penalty
 
     return system_quality
 

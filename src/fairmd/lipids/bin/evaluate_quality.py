@@ -108,7 +108,10 @@ def _evaluate_op_qualities(simulations) -> int:
             with open(outfile1, "w") as f:
                 json.dump(lipid_quality_perexp, f, cls=CompactJSONEncoder)
 
-        system_qual_output = qq.systemQuality(system_quality, simulation)
+        system_qual_output = qq.system_quality_gather_lipids(
+            system_quality,
+            simulation.membrane_composition(basis="molar"),
+        )
         # make system quality file
 
         outfile2 = os.path.join(wdir, "SYSTEM_quality.json")
