@@ -87,3 +87,157 @@ def test_calc_ff_quality_sin_exp_curve():
         rel=1e-2,
         msg="Noisy simulation and experimental data should yield similar quality score to clean data",
     )
+
+
+class _TestOPQualityBase:
+    @pytest.fixture
+    def mock_content(self):
+        class MockLIPID:
+            def __init__(slf, id):
+                slf.id = id
+
+            @property
+            def mapping_dict(slf):
+                return self.mapping_content[slf.id]
+
+        contents = {k: MockLIPID(k) for k in self.mapping_content}
+        yield contents
+
+    @pytest.fixture
+    def mock_explist(self):
+        class MockExpList:
+            def loc(slf, id):
+                class Data:
+                    data = self.exp_data[id]
+
+                return Data()
+
+        yield MockExpList()
+
+    @pytest.fixture
+    def mock_sim(self, mock_content):
+        class MockSim(dict):
+            def __init__(slf):
+                super().__init__()
+                slf["path"] = "mock/path"
+                slf["EXPERIMENT"] = {"ORDERPARAMETER": {"DPPC": list(self.exp_data.keys())}}
+                slf.op_data = self.sim_data
+                slf.lipids = mock_content
+
+            def membrane_composition(self, basis):
+                return {"DPPC": 1}
+
+        yield MockSim()
+
+
+class TestOPQualityEvaluator1L1E(_TestOPQualityBase):
+    @pytest.fixture(autouse=True)
+    def setup_common(self):
+        self.mapping_content = {
+            "DPPC": {
+                "M_C1_M": {
+                    "ATOMNAME": "C1",
+                    "FRAGMENT": "headgroup",
+                },
+                "M_C1H1_M": {
+                    "ATOMNAME": "H1",
+                    "FRAGMENT": "headgroup",
+                },
+                "M_C2_M": {
+                    "ATOMNAME": "C2",
+                    "FRAGMENT": "sn-1",
+                },
+                "M_C2H1_M": {
+                    "ATOMNAME": "H2",
+                    "FRAGMENT": "sn-1",
+                },
+            }
+        }
+        self.exp_data = {
+            "exp1": {
+                "DPPC": {
+                    "M_C1_M M_C1H1_M": [-0.22, 0.02],
+                    "M_C2_M M_C2H1_M": [-0.18, 0.01],
+                },
+            }
+        }
+        self.sim_data = {
+            "DPPC": {
+                "M_C1_M M_C1H1_M": [-0.21, 0.02, 0.02],
+                "M_C2_M M_C2H1_M": [-0.17, 0.01, 0.01],
+            }
+        }
+
+    def test_opqe_evaluate(self, mock_sim, mock_explist):
+        from fairmd.lipids.quality import OPQualityEvaluator
+
+        opq = OPQualityEvaluator(mock_sim, mock_explist)
+        opq.evaluate_one()
+
+        # test atomic qualities
+        laq = opq.lipid_atomic_qualities
+        check.is_instance(laq, dict)
+        check.is_instance(laq["DPPC"], dict)
+        check.equal(len(laq["DPPC"]), 1)
+        check.equal(len(laq["DPPC"]["exp1"]), 2)
+        check.almost_equal(laq["DPPC"]["exp1"].values(), [0.46, 0.65], abs=1e-2)
+        print(laq)
+
+
+class TestOPQualityEvaluator1L2E(_TestOPQualityBase):
+    @pytest.fixture(autouse=True)
+    def setup_common(self):
+        self.mapping_content = {
+            "DPPC": {
+                "M_C1_M": {
+                    "ATOMNAME": "C1",
+                    "FRAGMENT": "headgroup",
+                },
+                "M_C1H1_M": {
+                    "ATOMNAME": "H1",
+                    "FRAGMENT": "headgroup",
+                },
+                "M_C2_M": {
+                    "ATOMNAME": "C2",
+                    "FRAGMENT": "sn-1",
+                },
+                "M_C2H1_M": {
+                    "ATOMNAME": "H2",
+                    "FRAGMENT": "sn-1",
+                },
+            },
+        }
+        self.exp_data = {
+            "exp1": {
+                "DPPC": {
+                    "M_C1_M M_C1H1_M": [-0.22, 0.02],
+                    "M_C2_M M_C2H1_M": [-0.18, 0.01],
+                },
+            },
+            "exp2": {
+                "DPPC": {
+                    "M_C1_M M_C1H1_M": [-0.1, 0.02],
+                    "M_C2_M M_C2H1_M": [-0.05, 0.01],
+                },
+            },
+        }
+        self.sim_data = {
+            "DPPC": {
+                "M_C1_M M_C1H1_M": [-0.21, 0.02, 0.02],
+                "M_C2_M M_C2H1_M": [-0.17, 0.01, 0.01],
+            },
+        }
+
+    def test_opqe_evaluate(self, mock_sim, mock_explist):
+        from fairmd.lipids.quality import OPQualityEvaluator
+
+        opq = OPQualityEvaluator(mock_sim, mock_explist)
+        opq.evaluate_one()
+
+        # test atomic qualities
+        laq = opq.lipid_atomic_qualities
+        check.is_instance(laq, dict)
+        check.is_instance(laq["DPPC"], dict)
+        check.equal(len(laq["DPPC"]), 2)
+        check.equal(len(laq["DPPC"]["exp2"]), 2)
+        print(laq)
