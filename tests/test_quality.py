@@ -48,3 +48,42 @@ def test_prob_op_within_trustinterval():
 
     p2 = QualityEvaluator.prob_2_within_trustinterval(op_exp, exp_error, op_sim, op_sim_sd)
     npt.assert_allclose(p2, [0.505148, np.nan, 0.526465], atol=1e-6)
+
+
+def test_calc_ff_quality_sin_exp_curve():
+    from fairmd.lipids.quality import FFQualityEvaluator
+
+    rng = np.random.default_rng()
+
+    # Create FF-like data: |sin(x)| * exp(-x) over q-range typical for FF (0.1 to 3.0)
+    q = np.linspace(0.005, 3.0, 1000)
+    # Simulation data: minimum near q=0.5
+    ffd_sim = np.column_stack([q, np.abs(np.sin(2 * np.pi * q)) * np.exp(-q)]).astype(float)
+
+    # Test edge case: identical data
+    quality_identical = FFQualityEvaluator.calc_ff_quality(ffd_sim, ffd_sim)
+    check.almost_equal(0.0, quality_identical, abs=1e-6, msg="Identical data should yield zero quality score")
+
+    # Test with noised
+    noise_sim = ffd_sim.copy()
+    noise_sim[:, 1] += 0.001 * rng.standard_normal(len(q))  # 5% noise
+
+    quality_noisy_sim = FFQualityEvaluator.calc_ff_quality(noise_sim, ffd_sim)
+    check.almost_equal(0.0, quality_noisy_sim, rel=1e-2, msg="Noisy simulation data should yield low quality score")
+
+    # Experimental data: minimum shifted to q=0.3
+    ffd_exp = np.column_stack([q, np.abs(np.sin(2 * np.pi * (q + 0.2))) * np.exp(-q)]).astype(float)
+
+    quality = FFQualityEvaluator.calc_ff_quality(ffd_sim, ffd_exp)
+    check.almost_equal(20, quality, rel=1e-2, msg="Shifted experimental data should yield +20 quality score")
+
+    noise_exp = ffd_exp.copy()
+    noise_exp[:, 1] += 0.001 * rng.standard_normal(len(q))  # 5% noise
+
+    quality_noisy = FFQualityEvaluator.calc_ff_quality(noise_sim, noise_exp)
+    check.almost_equal(
+        20,
+        quality_noisy,
+        rel=1e-2,
+        msg="Noisy simulation and experimental data should yield similar quality score to clean data",
+    )
