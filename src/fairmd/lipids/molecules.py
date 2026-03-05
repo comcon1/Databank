@@ -1,10 +1,8 @@
 """
-:module: settings/molecules.py
+Define classes for molecules (lipids, ions, etc.) and their sets.
 
-:description: Module file with definition of different global-level dictionaries.
-
-There is a dictionary of lipids, ions, etc. If you add a lipid which is not yet
-in the databank, you have to add it here!
+File defines crucial API classes for working with molecules.
+There is a dictionary of lipids, ions, etc. with their metadata and mapping files.
 """
 
 import fnmatch
@@ -42,10 +40,14 @@ class MoleculeMappingError(MoleculeError):
     def __init__(self, message: str, mol=None) -> None:
         if mol is None:
             msg = message
-        elif mol.mapping_file is None:
+        elif not mol._can_load_mapping():
             msg = f"From {mol}: {message}"
         else:
-            msg = f"From {mol}[{mol.mapping_file}]: {message}" if mol is not None else message
+            if mol._mapping_fpath is None:
+                disp_name = "naming.yaml"
+            else:
+                disp_name = os.path.relpath(mol._mapping_fpath, FMDL_MOL_PATH)
+            msg = f"From {mol}[{disp_name}]: {message}" if mol is not None else message
         super().__init__(msg, mol=mol)
 
 
@@ -85,7 +87,6 @@ class Molecule(ABC):
                 raise MoleculeMappingError(msg, mol=self)
             fname = _possible_mfiles[0]  # take the first one
         # set mapping file path
-        self._disp_mapping = fname
         self._mapping_fpath = os.path.join(self._get_path(), fname)
         if not os.path.isfile(self._mapping_fpath):
             msg = f"Cannot find '{self._mapping_fpath}' mapping for molecule {self.name}"
@@ -116,17 +117,21 @@ class Molecule(ABC):
     @property
     def mapping_dict(self) -> dict:
         """Return mapping dictionary (load on first call)"""
-        if self._mapping_fpath is None:
+        if not self._can_load_mapping():
             msg = "Mapping file is not registered!"
             raise MoleculeError(msg, mol=self)
-        if self._mapping_dict is None:
-            try:
-                with open(self._mapping_fpath) as yaml_file:
-                    self._mapping_dict = yaml.safe_load(yaml_file)  # yaml.load(yaml_file, Loader=yaml.FullLoader)
-            except OSError as e:
-                msg = "Error opening mapping-file!"
-                raise MoleculeError(msg, mol=self) from e
+        if self._mapping_dict is None:  # load on first request
+            self._load_mapping_dict()
         return self._mapping_dict
+
+    def _load_mapping_dict(self) -> None:
+        """Load mapping dictionary from the registered mapping file."""
+        try:
+            with open(self._mapping_fpath) as yaml_file:
+                self._mapping_dict = yaml.safe_load(yaml_file)  # yaml.load(yaml_file, Loader=yaml.FullLoader)
+        except OSError as e:
+            msg = "Error opening mapping-file!"
+            raise MoleculeError(msg, mol=self) from e
 
     def md2uan(self, mdatomname: str, mdresname: str | None = None) -> str:
         """
@@ -136,6 +141,12 @@ class Molecule(ABC):
         :return: Universal Atom Name (str)
         """
         for universal_name, mrecord in self.mapping_dict.items():
+            if "ATOMNAME" not in mrecord:
+                msg = (
+                    f"ATOMNAME field is missing for {universal_name} in mapping dictionary."  # !
+                    " MD mapping is not possible."
+                )
+                raise MoleculeMappingError(msg, mol=self)
             mapping_aname = mrecord["ATOMNAME"]
             # MDAnalysis uses fnmatch patterns for selection language
             # https://userguide.mdanalysis.org/stable/selections.html
@@ -155,6 +166,9 @@ class Molecule(ABC):
         :raises KeyError: if the universal name is not found in the mapping.
         :return: selection string for MDAnalysis
         """
+        if "ATOMNAME" not in self.mapping_dict[uname]:
+            msg = f"ATOMNAME field is missing for {uname} in mapping dictionary. MD mapping is not possible."
+            raise MoleculeMappingError(msg, mol=self)
         anm = self.mapping_dict[uname]["ATOMNAME"]
         selstr = f"name {anm}"
         if "RESIDUE" in self.mapping_dict[uname]:
@@ -172,7 +186,6 @@ class Molecule(ABC):
         """
         self.__check_name(name)
         self._molname = name
-        self._disp_mapping = None
         self._mapping_fpath = None
         self._mapping_dict = None
 
@@ -214,10 +227,9 @@ class Molecule(ABC):
         """Molecule name"""
         return self._molname
 
-    @property
-    def mapping_file(self) -> str:
-        """Mapping file name"""
-        return self._disp_mapping
+    def _can_load_mapping(self) -> bool:
+        """Is mapping registered for the molecule?"""
+        return self._mapping_fpath is not None
 
     # comparison by name to behave in a set
     # It's case-insesitive as folder structure should work on mac/win
@@ -255,6 +267,40 @@ class Lipid(Molecule):
         else:
             msg = f"Metadata file not found for {self.name}."
             raise FileNotFoundError(msg)
+
+    def _can_load_mapping(self) -> bool:
+        super_is_reg = super()._can_load_mapping()
+        naming_path = os.path.join(self._get_path(), "naming.yaml")
+        return super_is_reg or os.path.isfile(naming_path)
+
+    def _load_mapping_dict(self) -> None:
+        if super()._can_load_mapping():
+            super()._load_mapping_dict()
+        else:
+            self._mapping_dict = {}
+        self._load_naming_dict()
+
+    def _load_naming_dict(self) -> None:
+        """
+        Load naming dictionary from `naming.yaml` file if it exists.
+
+        Updates existing mapping dictionary.
+        """
+        naming_path = os.path.join(self._get_path(), "naming.yaml")
+        if os.path.isfile(naming_path):
+            with open(naming_path) as yaml_file:
+                _naming_dict = yaml.load(yaml_file, Loader=yaml.FullLoader)
+            for unm, record in _naming_dict.items():
+                self._mapping_dict.setdefault(unm, {}).update(record)
+
+    @property
+    def fragments(self) -> list[str]:
+        """Return list of fragments for the lipid."""
+        frags = set()
+        for mrecord in self.mapping_dict.values():
+            frag = mrecord.get("FRAGMENT", "total")
+            frags.add(frag)
+        return sorted(frags)
 
     @property
     def metadata(self) -> dict:

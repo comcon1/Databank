@@ -7,12 +7,12 @@ import pytest_check as check
 # run only on sim2 mocking data
 pytestmark = [pytest.mark.sim2, pytest.mark.min]
 
-LIPIDS_SET_LENGTH = 5
+LIPIDS_SET_LENGTH = 6
 POPE_MOLECULAR_WEIGHT = 717.5
 
 
 @pytest.fixture(scope="module")
-def toy_mols() -> dict:
+def toy_mols_w_mapping() -> dict:
     from fairmd.lipids import FMDL_MOL_PATH
     from fairmd.lipids.molecules import lipids_set
 
@@ -28,6 +28,42 @@ def toy_mols() -> dict:
     return {"pope/charmm": mol1, "popc/amber": mol2}
 
 
+@pytest.fixture(scope="module")
+def toy_mols_no_mapping() -> dict:
+    from fairmd.lipids import FMDL_MOL_PATH
+    from fairmd.lipids.molecules import lipids_set
+
+    mol1 = lipids_set.get("BOG")
+
+    return {"bog": mol1}
+
+
+def tests_molecule_fragments(toy_mols_no_mapping, toy_mols_w_mapping):
+    bog = toy_mols_no_mapping["bog"]
+    check.is_instance(bog.fragments, list, "Should return a list of fragment names")
+    check.equal(bog.fragments, ["glucose", "tail"], "BOG fragments should be ['head', 'tail']")
+
+    pope = toy_mols_w_mapping["pope/charmm"]
+    check.is_instance(pope.fragments, list, "Should return a list of fragment names")
+    check.equal(
+        sorted(pope.fragments),
+        sorted(["headgroup", "glycerol backbone", "sn-1", "sn-2"]),
+        "POPE fragments are improper",
+    )
+
+
+def tests_try_access_nomap(toy_mols_no_mapping):
+    from fairmd.lipids.molecules import Lipid, MoleculeMappingError
+
+    bog: Lipid = toy_mols_no_mapping["bog"]
+    bog.mapping_dict  # should not raise because mapping naming mapping exists
+    with pytest.raises(MoleculeMappingError, match="MD mapping is not possible"):
+        _ = bog.uan2selection("M_G0C1_M", "BOG")
+    # md2uan should also raise
+    with pytest.raises(MoleculeMappingError, match="MD mapping is not possible"):
+        _ = bog.md2uan("C1", "BOG")
+
+
 def test_mapping_dict():
     from fairmd.lipids.molecules import lipids_set, MoleculeError
 
@@ -40,27 +76,27 @@ def test_mapping_dict():
     check.is_in("M_G1_M", mdic, "Mapping dict should contain key 'M_G1_M'")
 
 
-def test_uan2selection(toy_mols):
-    toy_pope = toy_mols["pope/charmm"]
+def test_uan2selection(toy_mols_w_mapping):
+    toy_pope = toy_mols_w_mapping["pope/charmm"]
     selstr = toy_pope.uan2selection("M_G1C2_M", "POPE")
     check.equal(selstr, "name C31 and resname POPE", "Selection string should match expected value (charmm36)")
     with check.raises(KeyError):
         toy_pope.uan2selection("NON_EXISTENT_UAN", "POPE")
 
-    toy_popc = toy_mols["popc/amber"]
+    toy_popc = toy_mols_w_mapping["popc/amber"]
     selstr = toy_popc.uan2selection("M_G1C6H1_M", "POPC")
     check.equal(selstr, "name H5R and resname PA", "Selection string should match expected value (lipid14)")
     with check.raises(KeyError):
         toy_pope.uan2selection("NON_EXISTENT_UAN", "POPC")
 
 
-def test_md2uan(toy_mols):
+def test_md2uan(toy_mols_w_mapping):
     import MDAnalysis as mda
     from fairmd.lipids.molecules import NonLipid, MoleculeMappingError
 
     popc2_fp = os.path.join(os.path.dirname(__file__), "misc_data", "popc2.gro")
     u_popc2 = mda.Universe(popc2_fp)
-    toy_popc = toy_mols["popc/amber"]
+    toy_popc = toy_mols_w_mapping["popc/amber"]
     uan = toy_popc.md2uan("H5R", "PA")
     check.equal(uan, "M_G1C6H1_M", "Universal Atom Name should match expected value (lipid14)")
     uan = toy_popc.md2uan("H5R", "OL")
@@ -78,7 +114,7 @@ def test_md2uan(toy_mols):
         cl_mol.md2uan("Cl-")
 
 
-def test_check_mapping_amber(toy_mols):
+def test_check_mapping_amber(toy_mols_w_mapping):
     import MDAnalysis as mda
     from fairmd.lipids.molecules import MoleculeMappingError
 
@@ -87,7 +123,7 @@ def test_check_mapping_amber(toy_mols):
 
     u_popc2 = mda.Universe(popc2_fp)  # correct amber
 
-    toy_popc = toy_mols["popc/amber"]
+    toy_popc = toy_mols_w_mapping["popc/amber"]
 
     # correct mapping
     with check.check:
@@ -109,7 +145,7 @@ def test_check_mapping_amber(toy_mols):
         toy_popc.check_mapping(u_popc2, "")
 
 
-def test_check_mapping(toy_mols):
+def test_check_mapping(toy_mols_w_mapping):
     import MDAnalysis as mda
     from fairmd.lipids.molecules import MoleculeMappingError
 
@@ -119,7 +155,7 @@ def test_check_mapping(toy_mols):
     u_pope = mda.Universe(pope1_fp)
     u_popc = mda.Universe(popc1_fp)
 
-    toy_pope = toy_mols["pope/charmm"]
+    toy_pope = toy_mols_w_mapping["pope/charmm"]
 
     # correct mapping
     with check.check:
