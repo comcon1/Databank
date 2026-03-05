@@ -69,6 +69,15 @@ class NamingRegistry:
         cls._register("sn-1", _snX_c_renamer)
         cls._register("sn-2", _snX_c_renamer)
 
+        def _fa_c_renamer(row: dict) -> dict:
+            match = re.match(r"M_N1C([0-9]{1,2})_M", row["C"])
+            if match and len(match.groups()) == 1:
+                idx = int(match[1])
+                row["C"] = str(idx)
+            return row
+
+        cls._register("fa", _fa_c_renamer)
+
         def _gbb_c_renamer(row: dict) -> dict:
             match = re.match(r"M_G([1-3])_M", row["C"])
             if match and len(match.groups()) == 1:
