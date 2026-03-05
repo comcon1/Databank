@@ -69,6 +69,7 @@ trj_size_cutoff = (
 _NMRPCA_TEST = False
 SUPPORTED_TAILSETS = [
     {"sn-1", "sn-2"},  # two-tailed glycerolipids
+    {"fa", "sphingosine"},  # two-tailed sphingolipids
 ]
 
 
