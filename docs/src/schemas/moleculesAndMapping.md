@@ -35,7 +35,11 @@ To enable automatic analyses over all simulations, universal atom names for each
     .
     .
 
-Universal atom names start with "M_" flag and ends with "_M" flag. In the actual naming convention between the flags, the first two characters define in which glycerol backbone chain the atoms attached (G1, G2 or G3), third character tells the atom type and fourth character tells the counting number from the glycerol backbone carbon. If there are hydrogens or other atoms attached to the main chain, those will be added to the end of the naming. More details can be found from [the original NMRlipids project post defining the mapping files](https://nmrlipids.blogspot.com/2015/03/mapping-scheme-for-lipid-atom-names-for.html). Examples already existing mapping files can be found in [the Toy Databank](https://github.com/NMRLipids/FAIRMD_lipids/tree/main/src/fairmd/lipids/data/ToyData/Molecules).
+Universal atom names start with "M_" flag and ends with "_M" flag. 
+
+## Glycerolipids naming convention
+
+In the actual naming convention between the flags, the first two characters define in which glycerol backbone chain the atoms attached (G1, G2 or G3), third character tells the atom type and fourth character tells the counting number from the glycerol backbone carbon. If there are hydrogens or other atoms attached to the main chain, those will be added to the end of the naming. More details can be found from [the original NMRlipids project post defining the mapping files](https://nmrlipids.blogspot.com/2015/03/mapping-scheme-for-lipid-atom-names-for.html). Examples already existing mapping files can be found in [the Toy Databank](https://github.com/NMRLipids/FAIRMD_lipids/tree/main/src/fairmd/lipids/data/ToyData/Molecules).
 
 ## Cardiolipin universal naming conventions
 
@@ -59,3 +63,15 @@ If you add a lipid of this family, you can stick to following namings:
                G32C4              G11C4
                 ..                 ..
 ```
+
+## Sphingolipids naming convention
+
+Shpingosine chain of sphingolipids is named according to the numeration of sphingosine, i.e., `M_C1_M`, `M_C2_M`, etc.
+Hydroxy-group is called `M_C3O1_M`, `M_C3O1H1_M`, accordingly.
+N-atom is called `M_N1_M`. N-attached fatty acid is named as `M_N1C1_M`, `M_N1C2_M`, etc.
+Choline/ethanolamine headgroups should be named according to glycerolipid convention.
+
+## Cholesterol
+
+Cholesterol and its derivatives are named according to IUPAC numbering: `M_Ci_M` and `M_CiHj_M`.
+Hydroxy-group is named according to the attached carbon: `M_C3O1_M`.
