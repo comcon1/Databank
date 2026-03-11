@@ -106,7 +106,10 @@ def get_tails_of_lipid(lipid: Lipid) -> set[str]:
     """
     tails = []
     for props in lipid.mapping_dict.values():
-        if "FRAGMENT" in props and props["FRAGMENT"].startswith("sn-"):
+        if "FRAGMENT" not in props:
+            continue
+        frag = props["FRAGMENT"]
+        if frag.startswith("sn-") or frag in {"fa", "sphingosine"}:
             tail_id = props["FRAGMENT"]
             if tail_id not in tails:
                 tails.append(tail_id)

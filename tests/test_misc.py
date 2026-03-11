@@ -202,6 +202,7 @@ def test_get_tails():
     from fairmd.lipids.molecules import Lipid
     from fairmd.lipids.auxiliary.mollib import get_tails_of_lipid
 
+    # It counts tails for a phospholipid
     lipid = Lipid(name="DPPC")
     lipid.register_mapping("mappingDPPCberger.yaml")
 
@@ -211,6 +212,7 @@ def test_get_tails():
     check.is_in("sn-1", tails)
     check.is_in("sn-2", tails)
 
+    # It counts tails for even cardiolipin
     lipid = Lipid(name="TOCL")
     lipid.register_mapping("mappingTOCLcharmm.yaml")
 
@@ -218,6 +220,20 @@ def test_get_tails():
     check.equal(len(tails), 4)
     check.is_in("sn-1 1", tails)
     check.is_in("sn-2 1", tails)
+
+    # It properly count tails for sphingolipids
+    class MockLipid:
+        mapping_dict: dict
+        # obj
+
+    mkl = MockLipid()
+    mkl.mapping_dict = {
+        "M_N1C1_M": {"FRAGMENT": "fa"},
+        "M_C1_M": {"FRAGMENT": "sphingosine"},
+        "M_P_M": {"FRAGMENT": "headgroup"},
+    }
+    tails = get_tails_of_lipid(mkl)
+    check.equal(len(tails), 2)
 
 
 def test_json_encoder(tmpdir):
