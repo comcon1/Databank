@@ -6,11 +6,6 @@ NOTE: globally import of fairmd-lipids is **STRICTLY FORBIDDEN** because it
       breaks the substitution of global path folders
 """
 
-from contextlib import contextmanager
-import os
-import shutil
-import json
-
 import numpy as np
 import numpy.testing as npt
 import pytest
