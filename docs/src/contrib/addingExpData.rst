@@ -146,3 +146,27 @@ most strange points.
    We do mention water as well. It can be Type I, distilled, degassed, deuterium-depleted. It’s
    important for reproducibility, and we appreciate a data curator mentioning it.
 
+.. _metanmr_guidelines:
+
+Guidelines to fill experiment metadata
+--------------------------------------
+
+#. **Knowledge of real temperature**
+
+   It is not clear if the experiment is performed with knowledge of the real temperature. The pulse
+   program often imposes heating inside the sample rotor, which cannot be measured directly. The
+   correction should be applied, but it is sometimes unclear whether it was. This must be reflected
+   in the metadata field called ``T_RF_HEATING``. If you cannot find any signs of temperature
+   correction, use "UNKNOWN".
+
+#. **Knowledge of the sign**
+
+   99.99% of experiments don't give a sign of the order parameter, just the absolute value, and we
+   should guess them when we add. The easiest way is to inherit this guess from MD. There are
+   experiments where signs are measured, then we write them explicitly in ``SIGN_MEASURED`` field.
+
+#. **Details of pulse sequence**
+
+   Modern techniques like R-PDLF have a lot of settings in their pulse sequences. We want to reflect
+   some of them in ``DETAILS`` field, but don't make it too large. If some papers are cited, we can
+   cite them as well in DETAILS. Let's keep this field to a few-line paragraph.
