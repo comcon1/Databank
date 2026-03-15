@@ -78,7 +78,8 @@ class QualityEvaluator(ABC):
 
         NOTE: Computing the probability taking into account small values using
         scipy.special.log1p is not required if sd is above 1e-5, which is
-        currently the case for all OP data.
+        currently the case for all OP data. It is also not required if we are
+        not going to bring values to log-scale.
 
         Args:
             xv: Experimental OP value (all float/arrays)

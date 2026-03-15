@@ -5,7 +5,7 @@ import scipy.interpolate
 import scipy.signal
 
 
-def get_mins_from_ffdata(ffdata: np.ndarray) -> float:
+def get_mins_from_ffdata(ffdata: np.ndarray) -> list[float]:
     """Find the positions of minimums in form factor data."""
     sg_window_q = 0.03  # Savitsky-Golay window (in Q)
     delta_q = ffdata[1, 0] - ffdata[0, 0]  # Q step in FF data
