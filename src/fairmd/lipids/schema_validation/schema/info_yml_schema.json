@@ -37,6 +37,11 @@
     "DOI": {
       "type": "string"
     },
+    "DATE": {
+      "type": ["string", "null"],
+      "pattern": "^\\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\\d|3[01])$",
+      "description": "Date of the dataset publication in YYYY-MM-DD format"
+    },
     "TRJ": {
       "type": "string"
     },

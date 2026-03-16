@@ -4,6 +4,7 @@
 
 SYSTEM: UNIQUE_SYSTEM_NAME
 DOI: 10.5281/zenodo.0000000
+DATE: date #Date as YYYY-MM-DD of the dataset publication - can be retrieved from datacite
 
 SOFTWARE: gromacs
 SOFTWARE_VERSION:
