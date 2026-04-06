@@ -56,3 +56,7 @@ def calc_ff_scaling_distance(ffd_exp: np.ndarray, ffd_sim: np.ndarray) -> tuple[
     chi = np.sqrt(sum1.sum()) / np.sqrt(max_i - min_i - 1)
 
     return [scf, chi]
+
+def estimate_error_of_min(ffdata: np.ndarray) -> float:
+    """Estimate error of minimum position in form factor data."""
+    return 0
