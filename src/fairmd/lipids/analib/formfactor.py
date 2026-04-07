@@ -3,12 +3,11 @@
 import numpy as np
 import scipy.interpolate
 import scipy.signal
-from scipy.optimize import curve_fit
 
 
 def get_mins_from_ffdata(ffdata: np.ndarray) -> list[float]:
     """Find the positions of minimums in form factor data."""
-    sg_window_q = 0.03  # Savitsky-Golay window (in Q)
+    sg_window_q = 0.05  # Savitsky-Golay window (in Q)
     delta_q = ffdata[1, 0] - ffdata[0, 0]  # Q step in FF data
     sg_window_n = int(np.ceil(sg_window_q / delta_q))  # S-G window (in num frames)
     try:
@@ -19,7 +18,8 @@ def get_mins_from_ffdata(ffdata: np.ndarray) -> list[float]:
 
     min_q_distance = 0.01  # Min distance btw peaks (in Q)
     mqd_n = int(np.ceil(min_q_distance / delta_q))  # same in num frames
-    peak_ind = scipy.signal.find_peaks(-filtered, distance=mqd_n)
+    peak_prominence = (filtered.max() - filtered.min()) * 0.1
+    peak_ind = scipy.signal.find_peaks(-filtered, distance=mqd_n, prominence=peak_prominence)
     min_peak_q = 0.1
 
     return [ffdata[i, 0] for i in peak_ind[0] if ffdata[i, 0] > min_peak_q]
@@ -77,5 +77,9 @@ def calc_minpos_with_error(ffdata: np.ndarray) -> (float, float):
     )
     a, b, _c = popt
     min_x = -b / 2 / a
-    delta_minx = (-1/2/a)**2*pcov[0, 0] + (b/2/a**2)**2*pcov[1, 1] + 2*(-1/2/a)*(b/2/a**2)*pcov[0, 1]
+    delta_minx = (
+        (-1 / 2 / a) ** 2 * pcov[0, 0]
+        + (b / 2 / a**2) ** 2 * pcov[1, 1]
+        + 2 * (-1 / 2 / a) * (b / 2 / a**2) * pcov[0, 1]
+    )
     return min_x, np.sqrt(delta_minx)
