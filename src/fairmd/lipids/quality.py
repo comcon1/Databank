@@ -346,7 +346,7 @@ class FFQualityEvaluator(QualityEvaluator):
         for expid in self._sim["EXPERIMENT"]["FORMFACTOR"]:
             exp_ff_data = np.array(self._exps.loc(expid).data)
             results_ff[expid] = [
-                self.calc_ff_quality(self._sim.ff_data, exp_ff_data),
+                self.calc_new_ff_quality(self._sim.ff_data, exp_ff_data),
                 ff.calc_ff_scaling_distance(exp_ff_data, self._sim.ff_data)[0],
             ]
 
@@ -393,3 +393,12 @@ class FFQualityEvaluator(QualityEvaluator):
         exp_min = ff.get_mins_from_ffdata(ffd_exp)
 
         return np.abs(sim_min[0] - exp_min[0]) * 100
+
+    @classmethod
+    def calc_new_ff_quality(cls, ffd_sim: np.ndarray, ffd_exp: np.ndarray) -> float:
+        """Calculate form factor quality via p-value of the difference between minima."""
+        sim_pos, sim_err = ff.calc_minpos_with_error(ffd_sim, 0.5)
+        exp_pos, exp_err = ff.calc_minpos_with_error(ffd_exp, 0.05)
+        ffq = cls.prob_2_within_trustinterval(xv=exp_pos, xerr=exp_err, yv=sim_pos, yerr=sim_err)
+        print(sim_pos, sim_err, exp_pos, exp_err, ffq)
+        return ffq
