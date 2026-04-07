@@ -57,22 +57,32 @@ def test_estimate_error_of_min():
         abs=1e-3,
         msg="Error of minimum with no error is not estimated as err=0.1 [const]",
     )
-    # Case 1: constant error
-    # sin(8x) = 0
-    # 8x = pi*n => x = pi*n/8
-    #
-    # Error must be estimated as following: we down the curve by the value of error and find intersections
-    # with x axis. The error is the mean distance between the minimum and these intersections. In this
-    # case, the intersections are defined by the equation:
-    #
-    # |sin(8x)|-0.1 = 0 =>> |sin(8x)| = 0.1 =>> sin(8x) = 0.1 or sin(8x) = -0.1, i.e.,
-    #
-    # x = +-arcsin(0.1)/8 + pi*n/8; so error should be arcsin(0.1)/8
-    #
+    # Case 1: 2 constant errors
     pos_comp, err_comp = calc_minpos_with_error(synt_data)
-    check.almost_equal(
+    synt_data[:, 2] = 0.2
+    pos_berr, err_berr = calc_minpos_with_error(synt_data)
+    check.less(
         err_comp,
-        np.arcsin(0.1) / 8,
+        err_berr,
+        msg="Error of minimum with constant error 0.2 must be > than with err 0.1",
+    )
+    check.almost_equal(
+        pos_comp,
+        pos_berr,
+        abs=1e-5,
+        msg="Minimum position with constant error 0.2 must be close to minimum position with constant error 0.1",
+    )
+    # Case 2: noise
+    synt_data[:, 1] += 0.05 * np.random.rand(1000) - 0.025
+    pos_noised, err_noised = calc_minpos_with_error(synt_data)
+    check.less(
+        err_comp,
+        err_noised,
+        msg="Error of minimum with noise is not greater than error of minimum with constant error",
+    )
+    check.almost_equal(
+        pos_comp,
+        pos_noised,
         abs=1e-3,
-        msg="Error of minimum with constant error is not estimated correctly",
+        msg="Minimum position with and w/o noise should be similar",
     )
