@@ -33,24 +33,31 @@ def test_get_mins_from_ffdata():
 
 
 def test_estimate_error_of_min():
-    from fairmd.lipids.analib.formfactor import estimate_error_of_min
+    from fairmd.lipids.analib.formfactor import calc_minpos_with_error, get_mins_from_ffdata
 
     # synthetic data
     synt_data = np.zeros((1000, 3))
     synt_data[:, 0] = np.linspace(0, 1, 1000)
     synt_data[:, 1] = np.abs(np.sin(synt_data[:, 0] * 8))
+    synt_data[:, 2] = 0.1
     # Case 0: no error
+    pos_noerr, err_noerr = calc_minpos_with_error(synt_data[:, :2])
+    # this algorithm gives slightly different value of min. But it must be close
+    check.almost_equal(
+        pos_noerr,
+        get_mins_from_ffdata(synt_data[:, :2])[0],
+        abs=5e-4,
+        msg="Minimum precise position is far from the legacy algo",
+    )
     # no error is handled as constant error 0.1
-    err_noerr = estimate_error_of_min(synt_data[:, :2])
-    err_err01 = estimate_error_of_min(synt_data)
+    pos_err01, err_err01 = calc_minpos_with_error(synt_data)
     check.almost_equal(
         err_noerr,
         err_err01,
         abs=1e-3,
-        msg="Error of minimum with no error is not estimated correctly",
+        msg="Error of minimum with no error is not estimated as err=0.1 [const]",
     )
     # Case 1: constant error
-    synt_data[:, 2] = 0.1
     # sin(8x) = 0
     # 8x = pi*n => x = pi*n/8
     #
@@ -62,7 +69,7 @@ def test_estimate_error_of_min():
     #
     # x = +-arcsin(0.1)/8 + pi*n/8; so error should be arcsin(0.1)/8
     #
-    err_comp = estimate_error_of_min(synt_data)
+    pos_comp, err_comp = calc_minpos_with_error(synt_data)
     check.almost_equal(
         err_comp,
         np.arcsin(0.1) / 8,

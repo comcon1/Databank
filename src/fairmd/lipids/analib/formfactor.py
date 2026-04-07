@@ -3,6 +3,7 @@
 import numpy as np
 import scipy.interpolate
 import scipy.signal
+from scipy.optimize import curve_fit
 
 
 def get_mins_from_ffdata(ffdata: np.ndarray) -> list[float]:
@@ -57,6 +58,24 @@ def calc_ff_scaling_distance(ffd_exp: np.ndarray, ffd_sim: np.ndarray) -> tuple[
 
     return [scf, chi]
 
-def estimate_error_of_min(ffdata: np.ndarray) -> float:
+
+def calc_minpos_with_error(ffdata: np.ndarray) -> (float, float):
     """Estimate error of minimum position in form factor data."""
-    return 0
+    m1pos = get_mins_from_ffdata(ffdata)[0]
+    idx1pos = ffdata[:, 0].searchsorted(m1pos)
+    # find max x val where ypts < 0 in the vicinity x0+-maxerr
+    maxXerr = 0.03
+    idxPlusErr = ffdata[:, 0].searchsorted(m1pos + maxXerr)
+    idxMinusErr = ffdata[:, 0].searchsorted(m1pos - maxXerr)
+    popt, pcov = scipy.optimize.curve_fit(
+        lambda x, a, b, c: a * x**2 + b * x + c,
+        ffdata[idxMinusErr:idxPlusErr, 0],
+        ffdata[idxMinusErr:idxPlusErr, 1],
+        sigma=ffdata[idxMinusErr:idxPlusErr, 2] if ffdata.shape[1] > 2 else 0.1,
+        absolute_sigma=True,
+        p0=[1, -2 * m1pos, 0],
+    )
+    a, b, _c = popt
+    min_x = -b / 2 / a
+    delta_minx = (-1/2/a)**2*pcov[0, 0] + (b/2/a**2)**2*pcov[1, 1] + 2*(-1/2/a)*(b/2/a**2)*pcov[0, 1]
+    return min_x, np.sqrt(delta_minx)
