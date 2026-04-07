@@ -59,7 +59,7 @@ def calc_ff_scaling_distance(ffd_exp: np.ndarray, ffd_sim: np.ndarray) -> tuple[
     return [scf, chi]
 
 
-def calc_minpos_with_error(ffdata: np.ndarray) -> (float, float):
+def calc_minpos_with_error(ffdata: np.ndarray, backup_const_error: float = 0.1) -> (float, float):
     """Estimate error of minimum position in form factor data."""
     m1pos = get_mins_from_ffdata(ffdata)[0]
     idx1pos = ffdata[:, 0].searchsorted(m1pos)
@@ -71,7 +71,7 @@ def calc_minpos_with_error(ffdata: np.ndarray) -> (float, float):
         lambda x, a, b, c: a * x**2 + b * x + c,
         ffdata[idxMinusErr:idxPlusErr, 0],
         ffdata[idxMinusErr:idxPlusErr, 1],
-        sigma=ffdata[idxMinusErr:idxPlusErr, 2] if ffdata.shape[1] > 2 else 0.1,
+        sigma=ffdata[idxMinusErr:idxPlusErr, 2] if ffdata.shape[1] > 2 else backup_const_error,
         absolute_sigma=True,
         p0=[1, -2 * m1pos, 0],
     )
