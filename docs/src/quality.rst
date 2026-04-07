@@ -128,8 +128,19 @@ The first minimum at :math:`q > 0.1\,\mathrm{Å}^{-1}` is then located for both 
 (:math:`FF_\mathrm{min}^\mathrm{sim}`) and experiment
 (:math:`FF_\mathrm{min}^\mathrm{exp}`).
 
-The quality of a form factor is defined as the Euclidean distance between the minima
-locations:
+Currently, for both experiment and simulation, we determine minimum positions with an error estimated
+using the uncertainty of the parabolic fit to the minumum. ``scipy.optimize.curve_fit`` is used to fit
+a parabola to the minimum, and the covariance matrix of the fit is used to estimate the error of the minimum
+position. For the fit function :math:`f(x) = ax^2 - bx + c`, the error of the minimum position is estimated as
+
+.. math::
+
+   \sigma_\mathrm{min} = \frac{1}{4a^2}\mathrm{cov}[a, a] +
+   \frac{b^2}{4a^4}\mathrm{cov}[b, b] - \frac{b}{2a^3}\mathrm{cov}[a, b].
+
+Then, the quality is computed using the same equation as for two order parameter values (see above).
+
+Previously, the default quality of a form factor was defined as the distance between the minima locations:
 
 .. math::
 
@@ -141,4 +152,4 @@ If a simulation is linked to multiple form factors, the experimental data that p
 best form factor quality is chosen.
 
 .. _Ranking files:
-   https://github.com/NMRLipids/BilayerData/blob/view-new-rankings/Ranking/
+   https://github.com/NMRLipids/BilayerData/tree/main/Ranking

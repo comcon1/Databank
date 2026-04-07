@@ -336,8 +336,12 @@ class OPQualityEvaluator(QualityEvaluator):
 class FFQualityEvaluator(QualityEvaluator):
     """Evaluate quality of form factor data."""
 
-    def evaluate_one(self) -> bool:
+    def evaluate_one(self, method: str = "new") -> bool:
         results_ff = {}
+        if method == "new":
+            method_func = self.calc_new_ff_quality
+        elif method == "old":
+            method_func = self.calc_ff_quality
 
         if "FORMFACTOR" not in self._sim.get("EXPERIMENT", {}) or not self._sim["EXPERIMENT"]["FORMFACTOR"]:
             return False
@@ -346,7 +350,7 @@ class FFQualityEvaluator(QualityEvaluator):
         for expid in self._sim["EXPERIMENT"]["FORMFACTOR"]:
             exp_ff_data = np.array(self._exps.loc(expid).data)
             results_ff[expid] = [
-                self.calc_new_ff_quality(self._sim.ff_data, exp_ff_data),
+                method_func(self._sim.ff_data, exp_ff_data),
                 ff.calc_ff_scaling_distance(exp_ff_data, self._sim.ff_data)[0],
             ]
 
@@ -400,5 +404,4 @@ class FFQualityEvaluator(QualityEvaluator):
         sim_pos, sim_err = ff.calc_minpos_with_error(ffd_sim, 0.5)
         exp_pos, exp_err = ff.calc_minpos_with_error(ffd_exp, 0.05)
         ffq = cls.prob_2_within_trustinterval(xv=exp_pos, xerr=exp_err, yv=sim_pos, yerr=sim_err)
-        print(sim_pos, sim_err, exp_pos, exp_err, ffq)
         return ffq
