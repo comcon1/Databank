@@ -33,12 +33,14 @@ class QualSimulation(System):
             self.ff_data = None
 
     @staticmethod
-    def load_all_paired() -> list["QualSimulation"]:
+    def load_all_paired(id_list: list[int] | None = None) -> list["QualSimulation"]:
         """Load simulations with experimental pairings."""
         systems = initialize_databank()
 
         simulations = []
         for system in systems:
+            if id_list is not None and system["ID"] not in id_list:
+                continue
             experiments = system.get("EXPERIMENT", {})
             if any(experiments.values()):  # if experiments is not empty
                 s = QualSimulation(system)
@@ -363,7 +365,7 @@ class FFQualityEvaluator(QualityEvaluator):
             if best_ep is None or ffq_scf[0] < results_ff[best_ep][0]:
                 best_ep = expid
 
-        print(f"Form factor quality used for experiment data from {best_ep}:")
+        print(f"Form factor quality used for experiment data from {best_ep}")
         self.ff_quality_output = results_ff[best_ep]
 
         return True
@@ -403,5 +405,20 @@ class FFQualityEvaluator(QualityEvaluator):
         """Calculate form factor quality via p-value of the difference between minima."""
         sim_pos, sim_err = ff.calc_minpos_with_error(ffd_sim, 0.5)
         exp_pos, exp_err = ff.calc_minpos_with_error(ffd_exp, 0.05)
-        ffq = cls.prob_2_within_trustinterval(xv=exp_pos, xerr=exp_err, yv=sim_pos, yerr=sim_err)
-        return ffq
+        print(f"Sim: {sim_pos}+-{sim_err}; Exp: {exp_pos}+-{exp_err}")
+
+        z = abs(sim_pos - exp_pos) / np.sqrt(sim_err**2 + exp_err**2)
+        dpos_ref = 0.02  # natural physical scale
+        sigma_ref = 0.01
+        consistency_weight = 0.3
+
+        # Term 1: are the positions close? (penalises large absolute difference)
+        distance_score = np.exp(-((sim_pos - exp_pos) ** 2) / dpos_ref**2)
+
+        # Term 2: are the measurements precise? (penalises large uncertainty)
+        precision_score = np.exp(-(sim_err**2 + exp_err**2) / 4 * sigma_ref**2)
+
+        # Term 3: are they statistically consistent? (penalises large z)
+        consistency_score = np.exp(-consistency_weight * z**2)
+
+        return distance_score * precision_score * consistency_score
