@@ -18,7 +18,7 @@ def get_mins_from_ffdata(ffdata: np.ndarray) -> list[float]:
 
     min_q_distance = 0.01  # Min distance btw peaks (in Q)
     mqd_n = int(np.ceil(min_q_distance / delta_q))  # same in num frames
-    peak_prominence = (filtered.max() - filtered.min()) * 0.1
+    peak_prominence = (filtered.max() - filtered.min()) * 0.02
     peak_ind = scipy.signal.find_peaks(-filtered, distance=mqd_n, prominence=peak_prominence)
     min_peak_q = 0.1
 
