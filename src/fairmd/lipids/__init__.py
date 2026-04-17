@@ -99,6 +99,8 @@ if os.path.isdir(FMDL_DATA_PATH):
         f"FAIRMD Lipids is initialized from the folder: {FMDL_DATA_PATH}\n"
         "---------------------------------------------------------------",
     )
+    # reexport progress to use globally instead of tqdm
+    from fairmd.lipids._base import progress  # noqa: E402
 elif "fmdl_initialize_data" in sys.argv[0]:
     # fmdl_initialize_data is used to create databank directories
     # so we should not complain that directories don't exist
@@ -113,8 +115,6 @@ If Data folder was not created, please create it by using
 and then specify by FMDL_DATA_PATH environment variable."""
     raise RuntimeError(msg)
 
-# reexport progress to use globally instead of tqdm
-from fairmd.lipids._base import progress  # noqa: E402
 
 __all__ = [
     "FMDL_DATA_PATH",
