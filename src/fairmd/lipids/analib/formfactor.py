@@ -7,7 +7,7 @@ import scipy.signal
 
 def get_mins_from_ffdata(ffdata: np.ndarray) -> list[float]:
     """Find the positions of minimums in form factor data."""
-    sg_window_q = 0.03  # Savitsky-Golay window (in Q)
+    sg_window_q = 0.05  # Savitsky-Golay window (in Q)
     delta_q = ffdata[1, 0] - ffdata[0, 0]  # Q step in FF data
     sg_window_n = int(np.ceil(sg_window_q / delta_q))  # S-G window (in num frames)
     try:
@@ -18,7 +18,8 @@ def get_mins_from_ffdata(ffdata: np.ndarray) -> list[float]:
 
     min_q_distance = 0.01  # Min distance btw peaks (in Q)
     mqd_n = int(np.ceil(min_q_distance / delta_q))  # same in num frames
-    peak_ind = scipy.signal.find_peaks(-filtered, distance=mqd_n)
+    peak_prominence = (filtered.max() - filtered.min()) * 0.02
+    peak_ind = scipy.signal.find_peaks(-filtered, distance=mqd_n, prominence=peak_prominence)
     min_peak_q = 0.1
 
     return [ffdata[i, 0] for i in peak_ind[0] if ffdata[i, 0] > min_peak_q]
@@ -56,3 +57,28 @@ def calc_ff_scaling_distance(ffd_exp: np.ndarray, ffd_sim: np.ndarray) -> tuple[
     chi = np.sqrt(sum1.sum()) / np.sqrt(max_i - min_i - 1)
 
     return [scf, chi]
+
+
+def calc_minpos_with_error(ffdata: np.ndarray, backup_const_error: float = 0.1) -> (float, float):
+    """Estimate error of minimum position in form factor data."""
+    m1pos = get_mins_from_ffdata(ffdata)[0]
+    # find max x val where ypts < 0 in the vicinity x0+-maxerr
+    maxXerr = 0.03
+    idxPlusErr = ffdata[:, 0].searchsorted(m1pos + maxXerr)
+    idxMinusErr = ffdata[:, 0].searchsorted(m1pos - maxXerr)
+    popt, pcov = scipy.optimize.curve_fit(
+        lambda x, a, b, c: a * x**2 + b * x + c,
+        ffdata[idxMinusErr:idxPlusErr, 0],
+        ffdata[idxMinusErr:idxPlusErr, 1],
+        sigma=ffdata[idxMinusErr:idxPlusErr, 2] if ffdata.shape[1] > 2 else backup_const_error,
+        absolute_sigma=True,
+        p0=[1, -2 * m1pos, 0],
+    )
+    a, b, _c = popt
+    min_x = -b / 2 / a
+    delta_minx = (
+        (-1 / 2 / a) ** 2 * pcov[0, 0]
+        + (b / 2 / a**2) ** 2 * pcov[1, 1]
+        + 2 * (-1 / 2 / a) * (b / 2 / a**2) * pcov[0, 1]
+    )
+    return min_x, np.sqrt(delta_minx)

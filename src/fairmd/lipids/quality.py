@@ -33,12 +33,14 @@ class QualSimulation(System):
             self.ff_data = None
 
     @staticmethod
-    def load_all_paired() -> list["QualSimulation"]:
+    def load_all_paired(id_list: list[int] | None = None) -> list["QualSimulation"]:
         """Load simulations with experimental pairings."""
         systems = initialize_databank()
 
         simulations = []
         for system in systems:
+            if id_list is not None and system["ID"] not in id_list:
+                continue
             experiments = system.get("EXPERIMENT", {})
             if any(experiments.values()):  # if experiments is not empty
                 s = QualSimulation(system)
@@ -336,8 +338,12 @@ class OPQualityEvaluator(QualityEvaluator):
 class FFQualityEvaluator(QualityEvaluator):
     """Evaluate quality of form factor data."""
 
-    def evaluate_one(self) -> bool:
+    def evaluate_one(self, method: str = "new") -> bool:
         results_ff = {}
+        if method == "new":
+            method_func = self.calc_new_ff_quality
+        elif method == "old":
+            method_func = self.calc_ff_quality
 
         if "FORMFACTOR" not in self._sim.get("EXPERIMENT", {}) or not self._sim["EXPERIMENT"]["FORMFACTOR"]:
             return False
@@ -346,7 +352,7 @@ class FFQualityEvaluator(QualityEvaluator):
         for expid in self._sim["EXPERIMENT"]["FORMFACTOR"]:
             exp_ff_data = np.array(self._exps.loc(expid).data)
             results_ff[expid] = [
-                self.calc_ff_quality(self._sim.ff_data, exp_ff_data),
+                method_func(self._sim.ff_data, exp_ff_data),
                 ff.calc_ff_scaling_distance(exp_ff_data, self._sim.ff_data)[0],
             ]
 
@@ -359,7 +365,7 @@ class FFQualityEvaluator(QualityEvaluator):
             if best_ep is None or ffq_scf[0] < results_ff[best_ep][0]:
                 best_ep = expid
 
-        print(f"Form factor quality used for experiment data from {best_ep}:")
+        print(f"Form factor quality used for experiment data from {best_ep}")
         self.ff_quality_output = results_ff[best_ep]
 
         return True
@@ -393,3 +399,26 @@ class FFQualityEvaluator(QualityEvaluator):
         exp_min = ff.get_mins_from_ffdata(ffd_exp)
 
         return np.abs(sim_min[0] - exp_min[0]) * 100
+
+    @classmethod
+    def calc_new_ff_quality(cls, ffd_sim: np.ndarray, ffd_exp: np.ndarray) -> float:
+        """Calculate form factor quality via p-value of the difference between minima."""
+        sim_pos, sim_err = ff.calc_minpos_with_error(ffd_sim, 0.5)
+        exp_pos, exp_err = ff.calc_minpos_with_error(ffd_exp, 0.05)
+        print(f"Sim: {sim_pos}+-{sim_err}; Exp: {exp_pos}+-{exp_err}")
+
+        z = abs(sim_pos - exp_pos) / np.sqrt(sim_err**2 + exp_err**2)
+        dpos_ref = 0.02  # natural physical scale
+        sigma_ref = 0.01
+        consistency_weight = 0.3
+
+        # Term 1: are the positions close? (penalises large absolute difference)
+        distance_score = np.exp(-((sim_pos - exp_pos) ** 2) / dpos_ref**2)
+
+        # Term 2: are the measurements precise? (penalises large uncertainty)
+        precision_score = np.exp(-(sim_err**2 + exp_err**2) / 4 * sigma_ref**2)
+
+        # Term 3: are they statistically consistent? (penalises large z)
+        consistency_score = np.exp(-consistency_weight * z**2)
+
+        return distance_score * precision_score * consistency_score
