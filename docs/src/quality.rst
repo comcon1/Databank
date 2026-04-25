@@ -73,7 +73,7 @@ We define the average qualities for different fragments
 (frag = *sn-1*, *sn-2*, *headgroup*, or *total*, with the last referring to all order
 parameters within a molecule) within each lipid type in a simulation as
 
-NOTE!!! it seems that total value is actually the average of fragemnst!!!
+NOTE!!! it seems that total value is actually the average of fragments!!!
 
 .. math::
 
@@ -138,7 +138,27 @@ position. For the fit function :math:`f(x) = ax^2 - bx + c`, the error of the mi
    \sigma_\mathrm{min} = \frac{1}{4a^2}\mathrm{cov}[a, a] +
    \frac{b^2}{4a^4}\mathrm{cov}[b, b] - \frac{b}{2a^3}\mathrm{cov}[a, b].
 
-Then, the quality is computed using the same equation as for two order parameter values (see above).
+Then, the quality is computed using the product of penalties from distance, confidence,
+and experiment precision.
+
+.. math::
+
+   FF_q &
+   = \exp{\left(
+        -\frac{(FF_\mathrm{min}^\mathrm{sim} - FF_\mathrm{min}^\mathrm{exp})^2}
+              {\sigma_\mathrm{dpos}^2} \right)} +
+     \exp{\left(
+        -\frac{\sigma_\mathrm{sim}^2+\sigma_\mathrm{exp}^2}
+              {4 \sigma_\mathrm{ref}^2}\right)} +
+   \exp{(-w z^2)}, \\
+   z &
+   = \frac{\left|FF_\mathrm{min}^\mathrm{sim} - FF_\mathrm{min}^\mathrm{exp}\right|}
+            {\sqrt{\sigma_\mathrm{sim}^2+\sigma_\mathrm{exp}^2}}
+
+where :math:`\sigma_\mathrm{dpos} = 0.02` (meaningful distance between peak minima),
+:math:`\sigma_\mathrm{ref} = 0.01` (meaningful average peak uncertainty), :math:`w = 0.3`
+-- free parameter that controls the weight to the significance of statistical confidence of peak
+difference.
 
 Previously, the default quality of a form factor was defined as the distance between the minima locations:
 
