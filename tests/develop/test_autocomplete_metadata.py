@@ -13,7 +13,7 @@ from jsonschema import Draft7Validator
 # These tests exercise developer/autocomplete_metadata.py, which lives in the
 # `developer/` folder and is not part of the distributed package. Mark the whole
 # module as `develop` so it is isolated from the package test suite.
-pytestmark = pytest.mark.develop
+pytestmark = [pytest.mark.develop, pytest.mark.nodata]
 
 
 def load_autocomplete_module():
