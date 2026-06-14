@@ -6,6 +6,7 @@ on:
     paths:
       - "developer/**"
       - "tests/develop/**"
+      - "tests/conftest.py"
       - "tox.ini"
       - "pyproject.toml"
       - "MANIFEST.in"
@@ -14,6 +15,7 @@ on:
     paths:
       - "developer/**"
       - "tests/develop/**"
+      - "tests/conftest.py"
       - "tox.ini"
       - "pyproject.toml"
       - "MANIFEST.in"
