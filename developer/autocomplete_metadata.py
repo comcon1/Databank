@@ -12,36 +12,105 @@ queried with the inchikey from:
 
 .. note::
    This file is meant to be used by automated workflows.
+
+   Several upstream services (notably EBI's UniChem and ChEBI) intermittently
+   answer with transient ``5xx`` errors. Requests are therefore retried a few
+   times with exponential backoff that honors any ``Retry-After`` header, so a
+   blip does not abort metadata completion while staying polite to the servers.
+   The retry budget can be overridden with the ``AUTOCOMPLETE_MAX_RETRIES``
+   environment variable (set it to ``0`` to disable retries entirely).
 """
 
 import json
 import os
+import random
 import re
 import sys
+import time
+import urllib.error
 import urllib.parse
 import urllib.request
 from html import unescape
 
 import yaml
 
+# HTTP status codes that signal a transient, server-side problem and are safe
+# to retry. 429 (Too Many Requests) is included so we back off politely instead
+# of hammering a rate-limited endpoint.
+RETRYABLE_STATUS = frozenset({429, 500, 502, 503, 504})
+MAX_RETRIES = max(0, int(os.environ.get("AUTOCOMPLETE_MAX_RETRIES", "4")))
+BACKOFF_BASE = 1.0  # seconds for the first retry; doubles each attempt
+MAX_BACKOFF = 30.0  # cap any single sleep so a flaky service can't stall us forever
+DEFAULT_TIMEOUT = 15 
+USER_AGENT = "FAIRMD-lipids-autocomplete (+https://github.com/NMRLipids/FAIRMD_lipids)"
 
-def check_api(url):
+
+def _retry_delay(error, attempt):
+    """Seconds to wait before the next attempt.
+
+    Prefers a server-provided ``Retry-After`` header (the polite signal), and
+    otherwise falls back to exponential backoff with a little jitter so
+    concurrent callers don't retry in lockstep.
+    """
+    headers = getattr(error, "headers", None)
+    retry_after = headers.get("Retry-After") if headers is not None else None
+    if retry_after:
+        try:
+            # Retry-After is usually a number of seconds; it may also be an HTTP
+            # date, in which case we fall through to plain backoff.
+            return min(float(retry_after), MAX_BACKOFF)
+        except (TypeError, ValueError):
+            pass
+    backoff = BACKOFF_BASE * (2**attempt)
+    return min(backoff, MAX_BACKOFF) + random.uniform(0, 0.5)
+
+
+def fetch(req, timeout=DEFAULT_TIMEOUT):
+    """Open ``req`` (a URL string or :class:`urllib.request.Request`) robustly.
+
+    Returns the response body as ``bytes`` for an HTTP 200 response, or ``None``
+    when the resource is unavailable. Transient failures (HTTP 429/5xx and
+    connection-level errors such as timeouts) are retried with backed-off,
+    ``Retry-After``-aware delays; definitive errors (e.g. 404) are not retried.
+    """
+    if isinstance(req, str):
+        req = urllib.request.Request(req)
+    req.add_header("User-Agent", USER_AGENT)
+
+    for attempt in range(MAX_RETRIES + 1):
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as response:
+                return response.read() if response.status == 200 else None
+        except urllib.error.HTTPError as error:
+            if error.code not in RETRYABLE_STATUS or attempt == MAX_RETRIES:
+                return None
+            delay = _retry_delay(error, attempt)
+        except (urllib.error.URLError, TimeoutError):
+            # Covers DNS failures, dropped connections and socket timeouts.
+            if attempt == MAX_RETRIES:
+                return None
+            delay = _retry_delay(None, attempt)
+        except Exception:
+            return None
+        time.sleep(delay)
+    return None
+
+
+def fetch_json(req, timeout=DEFAULT_TIMEOUT):
+    """Like :func:`fetch`, but decode the body as JSON. Returns ``None`` on any
+    failure (request error or malformed payload)."""
+    body = fetch(req, timeout=timeout)
+    if not body:
+        return None
     try:
-        with urllib.request.urlopen(url, timeout=5) as response:
-            return response.status == 200
-    except Exception:
-        return False
+        return json.loads(body.decode("utf-8"))
+    except (ValueError, UnicodeDecodeError):
+        return None
 
 
 def get_chembl(inchikey):
     url = f"https://www.ebi.ac.uk/chembl/api/data/molecule?standard_inchi_key={inchikey}&format=json"
-    if check_api(url):
-        try:
-            with urllib.request.urlopen(url) as response:
-                return json.loads(response.read().decode("utf-8")) if response.status == 200 else {}
-        except Exception:
-            return {}
-    return {}
+    return fetch_json(url) or {}
 
 
 def get_pubchem(inchikey):
@@ -49,30 +118,20 @@ def get_pubchem(inchikey):
         f"https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/inchikey/"
         f"{inchikey}/property/IUPACName,SMILES,InChI,InChIKey,MolecularFormula,MolecularWeight/JSON"
     )
-    if check_api(url):
+    data = fetch_json(url)
+    if data:
         try:
-            with urllib.request.urlopen(url) as response:
-                if response.status == 200:
-                    return json.loads(response.read().decode("utf-8"))["PropertyTable"]["Properties"][0]
-        except Exception:
+            return data["PropertyTable"]["Properties"][0]
+        except (KeyError, IndexError, TypeError):
             pass
     return {}
 
 
 def get_pubchem_synonyms(cid):
     url = f"https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/{cid}/synonyms/JSON"
-    if check_api(url):
-        try:
-            with urllib.request.urlopen(url) as response:
-                if response.status == 200:
-                    return (
-                        json.loads(response.read().decode("utf-8"))
-                        .get("InformationList", {})
-                        .get("Information", [{}])[0]
-                        .get("Synonym", [])
-                    )
-        except Exception:
-            pass
+    data = fetch_json(url)
+    if data:
+        return data.get("InformationList", {}).get("Information", [{}])[0].get("Synonym", [])
     return []
 
 
@@ -82,15 +141,7 @@ def get_chebi(chebi_id):
 
     url = f"https://www.ebi.ac.uk/chebi/backend/api/public/compound/{chebi_id}/?only_ontology_parents=false&only_ontology_children=false"
 
-    try:
-        if check_api(url):
-            with urllib.request.urlopen(url) as response:
-                if response.status == 200:
-                    return json.loads(response.read().decode("utf-8"))
-    except Exception:
-        pass
-
-    return {}
+    return fetch_json(url) or {}
 
 
 def get_metabolights(chebi_id):
@@ -99,9 +150,8 @@ def get_metabolights(chebi_id):
     if not chebi_id:
         return ""
     mtbl_id = f"MTBLC{chebi_id}"
-    if check_api(f"https://www.ebi.ac.uk/metabolights/ws/compounds/{mtbl_id}"):
-        return mtbl_id
-    return ""
+    url = f"https://www.ebi.ac.uk/metabolights/ws/compounds/{mtbl_id}"
+    return mtbl_id if fetch(url) is not None else ""
 
 
 def get_cas(inchikey):
@@ -118,33 +168,24 @@ def get_cas(inchikey):
     # does not match, whereas "InChIKey=<value>" does.
     query = urllib.parse.quote(f"InChIKey={inchikey}")
     url = f"https://commonchemistry.cas.org/api/search?q={query}"
-    try:
-        req = urllib.request.Request(url, headers={"X-Api-Key": api_key})
-        with urllib.request.urlopen(req, timeout=5) as response:
-            if response.status == 200:
-                results = json.loads(response.read().decode("utf-8")).get("results", [])
-                if results:
-                    return results[0].get("rn", "") or ""
-    except Exception:
-        pass
+    req = urllib.request.Request(url, headers={"X-Api-Key": api_key})
+    data = fetch_json(req)
+    if data:
+        results = data.get("results", [])
+        if results:
+            return results[0].get("rn", "") or ""
     return ""
 
 
 def get_unichem(inchikey):
     url = "https://www.ebi.ac.uk/unichem/api/v1/compounds"
-    if check_api("https://www.ebi.ac.uk/unichem/api/v1/sources"):
-        try:
-            data = json.dumps({"type": "inchikey", "compound": inchikey}).encode("utf-8")
-            headers = {"Content-Type": "application/json"}
-            req = urllib.request.Request(url, data=data, headers=headers, method="POST")
-
-            with urllib.request.urlopen(req) as response:
-                if response.status == 200:
-                    compounds = json.loads(response.read().decode("utf-8")).get("compounds", [])
-                    if compounds and "sources" in compounds[0]:
-                        return compounds[0]["sources"]
-        except Exception:
-            pass
+    payload = json.dumps({"type": "inchikey", "compound": inchikey}).encode("utf-8")
+    req = urllib.request.Request(url, data=payload, headers={"Content-Type": "application/json"}, method="POST")
+    data = fetch_json(req)
+    if data:
+        compounds = data.get("compounds", [])
+        if compounds and "sources" in compounds[0]:
+            return compounds[0]["sources"]
     return []
 
 
