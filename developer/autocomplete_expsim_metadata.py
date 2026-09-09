@@ -4,7 +4,7 @@ Script for simulation and experiment Bioschemas autocomplete.
 This script fills a ``bioschema_properties`` block in a simulation or experiment
 ``README.yaml`` so the record can be published as a `Bioschemas Dataset
 <https://bioschemas.org/profiles/Dataset/1.0-RELEASE>`_. It is the dataset-level
-counterpart of ``autocomplete_metadata.py``, which does the same job for
+counterpart of ``autocomplete_mol_metadata.py``, which does the same job for
 molecules.
 
 Values are resolved from the record's DOI:
@@ -29,7 +29,7 @@ content is safely represented there.
 .. note::
    This file is meant to be used by automated workflows.
 
-   Unlike ``autocomplete_metadata.py`` the file is **not** re-serialised. The
+   Unlike ``autocomplete_mol_metadata.py`` the file is **not** re-serialised. The
    generated block is appended, and only that block is rewritten in place, so
    hand-written comments elsewhere in the README survive -- most experiment
    files carry them. Runs are idempotent: a record whose content has not changed

@@ -335,7 +335,7 @@
   ],
   "definitions": {
     "doi": {
-      "$comment": "Bare DOI: no doi: prefix and no https://doi.org/ URL. Mirrors DOI_RE in developer/autocomplete_bioschema.py. Experiment-local - not part of the bioschema_properties block mirrored in readme_yaml_schema.json.",
+      "$comment": "Bare DOI: no doi: prefix and no https://doi.org/ URL. Mirrors DOI_RE in developer/autocomplete_expsim_metadata.py. Experiment-local - not part of the bioschema_properties block mirrored in readme_yaml_schema.json.",
       "type": "string",
       "pattern": "^10\\.\\d{4,9}/\\S+$"
     },
