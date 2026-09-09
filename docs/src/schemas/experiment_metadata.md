@@ -51,6 +51,9 @@ generated `bioschema_properties.citation` holds: **if a `DATA_DOI` is present, t
 that becomes the citation** — the data is what should be cited — and only when `ARTICLE_DOI` is
 the sole DOI does the article become the citation.
 
+Both are given as bare DOIs — `10.1016/j.bbamem.2011.07.022`, not `doi:10.1016/...` and not
+`https://doi.org/10.1016/...`. Data that has no DOI at all is referenced with `DATA_REF` instead.
+
 1. **ARTICLE_DOI**  
 DOI of the original publication where the experimental data originates.
 
@@ -64,10 +67,10 @@ If the dataset doesn't have DOI, we engage to add some persistent identifier or 
 Date in the standard format YYYY-MM-DD (e.g., 2023-08-24). A lot of date values have been automatically synchronized from the paper dates. If the data wasn't published, the date of recording should be used.
 
 5. **TEMPERATURE**  
-Temperature (K) of the experiment. For NMR experiment, if `NMR:T_RF_HEATING` is 'unknown' (or not given), the reported temperature from the probe is settet here. Otherwise, please insert RF-corrected temperature.
+Temperature (K) of the experiment, so strictly positive. For NMR experiment, if `NMR:T_RF_HEATING` is 'unknown' (or not given), the reported temperature from the probe is settet here. Otherwise, please insert RF-corrected temperature.
 
 6. **MEMBRANE_COMPOSITION**  
-Dictionary of molar fractions of bilayer components. For example:
+Dictionary of molar fractions of bilayer components, each within (0, 1]. For example:
 ```
 MEMBRANE_COMPOSITION:
   POPC: 0.93
@@ -100,7 +103,7 @@ the composition, it should get the metadata inside the databank and be mentioned
 `SOLUTION_COMPOSITION` instead.
 
 9. **TOTAL_HYDRATION**  
-Mass \% of water in the sample. For NMR experiment, it is better if measured by <sup>1</sup>H MAS NMR.
+Mass \% of water in the sample, so within (0, 100]. For NMR experiment, it is better if measured by <sup>1</sup>H MAS NMR.
 
 10. **PH**  
 pH of the system (number or UNKNOWN)
@@ -203,7 +206,9 @@ bioschema_properties:
 
 ## NMR-specific fields
 
-All the following fields are subfields of `NMR:` block.
+All the following fields are subfields of `NMR:` block. **INSTRUMENT**, **METHOD**,
+**SIGN_MEASURED** and **T_RF_HEATING** are all required whenever the block is given;
+**DETAILS** is required on top of those when **METHOD** uses `see_comments`.
 
 1. **INSTRUMENT**  
 Name of the instrument and field strength.
@@ -234,7 +239,8 @@ Obligatory explanation if **NMR:METHOD** uses "see_comments" for SUBMETHOD.
 
 ## Scattering-specific fields
 
-All the following fields are subfields of `XRAY:` block.
+All the following fields are subfields of `XRAY:` block. **SOURCE**, **LAMBDA** and
+**SAMPLE_TYPE** are required whenever the block is given.
 
 1. **SOURCE**
 X-ray source description. Name of the core facilities or instrument name if laboratory source was used. Name of beamline and source if synchrotron data (e.g. EMBL P12, PETRA III).

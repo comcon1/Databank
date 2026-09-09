@@ -4,15 +4,17 @@
   "additionalProperties": false,
   "properties": {
     "ARTICLE_DOI": {
-      "type": "string",
+      "$comment": "Wrapped in allOf rather than a bare $ref: in draft-07 a $ref makes its sibling keywords, description included, be ignored.",
+      "allOf": [{ "$ref": "#/definitions/doi" }],
       "description": "DOI of the original publication of the experimental data. Becomes bioschema_properties.citation when no DATA_DOI is given"
     },
     "DATA_DOI": {
-      "type": "string",
+      "allOf": [{ "$ref": "#/definitions/doi" }],
       "description": "DOI of the dataset deposition with raw NMR data. When present, this is the DOI that becomes bioschema_properties.citation - cite the data, not the article"
     },
     "DATA_REF": {
       "type": "string",
+      "minLength": 1,
       "description": "Reference to deposited dataset, for data without a DOI"
     },
     "DATE": {
@@ -23,64 +25,113 @@
     },
     "TEMPERATURE": {
       "type": "number",
-      "description": "Temperature (K) of the experiment"
+      "exclusiveMinimum": 0,
+      "description": "Temperature (K) of the experiment. Absolute temperature, so strictly positive"
     },
     "MEMBRANE_COMPOSITION": {
       "type": "object",
       "description": "Dictionary of molar fractions of membrane phase",
+      "minProperties": 1,
+      "propertyNames": {
+        "$comment": "Shape check only. Membership of the molecule inventory (Molecules/membrane) is a directory listing, so it is checked in code (fairmd.lipids.molecules.lipids_set), not here.",
+        "pattern": "^[A-Z0-9_]+$"
+      },
       "additionalProperties": {
-        "type": "number"
+        "type": "number",
+        "exclusiveMinimum": 0,
+        "maximum": 1
       }
     },
     "SOLUTION_COMPOSITION": {
       "type": "object",
       "description": "Dictionary of ion concentrations in the system",
+      "minProperties": 1,
+      "propertyNames": {
+        "$comment": "Shape check only, as for MEMBRANE_COMPOSITION; the inventory here is Molecules/solution (fairmd.lipids.molecules.solubles_set).",
+        "pattern": "^[A-Z0-9_]+$"
+      },
       "additionalProperties": {
-        "type": "number"
+        "$comment": "A concentration, not a fraction - no upper bound.",
+        "type": "number",
+        "exclusiveMinimum": 0
       }
     },
     "ADDITIONAL_MOLECULES": {
       "type": "object",
-      "description": "Dictionary of molecules which are not in the databank",
-      "additionalProperties": true
+      "description": "Dictionary of molecules which are not in the databank, as free text naming the molecule and its concentration",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "string",
+        "minLength": 1
+      }
     },
     "TOTAL_HYDRATION": {
       "type": "number",
-      "description": "Total hydration of the system (water mass %)"
+      "exclusiveMinimum": 0,
+      "maximum": 100,
+      "description": "Total hydration of the system (water mass %), so within (0, 100]"
     },
     "PH": {
       "anyOf": [
         { "type": "number", "minimum": 0, "maximum": 14 },
         { "type": "string", "enum": ["UNKNOWN"] },
-        { "type": "string", "pattern": "^[0-9]+([.][0-9]+)?-[0-9]+([.][0-9]+)?" }
+        {
+          "$comment": "A pH range, e.g. 8-10. Anchored and bounded to 0-14, like the numeric branch above.",
+          "type": "string",
+          "pattern": "^(?:1[0-4]|[0-9])(?:\\.[0-9]+)?-(?:1[0-4]|[0-9])(?:\\.[0-9]+)?$"
+        }
       ],
       "description": "pH of the system"
     },
     "PH_METHOD": {
       "type": "string",
+      "minLength": 1,
       "description": "Method of pH setting or measurement (buffer / measurement)"
     },
     "REAGENT_SOURCES": {
       "type": "object",
       "description": "Description of lipid reagents. Source, purity, etc.",
       "additionalProperties": {
-        "type": "string"
+        "type": "string",
+        "minLength": 1
       }
     },
     "SAMPLE_PROTOCOL": {
       "type": "string",
+      "minLength": 1,
       "description": "Protocol for sample preparation (in free format, references are welcome)"
     },
     "NMR": {
       "type": "object",
       "description": "NMR-Specific Metadata",
       "additionalProperties": false,
+      "required": [
+        "METHOD",
+        "INSTRUMENT",
+        "SIGN_MEASURED",
+        "T_RF_HEATING"
+      ],
+      "allOf": [
+        {
+          "$comment": "The docs make an explanation obligatory when METHOD uses see_comments for SUBMETHOD.",
+          "if": {
+            "required": ["METHOD"],
+            "properties": { "METHOD": { "pattern": "see_comments$" } }
+          },
+          "then": {
+            "required": ["DETAILS"]
+          }
+        }
+      ],
       "properties": {
         "T_RF_HEATING": {
-          "type": "string"
+          "$comment": "UNKNOWN / measured / guessed, or a free-text description of how the heating was checked - deliberately not an enum.",
+          "type": "string",
+          "minLength": 1
         },
         "INSTRUMENT": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         },
         "METHOD": {
           "type": "string",
@@ -98,10 +149,13 @@
           "pattern": "^(2H:(SP|QE|see_comments)|CDLF:(REDOR|DIPSHIFT|recDIPSHIFT|see_comments)|PDLF:(DROSS|R[0-9]+(_[0-9]+)?\\^[0-9]+|see_comments))$"
         },
         "SIGN_MEASURED": {
-          "type": "string"
+          "$comment": "The method name if the order parameter sign was measured, NONE otherwise - deliberately not an enum.",
+          "type": "string",
+          "minLength": 1
         },
         "DETAILS": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         }
       }
     },
@@ -109,21 +163,31 @@
       "type": "object",
       "description": "X-ray Specific Metadata",
       "additionalProperties": false,
+      "required": [
+        "SOURCE",
+        "LAMBDA",
+        "SAMPLE_TYPE"
+      ],
       "properties": {
         "SOURCE": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         },
         "LAMBDA": {
-          "type": "number"
+          "type": "number",
+          "exclusiveMinimum": 0
         },
         "QRANGE": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         },
         "DETECTOR": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         },
         "DISTANCE": {
-          "type": "number"
+          "type": "number",
+          "exclusiveMinimum": 0
         },
         "DATATYPE": {
           "type": "string",
@@ -133,10 +197,12 @@
           ]
         },
         "EXPOSURE": {
-          "type": "number"
+          "type": "number",
+          "exclusiveMinimum": 0
         },
         "FRAMES": {
-          "type": "number"
+          "type": "integer",
+          "minimum": 1
         },
         "SAMPLE_TYPE": {
           "type": "string",
@@ -239,40 +305,40 @@
     "TOTAL_HYDRATION",
     "PH"
   ],
-  "anyOf": [
+  "allOf": [
     {
-      "required": ["ARTICLE_DOI"]
-    },
-    {
-      "required": ["DATA_DOI"]
-    }
-  ],
-  "oneOf": [
-    {
-      "required": [
-        "NMR"
+      "$comment": "At least one of the two DOIs has to be given; DATA_DOI wins when both are present.",
+      "anyOf": [
+        { "required": ["ARTICLE_DOI"] },
+        { "required": ["DATA_DOI"] }
       ]
     },
     {
-      "required": [
-        "XRAY"
+      "$comment": "An entry describes exactly one kind of measurement.",
+      "oneOf": [
+        { "required": ["NMR"] },
+        { "required": ["XRAY"] }
       ]
+    },
+    {
+      "$comment": "How the pH was set or measured has to be stated whenever the pH itself is known.",
+      "if": {
+        "required": ["PH"],
+        "properties": {
+          "PH": { "not": { "const": "UNKNOWN" } }
+        }
+      },
+      "then": {
+        "required": ["PH_METHOD"]
+      }
     }
   ],
-  "if": {
-    "properties": {
-      "PH": { "type": "string", "enum": ["UNKNOWN"] }
-    }
-  },
-  "then": {
-    "required": []
-  },
-  "else": {
-    "required": [
-      "PH_METHOD"
-    ]
-  },
   "definitions": {
+    "doi": {
+      "$comment": "Bare DOI: no doi: prefix and no https://doi.org/ URL. Mirrors DOI_RE in developer/autocomplete_bioschema.py. Experiment-local - not part of the bioschema_properties block mirrored in readme_yaml_schema.json.",
+      "type": "string",
+      "pattern": "^10\\.\\d{4,9}/\\S+$"
+    },
     "definedTerm": {
       "type": "object",
       "additionalProperties": false,
