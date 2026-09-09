@@ -7,15 +7,29 @@ This script fills a ``bioschema_properties`` block in a simulation or experiment
 counterpart of ``autocomplete_mol_metadata.py``, which does the same job for
 molecules.
 
-Values are resolved from the record's DOI:
+``name`` and ``description`` are composed from the record's own fields --
+composition, temperature, hydration, ions, method -- and never taken from the
+registry. A registry title names the paper or the Zenodo deposition, not the one
+measurement or trajectory the record holds, so it describes the wrong thing and
+does not tell sibling records apart: before this, 104 experiments shared 37
+titles and 896 simulations shared 479. The fetched title is kept where it is
+true, as ``isPartOf.name`` on the parent work, and fetched abstracts are dropped.
+
+Every composed title ends in a bracketed tag that keeps near-identical records
+apart -- the databank ``ID`` for a simulation, the first author and year for an
+experiment. ``--check`` reports any two records that still share a title, and is
+meant to be pointed at the whole databank, since only a full run can see a clash.
+
+The remaining values are resolved from the record's DOI:
 
 - DataCite -- Zenodo depositions, i.e. every simulation
 - CrossRef -- journal articles, i.e. most experiments
 - SPDX     -- the licence list, used as the licence controlled vocabulary
 
-and enriched from data already in the repository (composition, force field,
-NMR/X-ray method, the analysis outputs present beside the README) with terms
-from EDAM, CHMO and UO.
+giving creators, dates, licence, publisher, citations and the parent work's
+title. These are enriched from data already in the repository (composition,
+force field, NMR/X-ray method, the analysis outputs present beside the README)
+with terms from EDAM, CHMO and UO.
 
 Properties that depend on where the databank is deployed -- ``identifier``,
 ``url``, ``@id``, ``@type``, ``@context``, ``dct:conformsTo`` and
@@ -404,6 +418,19 @@ def clean_text(value):
     return re.sub(r"\s+", " ", str(value)).strip() or None
 
 
+def number(value):
+    """Format a measured quantity without a spurious trailing ``.0``.
+
+    Temperatures are written both as ``298`` and ``298.0`` across the corpus and
+    the two mean the same thing; rendering them differently would give one system
+    two titles.
+    """
+    try:
+        return f"{float(value):g}"
+    except (TypeError, ValueError):
+        return clean_text(value)
+
+
 def strip_markup(value):
     """Drop markup from an abstract.
 
@@ -489,11 +516,6 @@ def from_datacite(payload, doi, readme, spdx):
 
     notes = []
     titles = attributes.get("titles") or []
-    abstract = next(
-        (d.get("description") for d in attributes.get("descriptions") or []
-         if (d.get("descriptionType") or "") == "Abstract"),
-        None,
-    )
     dates = {d.get("dateType"): d.get("date") for d in attributes.get("dates") or []}
     published = iso_date(
         dates.get("Issued") or dates.get("Published") or dates.get("Available")
@@ -537,8 +559,9 @@ def from_datacite(payload, doi, readme, spdx):
             citations.append(normalize_doi(related.get("relatedIdentifier")))
 
     block = {
-        "name": clean_text(titles[0].get("title")) if titles else None,
-        "description": strip_markup(abstract),
+        # Stashed for part_of(): this names the deposition, not the record, and
+        # several hundred records share one deposition.
+        "_article_title": strip_markup(titles[0].get("title")) if titles else None,
         "datePublished": published,
         "license": licence,
         "publisher": clean_text(_publisher_name(attributes.get("publisher"))),
@@ -600,8 +623,9 @@ def from_crossref(payload, doi, readme, spdx):
 
     existing = [str(c) for c in ((readme.get("bioschema_properties") or {}).get("citation") or [])]
     block = {
-        "name": clean_text(titles[0]) if titles else None,
-        "description": strip_markup(message.get("abstract")),
+        # Stashed for part_of(): this names the article, not the record. It goes
+        # through strip_markup because CrossRef titles carry JATS <sup>/<i>.
+        "_article_title": strip_markup(titles[0]) if titles else None,
         "datePublished": published,
         "license": licence,
         "publisher": clean_text(message.get("publisher")),
@@ -713,20 +737,107 @@ def dedupe_keywords(entries):
     return out
 
 
-def composition_keywords(readme, kind, names):
+def _molecule_count(entry):
+    """Total molecule count from a simulation ``COMPOSITION`` entry.
+
+    ``COUNT`` is either a scalar or one entry per leaflet, and a leaflet entry is
+    itself sometimes a list (united-atom records split a residue across lines).
+    """
+    count = (entry or {}).get("COUNT")
+    if isinstance(count, list):
+        total = 0
+        for item in count:
+            total += sum(item) if isinstance(item, list) else (item or 0)
+        return float(total)
+    return float(count or 0)
+
+
+def composition_items(readme, kind):
+    """Membrane components as ``(id, amount)``, largest share first.
+
+    Amounts are molecule counts for simulations and molar fractions for
+    experiments. ``MOLAR_FRACTIONS`` is the deprecated spelling of
+    ``MEMBRANE_COMPOSITION`` and is the only composition 22 experiment records
+    have, so it is read rather than leaving those records with no composition at
+    all. Water is skipped: it is in every system and says nothing about it.
+    """
     if kind == "simulations":
-        ids = list((readme.get("COMPOSITION") or {}).keys())
+        raw = {mol: _molecule_count(entry)
+               for mol, entry in (readme.get("COMPOSITION") or {}).items()}
     else:
-        ids = list((readme.get("MEMBRANE_COMPOSITION") or {}).keys())
-        ids += list((readme.get("SOLUTION_COMPOSITION") or {}).keys())
-    words = []
-    for mol in ids:
+        raw = readme.get("MEMBRANE_COMPOSITION") or readme.get("MOLAR_FRACTIONS") or {}
+
+    items = []
+    for mol, amount in raw.items():
         if mol in KEYWORD_SKIP:
             continue
+        try:
+            items.append((mol, float(amount)))
+        except (TypeError, ValueError):
+            items.append((mol, 0.0))
+    # Descending share, then alphabetical, so a rerun cannot reorder the title.
+    items.sort(key=lambda pair: (-pair[1], pair[0]))
+    return items
+
+
+def format_ratio(items):
+    """``POPC`` for one component, ``POPC/POPE (95:5)`` for a mixture."""
+    if not items:
+        return "lipid"
+    if len(items) == 1:
+        return items[0][0]
+    total = sum(amount for _, amount in items) or 1.0
+    shares = ":".join(f"{100 * amount / total:.0f}" for _, amount in items)
+    return "/".join(mol for mol, _ in items) + f" ({shares})"
+
+
+def solution_ids(readme):
+    """Ions actually present, by databank id. Zero-valued entries are padding."""
+    out = []
+    for mol, amount in (readme.get("SOLUTION_COMPOSITION") or {}).items():
+        try:
+            present = float(amount) != 0
+        except (TypeError, ValueError):
+            present = bool(amount)
+        if present:
+            out.append(mol)
+    return sorted(out)
+
+
+def composition_keywords(readme, kind, names):
+    ids = [mol for mol, _ in composition_items(readme, kind)]
+    if kind != "simulations":
+        ids += solution_ids(readme)
+    words = []
+    for mol in ids:
         words.append(mol)
         if names.get(mol):
             words.append(names[mol])
     return words
+
+
+def hydration_phrase(readme):
+    """How wet the sample is, or ``None`` when the record does not say.
+
+    ``TOTAL_HYDRATION`` is water mass %. Where it is missing the deprecated
+    ``TOTAL_LIPID_CONCENTRATION`` is read the way ``Experiment.get_hydration``
+    reads it -- as a lipid molarity converted to waters per lipid against water's
+    own 55.5 M -- because for three records it is the only thing distinguishing
+    the members of a hydration series.
+    """
+    hydration = readme.get("TOTAL_HYDRATION")
+    if hydration is not None:
+        return f"{number(hydration)}% water"
+
+    lipid = readme.get("TOTAL_LIPID_CONCENTRATION")
+    if lipid is None:
+        return None
+    if str(lipid).strip().lower() == "full hydration":
+        return "full hydration"
+    try:
+        return f"{55.5 / float(lipid):.0f} waters per lipid"
+    except (TypeError, ValueError, ZeroDivisionError):
+        return None
 
 
 def chmo_for_method(readme, path):
@@ -850,16 +961,40 @@ def is_based_on(readme, kind):
 
 
 def part_of(block, readme, kind):
-    """What this dataset is part of. Experiments only.
+    """What this dataset is part of.
 
-    Preferably the article the values were digitised from, with the journal
-    nested one level down as the article's own parent. Where there is no article
-    -- the nmrXiv records -- the deposited dataset serves instead. Records with
-    neither get nothing rather than an invented parent.
+    For an experiment, preferably the article the values were digitised from,
+    with the journal nested one level down as the article's own parent. Where
+    there is no article -- the nmrXiv records -- the deposited dataset serves
+    instead. For a simulation it is the Zenodo deposition holding the trajectory.
+    Records with neither get nothing rather than an invented parent.
+
+    This is also where the registry-supplied title lands. It names the parent
+    work, which is what it was always describing; the record's own ``name`` is
+    composed from the record's own values.
     """
-    if kind != "experiments":
-        return None
     source_doi = (block.get("_source") or {}).get("doi")
+    title = block.get("_article_title")
+
+    if kind == "simulations":
+        # The Zenodo deposition is a real parent: it holds the trajectory, and up
+        # to 27 records share one. It is also where the fetched title belongs,
+        # now that the record's own name is composed rather than borrowed.
+        deposition = normalize_doi(readme.get("DOI"))
+        if not deposition:
+            return None
+        entry = {
+            "@type": "Dataset",
+            "@id": f"https://doi.org/{deposition}",
+            "identifier": deposition,
+            "url": f"https://doi.org/{deposition}",
+        }
+        if source_doi == deposition:
+            if title:
+                entry["name"] = title
+            if block.get("publisher"):
+                entry["publisher"] = block["publisher"]
+        return entry
 
     article = normalize_doi(readme.get("ARTICLE_DOI") or readme.get("DOI"))
     if article:
@@ -869,8 +1004,8 @@ def part_of(block, readme, kind):
             "identifier": article,
             "url": f"https://doi.org/{article}",
         }
-        if block.get("name") and source_doi == article:
-            entry["name"] = block["name"]
+        if title and source_doi == article:
+            entry["name"] = title
         if block.get("_journal"):
             entry["isPartOf"] = {"@type": "Periodical", "name": block["_journal"]}
         return entry
@@ -884,51 +1019,245 @@ def part_of(block, readme, kind):
             "url": f"https://doi.org/{deposition}",
         }
         if source_doi == deposition:
-            if block.get("name"):
-                entry["name"] = block["name"]
+            if title:
+                entry["name"] = title
             if block.get("publisher"):
                 entry["publisher"] = block["publisher"]
         return entry
     return None
 
 
-def describe(readme, path, kind):
-    """A one-line description for records whose registry record has no abstract."""
-    if kind == "simulations":
-        lipids = [m for m in (readme.get("COMPOSITION") or {}) if m not in KEYWORD_SKIP]
-        bits = ["Molecular dynamics simulation of a lipid bilayer"]
-        if lipids:
-            bits.append("containing " + ", ".join(sorted(lipids)))
-        if readme.get("TEMPERATURE"):
-            bits.append(f"at {readme['TEMPERATURE']} K")
-        tail = []
-        if readme.get("FF"):
-            tail.append(f"{readme['FF']} force field")
-        if readme.get("SOFTWARE"):
-            tail.append(str(readme["SOFTWARE"]))
-        if readme.get("TRJLENGTH"):
-            tail.append(f"{float(readme['TRJLENGTH']) / 1000:.0f} ns trajectory")
-        return " ".join(bits) + (", " + ", ".join(tail) + "." if tail else ".")
+def measured_quantity(path):
+    """What an experiment record actually holds."""
+    return ("X-ray scattering form factor" if experiment_kind(path) == "xray"
+            else "C-H bond order parameters")
 
-    membrane = readme.get("MEMBRANE_COMPOSITION") or {}
-    what = ("C-H bond order parameters" if experiment_kind(path) == "nmr"
-            else "X-ray scattering form factor")
-    bits = [f"Experimental {what} for a lipid bilayer"]
-    if membrane:
-        bits.append("containing " + ", ".join(sorted(membrane)))
-    if readme.get("TEMPERATURE"):
-        bits.append(f"at {readme['TEMPERATURE']} K")
-    technique = [t for t in measurement_technique(readme, path, kind) if isinstance(t, str)]
-    return " ".join(bits) + (f", measured by {technique[0]}." if technique else ".")
+
+def short_technique(readme, path):
+    """A title-length technique label, from the same fields as ``chmo_for_method``."""
+    if experiment_kind(path) == "xray":
+        sample = (readme.get("XRAY") or {}).get("SAMPLE_TYPE")
+        return f"SAXS, {sample}" if sample else "SAXS"
+    method = str((readme.get("NMR") or {}).get("METHOD") or "")
+    if method.startswith("PDLF:R"):
+        return "R-PDLF NMR"
+    if method.startswith("PDLF"):
+        return "PDLF NMR"
+    if method.startswith("2H"):
+        return "2H NMR"
+    if method.startswith("CDLF"):
+        return "CDLF NMR"
+    return "NMR"
+
+
+def surname(name):
+    """Family name from a creator entry.
+
+    DataCite writes ``Family, Given`` and CrossRef ``Given Family``, so the comma
+    decides which end to take. Compound names are kept whole on the CrossRef side
+    only where the parts are lowercase particles (``van der Berg``).
+    """
+    text = clean_text(name)
+    if not text:
+        return None
+    if "," in text:
+        return text.split(",")[0].strip() or None
+    parts = text.split()
+    if not parts:
+        return None
+    start = len(parts) - 1
+    while start > 0 and parts[start - 1][:1].islower():
+        start -= 1
+    return " ".join(parts[start:])
+
+
+def source_tag(block, readme, path, kind):
+    """The trailing bracket that keeps two similar records apart.
+
+    Simulations use their databank ``ID``, which BilayerData's own ``CheckIDs.sh``
+    keeps unique. Experiments have no such field, so they use the first author and
+    year -- which distinguishes the systems that two different groups measured
+    independently -- falling back to the record's own directory when there is no
+    publication to name.
+    """
+    if kind == "simulations":
+        identifier = readme.get("ID")
+        return f"NMRlipids simulation {identifier}" if identifier is not None else None
+
+    creators = block.get("creator") or []
+    family = surname(creators[0].get("name")) if creators else None
+    year = iso_date(block.get("datePublished"))
+    if family:
+        return f"{family} {year[:4]}" if year else family
+
+    parts = Path(path).resolve().parts
+    # .../experiments/<kind>/unpublished/<slug>/<index>/README.yaml
+    if "unpublished" in parts:
+        return f"unpublished, {parts[-3]}"
+    return None
+
+
+def compose_name(readme, path, kind, block):
+    """The record's title, pasted together from the record's own values."""
+    items = composition_items(readme, kind)
+    system = f"{format_ratio(items)} bilayer"
+    temperature = number(readme.get("TEMPERATURE"))
+
+    if kind == "simulations":
+        title = f"Molecular dynamics trajectory of a {system}"
+        if temperature:
+            title += f" at {temperature} K"
+        detail = []
+        if readme.get("FF"):
+            detail.append(clean_text(readme["FF"]))
+        engine = clean_text(readme.get("SOFTWARE"))
+        if engine:
+            version = clean_text(readme.get("SOFTWARE_VERSION"))
+            detail.append(engine.upper() + (f" {version}" if version else ""))
+        if readme.get("TRJLENGTH"):
+            detail.append(f"{float(readme['TRJLENGTH']) / 1000:.0f} ns")
+        if detail:
+            title += " (" + ", ".join(detail) + ")"
+    else:
+        title = f"{measured_quantity(path)} of a {system}"
+        if temperature:
+            title += f" at {temperature} K"
+        hydration = hydration_phrase(readme)
+        if hydration:
+            title += f", {hydration}"
+        ions = solution_ids(readme)
+        additives = sorted((readme.get("ADDITIONAL_MOLECULES") or {}).keys())
+        if ions:
+            title += ", with " + "/".join(ions)
+        if additives:
+            title += (" and " if ions else ", with ") + "/".join(additives)
+        title += f" ({short_technique(readme, path)})"
+
+    tag = source_tag(block, readme, path, kind)
+    return title + (f" [{tag}]" if tag else "")
+
+
+def _named(mol, names):
+    return f"{mol} ({names[mol]})" if names.get(mol) else mol
+
+
+def _component(mol, names, share=None, count=None):
+    """One component of a bilayer: ``200 POPC (1-palmitoyl-..., 90 mol%)``.
+
+    The chemical name and the share share one parenthesis; keeping them apart
+    reads as two unrelated asides.
+    """
+    inner = [names[mol]] if names.get(mol) else []
+    if share is not None:
+        inner.append(f"{share:.0f} mol%")
+    phrase = f"{count:.0f} {mol}" if count is not None else mol
+    return phrase + (" (" + ", ".join(inner) + ")" if inner else "")
+
+
+def _listed(entries):
+    if len(entries) == 1:
+        return entries[0]
+    return ", ".join(entries[:-1]) + " and " + entries[-1]
+
+
+def compose_description(readme, path, kind, block, names):
+    """Three sentences: what the system is, how it was measured, where it came from."""
+    items = composition_items(readme, kind)
+    temperature = number(readme.get("TEMPERATURE"))
+
+    if kind == "simulations":
+        total = sum(amount for _, amount in items) or 1.0
+        parts = [_component(mol, names, count=amount,
+                            share=None if len(items) == 1 else 100 * amount / total)
+                 for mol, amount in items]
+        system = ("Molecular dynamics trajectory of a lipid bilayer of "
+                  + (_listed(parts) if parts else "unrecorded composition"))
+        if temperature:
+            system += f" at {temperature} K"
+
+        force_field = clean_text(readme.get("FF"))
+        engine = clean_text(readme.get("SOFTWARE"))
+        if engine:
+            version = clean_text(readme.get("SOFTWARE_VERSION"))
+            engine = engine.upper() + (f" {version}" if version else "")
+        second = "Simulated"
+        if force_field:
+            second += f" with {force_field}"
+        if engine:
+            second += f" in {engine}"
+        if not force_field and not engine:
+            # No record says what produced it, so do not claim a method.
+            second = "Trajectory run"
+        if readme.get("TRJLENGTH"):
+            second += f" for {float(readme['TRJLENGTH']) / 1000:.0f} ns"
+        if readme.get("NUMBER_OF_ATOMS"):
+            second += f" ({readme['NUMBER_OF_ATOMS']} atoms)"
+
+        identifier = readme.get("ID")
+        doi = normalize_doi(readme.get("DOI"))
+        third = "Part of the NMRlipids Databank"
+        if identifier is not None:
+            third = f"Deposited as NMRlipids Databank simulation {identifier}"
+        if doi:
+            third += f" and available from https://doi.org/{doi}"
+        return " ".join(f"{s}." for s in (system, second, third))
+
+    total = sum(amount for _, amount in items) or 1.0
+    parts = [_component(mol, names,
+                        share=None if len(items) == 1 else 100 * amount / total)
+             for mol, amount in items]
+    system = (f"Experimental {measured_quantity(path)} for a lipid bilayer of "
+              + (_listed(parts) if parts else "unrecorded composition"))
+    if temperature:
+        system += f" at {temperature} K"
+    hydration = hydration_phrase(readme)
+    if hydration == "full hydration":
+        system += ", fully hydrated"
+    elif hydration:
+        system += f", hydrated to {hydration}"
+
+    conditions = []
+    ions = solution_ids(readme)
+    if ions:
+        conditions.append("ions " + _listed([_named(i, names) for i in ions]))
+    additives = sorted((readme.get("ADDITIONAL_MOLECULES") or {}).keys())
+    if additives:
+        conditions.append("additives " + _listed(additives))
+    ph = readme.get("PH")
+    if ph is not None and str(ph).strip().lower() not in NULLISH | {"unknown"}:
+        how = clean_text(readme.get("PH_METHOD"))
+        conditions.append(f"pH {number(ph)}"
+                          + (f" ({how})" if how and how.lower() != "unknown" else ""))
+    if conditions:
+        system += ", with " + "; ".join(conditions)
+
+    second = f"Measured by {chmo_for_method(readme, path)[1]}"
+    if experiment_kind(path) == "xray":
+        xray = readme.get("XRAY") or {}
+        if xray.get("SAMPLE_TYPE"):
+            second += f" on {clean_text(xray['SAMPLE_TYPE'])} samples"
+        if xray.get("SOURCE"):
+            second += f" at {clean_text(xray['SOURCE'])}"
+    else:
+        nmr = readme.get("NMR") or {}
+        if nmr.get("METHOD"):
+            second += f" ({clean_text(nmr['METHOD'])})"
+        if nmr.get("INSTRUMENT"):
+            second += f" on a {clean_text(nmr['INSTRUMENT'])}"
+
+    doi = normalize_doi(readme.get("ARTICLE_DOI") or readme.get("DATA_DOI") or readme.get("DOI"))
+    third = (f"Values digitised into the NMRlipids Databank from https://doi.org/{doi}"
+             if doi else "Unpublished data contributed to the NMRlipids Databank")
+    return " ".join(f"{s}." for s in (system, second, third))
 
 
 def enrich(block, readme, path, kind, doi, names):
     """Add every Bioschemas property derivable from local data."""
     subjects = block.pop("_subjects", [])
-    if not block.get("description"):
-        block["description"] = describe(readme, path, kind)
-    if not block.get("name"):
-        block["name"] = describe(readme, path, kind)
+    # Composed, never fetched: a registry title names the paper or deposition, and
+    # hundreds of records share one of those.
+    block["name"] = compose_name(readme, path, kind, block)
+    block["description"] = compose_description(readme, path, kind, block, names)
     if doi:
         # `identifier` is deliberately not written: the web frontend derives it
         # from the record's own DOI field. sameAs keeps the resolvable link.
@@ -956,6 +1285,7 @@ def enrich(block, readme, path, kind, doi, names):
 
     parent = part_of(block, readme, kind)
     block.pop("_journal", None)
+    block.pop("_article_title", None)
     if parent:
         block["isPartOf"] = parent
     else:
@@ -1218,8 +1548,12 @@ def check(path, spdx, strict=False):
         found.append(("WARNING", f"WARNING: {path}: {message}"))
 
     resolved = (block.get("_source") or {}).get("doi") is not None
-    if resolved and not clean_text(block.get("name")):
+    # name and description are composed from the record itself, so unlike the
+    # registry-supplied properties they are expected even without a resolved DOI.
+    if not clean_text(block.get("name")):
         error("name is empty")
+    if not clean_text(block.get("description")):
+        error("description is empty")
 
     published = block.get("datePublished")
     if resolved and published is None:
@@ -1248,6 +1582,34 @@ def check(path, spdx, strict=False):
         elif creator.get("identifier") and not ORCID_RE.search(str(creator["identifier"])):
             error(f"creator[{index}].identifier {creator['identifier']!r} is not an ORCID URI")
 
+    return found
+
+
+def duplicate_names(paths):
+    """Records sharing a ``name``. Returns ``(level, message)`` pairs.
+
+    Titles are composed rather than fetched precisely so that no two records
+    share one, and a catalogue listing them is unusable if two do. Only a run
+    over the whole databank can prove that, so this is worth pointing at
+    everything rather than at a pull request's changed files.
+    """
+    claimed = {}
+    for path in paths:
+        try:
+            readme = yaml.safe_load(Path(path).read_text(encoding="utf-8")) or {}
+        except (yaml.YAMLError, OSError):
+            continue
+        block = readme.get("bioschema_properties")
+        name = clean_text(block.get("name")) if isinstance(block, dict) else None
+        if name:
+            claimed.setdefault(name, []).append(path)
+
+    found = []
+    for name, holders in sorted(claimed.items()):
+        if len(holders) > 1:
+            listed = ", ".join(str(p) for p in holders)
+            found.append(("ERROR", f"ERROR: duplicate name {name!r} in {len(holders)} "
+                                   f"records: {listed}"))
     return found
 
 
@@ -1287,9 +1649,13 @@ def main():
                 print(message)
                 if level == "ERROR":
                     failed.add(path)
+        duplicates = duplicate_names(paths)
+        for _, message in duplicates:
+            print(message)
         print(f"\n{len(paths) - len(failed)} of {len(paths)} records valid"
-              + (f", {len(failed)} failing" if failed else ""))
-        sys.exit(1 if failed else 0)
+              + (f", {len(failed)} failing" if failed else "")
+              + (f", {len(duplicates)} duplicated names" if duplicates else ""))
+        sys.exit(1 if failed or duplicates else 0)
 
     names = molecule_names(root)
     changed = sum(process(p, spdx, names, cache_dir, args.dry_run) for p in paths)
