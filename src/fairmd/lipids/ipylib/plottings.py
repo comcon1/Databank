@@ -164,6 +164,7 @@ def plotOrderParameters(OPsim, OPexp, lipid_name):  # noqa
         plt.xticks([1, 2, 3, 4, 5, 6], my_xticks, size=20)
         plt.yticks(size=20)
         plt.ylabel(r"$S_{CH}$", size=25)
+        plt.title(lipid_name, size=20)
         plt.savefig("HG.pdf")
         plt.show()
 
@@ -189,6 +190,7 @@ def plotOrderParameters(OPsim, OPexp, lipid_name):  # noqa
             markersize=20,
         )
         plt.ylabel(r"$S_{CH}$", size=25)
+        plt.title(lipid_name, size=20)
         plt.xticks(size=20)
         plt.yticks(size=20)
         plt.savefig("sn-1.pdf")
@@ -217,6 +219,7 @@ def plotOrderParameters(OPsim, OPexp, lipid_name):  # noqa
         )
         plt.xlabel("Carbon", size=25)
         plt.ylabel(r"$S_{CH}$", size=25)
+        plt.title(lipid_name, size=20)
         plt.xticks(size=20)
         plt.yticks(size=20)
         plt.savefig("sn-2.pdf")
@@ -333,6 +336,7 @@ def plotGenOrderParameter(OPsim, OPexp, lipid_name):  # noqa: N802
         plt.text(min(x_vals), -0.04, fragment, fontsize=25)
         plt.ylabel(r"$S_{CH}$", size=25)
         plt.xlabel("Carbon", size=25)
+        plt.title(f"{lipid_name}: {fragment}", size=20)
         plt.xticks(size=20)
         plt.yticks(size=20)
         plt.savefig(f"{_sanitize_fname(fragment)}.pdf")
