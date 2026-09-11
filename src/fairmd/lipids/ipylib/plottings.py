@@ -3,15 +3,16 @@
 Network communication. Downloading files. Checking links etc.
 """
 
-import json
-import os
 import re
+from collections.abc import Iterable
 
 import matplotlib.pyplot as plt
 import numpy as np
 
 from fairmd.lipids.auxiliary.opconvertor import build_nice_OPdict
-from fairmd.lipids import FMDL_EXP_PATH, FMDL_SIMU_PATH
+from fairmd.lipids.analib.formfactor import calc_ff_scaling_distance
+from fairmd.lipids.api import get_FF, get_OP, get_quality
+from fairmd.lipids.experiment import ExperimentCollection
 from fairmd.lipids.molecules import Lipid
 
 
@@ -338,6 +339,71 @@ def plotGenOrderParameter(OPsim, OPexp, lipid_name):  # noqa: N802
         plt.show()
 
 
+def _as_id_list(value) -> list[str]:
+    if value is None:
+        return []
+    if isinstance(value, str):
+        return [value]
+    if isinstance(value, dict):
+        out = []
+        for item in value.values():
+            out.extend(_as_id_list(item))
+        return out
+    if isinstance(value, Iterable):
+        out = []
+        for item in value:
+            out.extend(_as_id_list(item))
+        return out
+    return [str(value)]
+
+
+def _load_op_experiment_dict(lipid: str, exp_ids: list[str]) -> dict:
+    op_exp_flat = {}
+    ExperimentCollection.clear_instance()
+    op_collection = ExperimentCollection.load_from_data("OPExperiment")
+    for exp_id in exp_ids:
+        exp = op_collection.get(exp_id)
+        if exp is None:
+            continue
+        lipid_data = exp.data.get(lipid)
+        if not lipid_data:
+            continue
+        op_exp_flat.update(lipid_data)
+    return op_exp_flat
+
+
+def _ff_to_curve(ff_data):
+    if ff_data is None:
+        return None
+    if isinstance(ff_data, np.ndarray):
+        if ff_data.ndim != 2 or ff_data.shape[1] < 2:
+            return None
+        return ff_data.tolist()
+    if isinstance(ff_data, list):
+        return ff_data if ff_data else None
+    if isinstance(ff_data, dict):
+        q_vals = ff_data.get("q")
+        i_vals = ff_data.get("I")
+        if q_vals is None or i_vals is None:
+            return None
+        n_vals = min(len(q_vals), len(i_vals))
+        return [[float(q_vals[i]), float(i_vals[i])] for i in range(n_vals)]
+    return None
+
+
+def _load_first_ff_experiment_curve(exp_ids: list[str]):
+    ExperimentCollection.clear_instance()
+    ff_collection = ExperimentCollection.load_from_data("FFExperiment")
+    for exp_id in exp_ids:
+        exp = ff_collection.get(exp_id)
+        if exp is None:
+            continue
+        curve = _ff_to_curve(exp.data)
+        if curve is not None:
+            return exp_id, curve
+    return None, None
+
+
 def plotSimulation(system, lipid: str):  # noqa: N802
     """
     Creates plots of form factor and C-H bond order parameters for the selected
@@ -347,46 +413,49 @@ def plotSimulation(system, lipid: str):  # noqa: N802
     :param lipid: universal molecul name of the lipid
 
     """
-    path = os.path.join(FMDL_SIMU_PATH, system["path"])
-    ff_path_sim = os.path.join(path, "FormFactor.json")
-    op_path_sim = os.path.join(path, lipid + "OrderParameters.json")
-    ffqual_fpath = os.path.join(path, "FormFactorQuality.json")
+    print("DOI: ", system.get("DOI", "N/A"))
 
-    print("DOI: ", system["DOI"])
-
+    ff_quality = np.nan
     try:
-        with open(ffqual_fpath) as json_file:
-            ff_quality = json.load(json_file)
-        print("Form factor quality: ", ff_quality[0])
-        ffdir = os.path.join(FMDL_EXP_PATH, "FormFactors", system["EXPERIMENT"]["FORMFACTOR"])
-        for subdir, _, files in os.walk(ffdir):
-            for filename in files:
-                if filename.endswith("_FormFactor.json"):
-                    ff_path_exp = subdir + "/" + filename
-        with open(ff_path_exp) as json_file:
-            ff_exp = json.load(json_file)
+        ff_quality = get_quality(system, experiment="FF")
+        if not np.isnan(ff_quality):
+            print("Form factor quality: ", ff_quality)
     except Exception:
         print("Force field quality not found")
 
-    with open(op_path_sim) as json_file:
-        _raw = json.load(json_file)
-        op_sim = {k: v[0] for k, v in _raw.items()}
+    try:
+        op_sim = get_OP(system).get(lipid) or {}
+    except Exception:
+        op_sim = {}
 
-    op_exp = {}
-    for exp_op_folder in list(system["EXPERIMENT"]["ORDERPARAMETER"][lipid].values()):
-        op_path_exp = os.path.join(FMDL_EXP_PATH, "OrderParameters", exp_op_folder, lipid + "_OrderParameters.json")
-        with open(op_path_exp) as json_file:
-            _raw_exp = json.load(json_file)
-            op_exp.update({k: v[0] for k, v in _raw_exp.items()})
+    ff_ids = _as_id_list(system.get("EXPERIMENT", {}).get("FORMFACTOR", []))
+    op_ids = _as_id_list(system.get("EXPERIMENT", {}).get("ORDERPARAMETER", {}).get(lipid, []))
+    op_exp = _load_op_experiment_dict(lipid, op_ids)
+    ff_exp_id, ff_exp = _load_first_ff_experiment_curve(ff_ids)
 
     try:
-        with open(ff_path_sim) as json_file:
-            ff_sim = json.load(json_file)
-        plotFormFactor(ff_sim, 1, "Simulation", "red")
-        plotFormFactor(ff_exp, ff_quality[1], "Experiment", "black")
+        ff_sim_raw = get_FF(system)
+        ff_sim = _ff_to_curve(ff_sim_raw)
+        if ff_sim is not None:
+            plotFormFactor(ff_sim, 1, "Simulation", "red")
+        if ff_exp is not None:
+            ff_scale = 1.0
+            if ff_sim is not None:
+                try:
+                    ff_scale = float(calc_ff_scaling_distance(np.array(ff_exp), np.array(ff_sim))[0])
+                    if ff_exp_id is not None:
+                        print(f"Using FF scale {ff_scale:.4g} from experiment {ff_exp_id}.")
+                except Exception:
+                    print("Could not compute FF scale; using 1.0.")
+            plotFormFactor(ff_exp, ff_scale, "Experiment", "black")
         plt.show()
     except Exception:
         plt.show()
         print("Form factor plotting failed")
 
-    plotOrderParameters(op_sim, op_exp, lipid)
+    if op_sim and op_exp:
+        plotGenOrderParameter(op_sim, op_exp, lipid)
+    elif not op_sim:
+        print(f"Simulation OP data missing for {lipid}.")
+    else:
+        print(f"No matched OP experiment data found for {lipid}.")
