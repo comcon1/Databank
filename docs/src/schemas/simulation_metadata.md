@@ -5,7 +5,7 @@ Each simulation in the FAIRMD Lipids is assigned with a `README.yaml` metadata f
 
 You can view examples in the [BilayerData GitHub repository](https://github.com/NMRLipids/BilayerData/tree/main/Simulations). 
 
-README files contain information that is manually entered into [info.yaml](info_files) files and automatically exctracted information by the [fmdl_add_simulation](add_simulation_py) program. 
+README files contain information that is manually entered into [info.yaml](info_files) files and automatically extracted information by the [fmdl_add_simulation](add_simulation_py) program. 
 Table below lists the manually entered compulsory and optional parameters, as well as automatically extracted information from simulation files.  
 
 --------------------
@@ -17,7 +17,7 @@ TPR | Name of the topology file found from DOI |  User-given
 SOFTWARE | Software used to run the simulation |  User-given
 PREEQTIME | Pre-equilibrate time in nanoseconds. |  User-given
 TIMELEFTOUT | Equilibration period in the uploaded trajectory. | User-given
-DATEOFRUNNIG | Date when added into the databank | User-given 
+DATEOFRUNNING | Date when added into the databank | User-given 
 DIR\_WRK | Temporary local working directory | Deprecated 
 UNITEDATOM\_DICT | Hydrogen information for united atom simulations | User-given
 TYPEOFSYSTEM | Lipid bilayer or something else | User-given
@@ -40,7 +40,7 @@ GRO | Name of the Gromacs gro file. |  User-given
 EDR | Name of the Gromacs edr file. |  User-given
 ||
 TRAJECTORY\_SIZE | Size of the trajectory file in bytes | Autofilled 
-TRJLENGTH | Lenght of the trajectory (ps). |  Autofilled
+TRJLENGTH | Length of the trajectory (ps). |  Autofilled
 NUMBER\_OF\_ATOMS | Number of atoms in the simulation. |  Autofilled
 EXPERIMENT | Potentially connected experimental data | Gen by tools
 ||
@@ -56,6 +56,13 @@ _\* --- names and mappings are set by user whereas number of residues is autofil
 Give the DOI identity for the location of simulation files. 
 Current databank works only for the data in [Zenodo](https://www.zenodo.org), but other potential sources are may be implemented in the future. 
 Note that the DOI must point to a specific version of dataset in Zenodo. DOIs pointing to all versions of certain dataset do not work.
+
+`DOI` is **compulsory for every simulation entry**, and stays so: it is in the `required` list
+of the README schema, and without it there is nowhere for the trajectory to be fetched from. The
+metadata enrichment tooling tolerates its absence — it composes a description that simply does
+not name a source rather than failing — but that is defensive handling for half-built entries,
+not permission to contribute a simulation without a deposition. Entries added through
+[`fmdl_add_simulation`](add_simulation_py) always have one.
 
 2. **TRJ** (compulsory)  
 Give the name of the trajectory file that is found from the DOI given above.
@@ -161,7 +168,7 @@ Give the name of the Gromacs edr file that is found from the DOI given above.
 Size of the trajectory file in bytes.
 
 25. **TRJLENGTH**  
-Lenght of the trajectory (ps).
+Length of the trajectory (ps).
 
 26. **TEMPERATURE**  
 Temperature of the simulation.
@@ -169,7 +176,7 @@ Temperature of the simulation.
 27. **NUMBER\_OF\_ATOMS**  
 Total number of atoms in the simulation.
 
-28. **DATEOFRUNNIG**  
+28. **DATEOFRUNNING**  
 Date when added into the databank.
 
 29. **EXPERIMENT**  
@@ -235,11 +242,21 @@ Dates (`datePublished`) are `YYYY`, `YYYY-MM` or `YYYY-MM-DD` and **must stay qu
 YAML — an unquoted `YYYY-MM-DD` is parsed as a date object and then fails validation as a
 non-string.
 
+`name` and `description` are **composed from the entry's own fields** — composition,
+temperature, force field, engine, trajectory length — and never taken from the deposition
+record. A Zenodo title names the deposition, which up to 27 entries share, so it does not tell
+them apart; the free-text `SYSTEM` is kept as `alternateName`, and the deposition title as
+`isPartOf.name`. Every composed title ends in the databank `ID` in brackets, which is unique.
+
 ```yaml
 bioschema_properties:
-  name: POPC CHARMM36 T313K
+  name: Molecular dynamics trajectory of a POPC bilayer at 313 K (CHARMM36, GROMACS 5.0.4,
+    200 ns) [NMRlipids simulation 566]
   alternateName: 200POPC_9000SOL_313K
-  description: POPC CHARMM36 T313K. The simulations are ran for ...
+  description: Molecular dynamics trajectory of a lipid bilayer of 200 POPC
+    (1-palmitoyl-2-oleoyl-sn-glycero-3-phosphocholine) at 313 K. Simulated with CHARMM36 in
+    GROMACS 5.0.4 for 200 ns (40000 atoms). Deposited as NMRlipids Databank simulation 566 and
+    available from https://doi.org/10.5281/zenodo.4040423.
   sameAs: https://doi.org/10.5281/zenodo.4040423
   datePublished: '2020-09-21'
   license:
@@ -278,6 +295,13 @@ bioschema_properties:
     - topol.top
   isBasedOn:
   - experiments/FormFactors/10.1016/j.bbamem.2011.07.022/11
+  isPartOf:
+    '@type': Dataset
+    '@id': https://doi.org/10.5281/zenodo.4040423
+    identifier: 10.5281/zenodo.4040423
+    url: https://doi.org/10.5281/zenodo.4040423
+    name: Simulation trajectories of POPC bilayers
+    publisher: Zenodo
   accessRights: openAccess
   _source:
     api: datacite

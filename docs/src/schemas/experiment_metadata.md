@@ -5,9 +5,9 @@
 
 |             key           | description |
 |---------------------------|-----------------------------------------|
-| ARTICLE_DOI | DOI of the of the original publication of the experimental data. Becomes the citation when no DATA_DOI is given |
+| ARTICLE_DOI | DOI of the original publication of the experimental data. Becomes the citation when no DATA_DOI is given, and the parent work either way |
 | DATA_DOI | DOI of the dataset deposition with raw NMR data. When present, this is the DOI that becomes the citation |
-| DATA_REF | Reference to deposited dataset, for data without a DOI |
+| DATA_REF | Reference to a deposited dataset that has no DOI. Free text, not resolved and not a substitute for a DOI |
 | DATE | Date when the data was recorded or published |
 | TEMPERATURE | Temperature (K) of the experiment |
 | MEMBRANE_COMPOSITION | Dictionary of molar fractions of membrane phase |
@@ -46,28 +46,58 @@
 
 ## General fields
 
-At least one of `ARTICLE_DOI` and `DATA_DOI` has to be given, and the two decide what the
-generated `bioschema_properties.citation` holds: **if a `DATA_DOI` is present, that is the DOI
-that becomes the citation** — the data is what should be cited — and only when `ARTICLE_DOI` is
-the sole DOI does the article become the citation.
+### The two DOI fields
+
+**Validation requires at least one of `ARTICLE_DOI` and `DATA_DOI`.** An entry with neither is
+rejected by [the schema](https://github.com/NMRLipids/FAIRMD_lipids/blob/main/src/fairmd/lipids/schema_validation/schema/experiment_schema.json);
+`DATA_REF` does not satisfy the requirement, because it is free text rather than a resolvable
+identifier.
 
 Both are given as bare DOIs — `10.1016/j.bbamem.2011.07.022`, not `doi:10.1016/...` and not
-`https://doi.org/10.1016/...`. Data that has no DOI at all is referenced with `DATA_REF` instead.
+`https://doi.org/10.1016/...`.
+
+Which of the two is given decides what the generated `bioschema_properties` block says, and the
+rule is **data first**: cite the data, not the paper describing it.
+
+| given | `citation` and `sameAs` | `isPartOf` |
+|-------|-------------------------|------------|
+| `ARTICLE_DOI` only | the article | the article, with its journal nested inside |
+| `DATA_DOI` only | the deposition | the deposition |
+| both | the **deposition** | the article, with its journal nested inside |
+
+The last row is the one worth reading twice: with both fields given, the record **cites** the
+deposition and is **part of** the article. Those are different relations, not a contradiction —
+the values were digitised from a paper, so the paper is the parent work, while the raw data is
+what a reuser should cite. Nothing is dropped; the block states both. A block generated before
+this rule existed, which cited the article, has the article removed from `citation` on the next
+run of the enrichment tooling, since `isPartOf` already records it.
+
+The article DOI is also the one *looked up* in the registries when both are given: CrossRef
+carries the authors, the journal and the publication date that a raw-data deposition record
+usually lacks, and those become `creator`, `datePublished` and `publisher`.
+
+A handful of entries under `experiments/*/unpublished/` predate this requirement and carry no
+DOI at all. The enrichment tooling still describes them — their `description` ends *"Unpublished
+data contributed to the NMRlipids Databank"* and they get no `citation`, `sameAs` or `isPartOf` —
+but they do not validate against the schema, and new entries must give a DOI.
 
 1. **ARTICLE_DOI**  
 DOI of the original publication where the experimental data originates.
 
 2. **DATA_DOI**  
-DOI of the dataset deposition with raw NMR data (e.g., nmrXive).
+DOI of the dataset deposition with raw NMR data (e.g., nmrXiv).
 
-3. **DATA_REF**
-If the dataset doesn't have DOI, we engage to add some persistent identifier or even URL if the first doesn't exist.
+3. **DATA_REF**  
+Reference to the deposited dataset for data that has **no DOI at all** — a persistent identifier
+where one exists, otherwise a URL. It is a plain string that the enrichment tooling does not
+resolve, so it neither becomes a citation nor satisfies the DOI requirement above: an entry whose
+raw data has no DOI still needs an `ARTICLE_DOI`.
 
 4. **DATE**
 Date in the standard format YYYY-MM-DD (e.g., 2023-08-24). A lot of date values have been automatically synchronized from the paper dates. If the data wasn't published, the date of recording should be used.
 
 5. **TEMPERATURE**  
-Temperature (K) of the experiment, so strictly positive. For NMR experiment, if `NMR:T_RF_HEATING` is 'unknown' (or not given), the reported temperature from the probe is settet here. Otherwise, please insert RF-corrected temperature.
+Temperature (K) of the experiment, so strictly positive. For NMR experiment, if `NMR:T_RF_HEATING` is 'unknown' (or not given), the temperature reported by the probe is the value to give here. Otherwise, please insert RF-corrected temperature.
 
 6. **MEMBRANE_COMPOSITION**  
 Dictionary of molar fractions of bilayer components, each within (0, 1]. For example:
@@ -148,10 +178,21 @@ Dates (`datePublished`) are `YYYY`, `YYYY-MM` or `YYYY-MM-DD` and **must stay qu
 YAML — an unquoted `YYYY-MM-DD` is parsed as a date object and then fails validation as a
 non-string.
 
+`name` and `description` are **composed from the entry's own fields** — composition,
+temperature, hydration, ions, technique — and never taken from the registry. A fetched title
+names the paper, not the one measurement this entry holds, so it describes the wrong thing and
+does not tell sibling entries apart. The fetched title is kept where it is true, as
+`isPartOf.name`. Every composed title ends in a bracketed tag (first author and year) that keeps
+near-identical entries apart.
+
 ```yaml
 bioschema_properties:
-  name: Fluid phase lipid areas and bilayer thicknesses of commonly used phosphatidylcholines
-  description: Experimental X-ray scattering form factor for a lipid bilayer containing POPC ...
+  name: X-ray scattering form factor of a POPC bilayer at 303 K, 99% water (SAXS, ULV) [Kucerka
+    2011]
+  description: Experimental X-ray scattering form factor for a lipid bilayer of POPC
+    (1-palmitoyl-2-oleoyl-sn-glycero-3-phosphocholine) at 303 K, hydrated to 99% water. Measured
+    by small-angle X-ray scattering on ULV samples at Cornell High Energy Synchrotron Source.
+    Values digitised into the NMRlipids Databank from https://doi.org/10.1016/j.bbamem.2011.07.022.
   sameAs: https://doi.org/10.1016/j.bbamem.2011.07.022
   datePublished: '2011-11'
   license:

@@ -6,16 +6,16 @@
     "ARTICLE_DOI": {
       "$comment": "Wrapped in allOf rather than a bare $ref: in draft-07 a $ref makes its sibling keywords, description included, be ignored.",
       "allOf": [{ "$ref": "#/definitions/doi" }],
-      "description": "DOI of the original publication of the experimental data. Becomes bioschema_properties.citation when no DATA_DOI is given"
+      "description": "DOI of the original publication of the experimental data. Becomes bioschema_properties.citation when no DATA_DOI is given, and bioschema_properties.isPartOf either way"
     },
     "DATA_DOI": {
       "allOf": [{ "$ref": "#/definitions/doi" }],
-      "description": "DOI of the dataset deposition with raw NMR data. When present, this is the DOI that becomes bioschema_properties.citation - cite the data, not the article"
+      "description": "DOI of the dataset deposition with raw NMR data. When present, this is the DOI that becomes bioschema_properties.citation and sameAs - cite the data, not the article. The article is not lost: it stays the parent work in bioschema_properties.isPartOf"
     },
     "DATA_REF": {
       "type": "string",
       "minLength": 1,
-      "description": "Reference to deposited dataset, for data without a DOI"
+      "description": "Reference to a deposited dataset that has no DOI. Free text, never resolved, and not a substitute for a DOI: an entry giving only DATA_REF still fails the requirement below"
     },
     "DATE": {
       "type": "string",
@@ -217,7 +217,7 @@
       }
     },
     "bioschema_properties": {
-      "$comment": "Bioschemas Dataset profile 1.0-RELEASE (https://bioschemas.org/profiles/Dataset/1.0-RELEASE). Written by the metadata enrichment tooling, not user-given. Only properties of that profile are accepted, plus dct:-prefixed DCMI terms and the local _source key. Not required, because the profile Minimum properties @context, @type, @id, dct:conformsTo, url and identifier are not emitted yet. Keep in sync with the identical block in readme_yaml_schema.json.",
+      "$comment": "Bioschemas Dataset profile 1.0-RELEASE (https://bioschemas.org/profiles/Dataset/1.0-RELEASE). Written by the metadata enrichment tooling, not user-given. Only properties of that profile are accepted, plus dct:-prefixed DCMI terms and the local _source key. Not required, because the profile Minimum properties @context, @type, @id, dct:conformsTo, url and identifier are not emitted yet. Kept in sync with the same block in readme_yaml_schema.json, articleLicense aside, which is experiment-only; test_the_two_schemas_agree_on_the_bioschema_block enforces it.",
       "type": "object",
       "required": ["name", "description"],
       "additionalProperties": false,
@@ -307,7 +307,7 @@
   ],
   "allOf": [
     {
-      "$comment": "At least one of the two DOIs has to be given; DATA_DOI wins when both are present.",
+      "$comment": "At least one of the two DOIs has to be given. DATA_REF does not count: it is free text rather than a resolvable identifier. Where both DOIs are given, DATA_DOI wins as the DOI to cite and ARTICLE_DOI stays the parent work - see docs/src/schemas/experiment_metadata.md and record_dois() in developer/autocomplete_expsim_metadata.py.",
       "anyOf": [
         { "required": ["ARTICLE_DOI"] },
         { "required": ["DATA_DOI"] }

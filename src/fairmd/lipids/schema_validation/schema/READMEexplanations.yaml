@@ -43,12 +43,12 @@ GRO:
 TRAJECTORY_SIZE:
  Size of the trajectory file in bytes | automatically extracted data. 
 TRJLENGTH:
- Lenght of the trajectory (ps).
+ Length of the trajectory (ps).
 TEMPERATURE:
  Temperature of the simulation.
 NUMBER_OF_ATOMS:
  Number of atoms in the simulation.
-DATEOFRUNNIG:
+DATEOFRUNNING:
  Date when added into the databank.
 EXPERIMENT:
  Potentially connected experimental data.

@@ -20,6 +20,13 @@ apart -- the databank ``ID`` for a simulation, the first author and year for an
 experiment. ``--check`` reports any two records that still share a title, and is
 meant to be pointed at the whole databank, since only a full run can see a clash.
 
+An experiment can carry two DOIs that mean different things, and ``record_dois``
+decides once which is used for what: the ``ARTICLE_DOI`` is looked up, because
+CrossRef holds the authors and the journal, and it becomes ``isPartOf``; the
+``DATA_DOI`` is what gets cited and what ``sameAs`` points at, because the rule
+in ``docs/src/schemas/experiment_metadata.md`` is to cite the data. With only one
+of them given, that one fills every role.
+
 The remaining values are resolved from the record's DOI:
 
 - DataCite -- Zenodo depositions, i.e. every simulation
@@ -65,6 +72,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+from collections import namedtuple
 from datetime import date
 from pathlib import Path
 
@@ -390,6 +398,52 @@ def normalize_doi(value):
     return match.group(0).rstrip(TRAILING) if match else None
 
 
+DOI_ROLES = ("lookup", "cited", "article", "deposition")
+Dois = namedtuple("Dois", DOI_ROLES)
+
+
+def record_dois(readme, kind):
+    """The record's DOIs, split by the role each one plays.
+
+    One record can carry two DOIs that mean different things, and they are not
+    interchangeable, so they are resolved once here rather than re-picked at
+    each use site:
+
+    ``lookup``      which registry record is fetched. For an experiment that is
+                    the article whenever there is one: CrossRef carries the
+                    authors, the journal and the publication date, and a raw
+                    data deposition usually carries none of them.
+    ``cited``       what the record points at as the thing to cite -- its
+                    ``citation`` entry, its ``sameAs`` and the closing sentence
+                    of its description. Data first, as
+                    ``docs/src/schemas/experiment_metadata.md`` states: cite the
+                    data, and fall back to the article only when it is the sole
+                    DOI.
+    ``article``     the parent work, used by ``part_of()``. An article is a
+                    different relation from a citation: the dataset is *part of*
+                    the paper it was digitised from while still *citing* the
+                    deposition holding the raw values.
+    ``deposition``  the raw data deposition, the parent work for a simulation
+                    and for an experiment that has no article.
+
+    ``DOI`` is the deprecated experiment spelling of ``ARTICLE_DOI``; 29 records
+    still carry it, and it also holds ``unpublished/<slug>`` values, which
+    ``normalize_doi`` rejects.
+    """
+    if kind == "simulations":
+        # A simulation has one DOI, the Zenodo deposition holding the
+        # trajectory. Nothing is cited from it: the deposition *is* this record,
+        # so it belongs in isPartOf and distribution, not in a citation list.
+        deposition = normalize_doi(readme.get("DOI"))
+        return Dois(lookup=deposition, cited=deposition,
+                    article=None, deposition=deposition)
+
+    article = normalize_doi(readme.get("ARTICLE_DOI") or readme.get("DOI"))
+    deposition = normalize_doi(readme.get("DATA_DOI"))
+    return Dois(lookup=article or deposition, cited=deposition or article,
+                article=article, deposition=deposition)
+
+
 def normalize_orcid(value):
     match = ORCID_RE.search(str(value or ""))
     return f"https://orcid.org/{match.group(1).upper()}" if match else None
@@ -631,7 +685,9 @@ def from_crossref(payload, doi, readme, spdx):
         "publisher": clean_text(message.get("publisher")),
         "version": None,
         "creator": creators,
-        "citation": dedupe(existing + parse_publication(readme.get("PUBLICATION")) + [doi]),
+        # The DOI this record cites is *not* necessarily the one fetched here:
+        # which one it is follows record_dois(), and enrich() applies it.
+        "citation": dedupe(existing + parse_publication(readme.get("PUBLICATION"))),
     }
     containers = message.get("container-title") or []
     if containers:
@@ -960,7 +1016,7 @@ def is_based_on(readme, kind):
     return dedupe(refs)
 
 
-def part_of(block, readme, kind):
+def part_of(block, dois, kind):
     """What this dataset is part of.
 
     For an experiment, preferably the article the values were digitised from,
@@ -968,6 +1024,12 @@ def part_of(block, readme, kind):
     there is no article -- the nmrXiv records -- the deposited dataset serves
     instead. For a simulation it is the Zenodo deposition holding the trajectory.
     Records with neither get nothing rather than an invented parent.
+
+    The article wins here even where a ``DATA_DOI`` outranks it as the DOI to
+    cite, and the two rules do not conflict: being *part of* a paper and citing
+    the deposition that holds the raw values are different relations, and a
+    record carrying both DOIs states both -- ``isPartOf`` the article,
+    ``citation`` the deposition.
 
     This is also where the registry-supplied title lands. It names the parent
     work, which is what it was always describing; the record's own ``name`` is
@@ -980,7 +1042,7 @@ def part_of(block, readme, kind):
         # The Zenodo deposition is a real parent: it holds the trajectory, and up
         # to 27 records share one. It is also where the fetched title belongs,
         # now that the record's own name is composed rather than borrowed.
-        deposition = normalize_doi(readme.get("DOI"))
+        deposition = dois.deposition
         if not deposition:
             return None
         entry = {
@@ -996,7 +1058,7 @@ def part_of(block, readme, kind):
                 entry["publisher"] = block["publisher"]
         return entry
 
-    article = normalize_doi(readme.get("ARTICLE_DOI") or readme.get("DOI"))
+    article = dois.article
     if article:
         entry = {
             "@type": "ScholarlyArticle",
@@ -1010,7 +1072,7 @@ def part_of(block, readme, kind):
             entry["isPartOf"] = {"@type": "Periodical", "name": block["_journal"]}
         return entry
 
-    deposition = normalize_doi(readme.get("DATA_DOI"))
+    deposition = dois.deposition
     if deposition:
         entry = {
             "@type": "Dataset",
@@ -1160,7 +1222,7 @@ def _listed(entries):
     return ", ".join(entries[:-1]) + " and " + entries[-1]
 
 
-def compose_description(readme, path, kind, block, names):
+def compose_description(readme, path, kind, block, dois, names):
     """Three sentences: what the system is, how it was measured, where it came from."""
     items = composition_items(readme, kind)
     temperature = number(readme.get("TEMPERATURE"))
@@ -1194,7 +1256,7 @@ def compose_description(readme, path, kind, block, names):
             second += f" ({readme['NUMBER_OF_ATOMS']} atoms)"
 
         identifier = readme.get("ID")
-        doi = normalize_doi(readme.get("DOI"))
+        doi = dois.cited
         third = "Part of the NMRlipids Databank"
         if identifier is not None:
             third = f"Deposited as NMRlipids Databank simulation {identifier}"
@@ -1245,23 +1307,46 @@ def compose_description(readme, path, kind, block, names):
         if nmr.get("INSTRUMENT"):
             second += f" on a {clean_text(nmr['INSTRUMENT'])}"
 
-    doi = normalize_doi(readme.get("ARTICLE_DOI") or readme.get("DATA_DOI") or readme.get("DOI"))
+    # The cited DOI, so the sentence, sameAs and citation all name one source.
+    doi = dois.cited
     third = (f"Values digitised into the NMRlipids Databank from https://doi.org/{doi}"
              if doi else "Unpublished data contributed to the NMRlipids Databank")
     return " ".join(f"{s}." for s in (system, second, third))
 
 
-def enrich(block, readme, path, kind, doi, names):
+def experiment_citations(block, dois):
+    """Apply the data-first citation rule to one experiment block.
+
+    ``docs/src/schemas/experiment_metadata.md``: a ``DATA_DOI`` is what gets
+    cited, and the ``ARTICLE_DOI`` only when it is the sole DOI. Where both are
+    given the article is actively removed rather than merely not added, so a
+    block written before the rule existed -- every enriched experiment in
+    BilayerData carries the article there -- is corrected on the next run. The
+    article is not lost: ``part_of()`` states it as the parent work.
+
+    Everything else already in the list stays. Those entries come from the
+    legacy ``PUBLICATION`` field and from DataCite ``relatedIdentifiers``; they
+    are related publications, which the rule says nothing about.
+    """
+    cites = [str(c) for c in (block.get("citation") or [])]
+    if dois.deposition and dois.article:
+        cites = [c for c in cites if normalize_doi(c) != dois.article]
+    return dedupe(cites + [dois.cited])
+
+
+def enrich(block, readme, path, kind, dois, names):
     """Add every Bioschemas property derivable from local data."""
     subjects = block.pop("_subjects", [])
     # Composed, never fetched: a registry title names the paper or deposition, and
     # hundreds of records share one of those.
     block["name"] = compose_name(readme, path, kind, block)
-    block["description"] = compose_description(readme, path, kind, block, names)
-    if doi:
+    block["description"] = compose_description(readme, path, kind, block, dois, names)
+    if dois.cited:
         # `identifier` is deliberately not written: the web frontend derives it
-        # from the record's own DOI field. sameAs keeps the resolvable link.
-        block["sameAs"] = f"https://doi.org/{doi}"
+        # from the record's own DOI field. sameAs keeps the resolvable link, and
+        # it names the cited DOI rather than the one that was looked up: what
+        # this dataset is a copy of is the data, not the paper describing it.
+        block["sameAs"] = f"https://doi.org/{dois.cited}"
     if kind == "simulations" and readme.get("SYSTEM"):
         block["alternateName"] = readme["SYSTEM"]
 
@@ -1275,15 +1360,17 @@ def enrich(block, readme, path, kind, doi, names):
     )
     block["measurementTechnique"] = measurement_technique(readme, path, kind)
     block["variableMeasured"] = variables_measured(path, kind)
+    if kind == "experiments":
+        block["citation"] = experiment_citations(block, dois)
 
-    dist = distribution(readme, path, kind, doi)
+    dist = distribution(readme, path, kind, dois.lookup)
     if dist:
         block["distribution"] = dist
     based = is_based_on(readme, kind)
     if based:
         block["isBasedOn"] = based
 
-    parent = part_of(block, readme, kind)
+    parent = part_of(block, dois, kind)
     block.pop("_journal", None)
     block.pop("_article_title", None)
     if parent:
@@ -1468,12 +1555,8 @@ def process(path, spdx, names, cache_dir, dry_run=False):
     readme = yaml.safe_load(original) or {}
     kind = record_kind(path)
 
-    if kind == "simulations":
-        doi = normalize_doi(readme.get("DOI"))
-    else:
-        # 29 experiments still carry the deprecated `DOI` key. normalize_doi
-        # returns None for the `unpublished/<slug>` values it also holds.
-        doi = normalize_doi(readme.get("ARTICLE_DOI") or readme.get("DATA_DOI") or readme.get("DOI"))
+    dois = record_dois(readme, kind)
+    doi = dois.lookup
 
     block, notes = None, []
     if doi:
@@ -1490,7 +1573,7 @@ def process(path, spdx, names, cache_dir, dry_run=False):
     for note in notes:
         print(f"  note: {note}")
 
-    block = enrich(block, readme, path, kind, doi, names)
+    block = enrich(block, readme, path, kind, dois, names)
     if kind == "experiments":
         block = with_dataset_license(block, dataset_license(spdx))
     block = ordered(prune(block))
@@ -1581,6 +1664,21 @@ def check(path, spdx, strict=False):
             error(f"creator[{index}] has no name")
         elif creator.get("identifier") and not ORCID_RE.search(str(creator["identifier"])):
             error(f"creator[{index}].identifier {creator['identifier']!r} is not an ORCID URI")
+
+    # The data-first rule, checked against the record's own DOI fields rather
+    # than re-derived: a block written before the rule, or hand-edited since,
+    # still cites the article, and --check is how a whole databank is swept for
+    # the records a rerun has to visit.
+    kind = record_kind(path)
+    dois = record_dois(readme, kind)
+    cites = {normalize_doi(c) for c in (block.get("citation") or [])}
+    if kind == "experiments":
+        if dois.cited and dois.cited not in cites:
+            error(f"citation does not include {dois.cited}, which is the DOI this record cites")
+        if dois.deposition and dois.article and dois.article in cites:
+            error(f"citation carries the article {dois.article}; DATA_DOI {dois.deposition} outranks it")
+    if dois.cited and normalize_doi(block.get("sameAs")) != dois.cited:
+        error(f"sameAs {block.get('sameAs')!r} does not point at the cited DOI {dois.cited}")
 
     return found
 
