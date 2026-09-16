@@ -27,6 +27,12 @@ the ``DATA_DOI`` is what gets cited and what ``sameAs`` points at, because the
 rule in ``docs/src/schemas/experiment_metadata.md`` is to cite the data. With
 only one of them given, that one fills every role.
 
+A plain ``DOI`` is the deprecated experiment spelling of those two, and is not
+accepted by ``experiment_schema.json``. It is still read, so a record carrying
+it keeps its citation, and both a run and ``--check`` name it wherever they find
+one -- renaming it in the record is what clears the report. On a simulation the
+same key is the Zenodo deposition and is not deprecated.
+
 The remaining values are resolved from the record's DOI:
 
 - DataCite -- Zenodo depositions, i.e. every simulation

@@ -16,6 +16,12 @@
 # Example: DATA_DOI 10.18710/ETWNCU -> bioschema_properties.citation: [10.18710/ETWNCU]
 #
 # Both are bare DOIs (10.xxxx/yyyy), without a doi: prefix or a https://doi.org/ URL.
+#
+# DEPRECATED: a plain `DOI:` key. It was the original single DOI field and is not
+# accepted any more -- the schema does not declare it and rejects unknown keys.
+# Rename it to ARTICLE_DOI when it names the publication, or to DATA_DOI when it
+# names a deposition of the raw data. (A simulation README.yaml is unaffected:
+# DOI is the right key there, for the Zenodo deposition holding the trajectory.)
 ARTICLE_DOI: string  # DOI of the original publication of the experimental data
 DATA_DOI: string     # DOI of the dataset deposition with raw data
 DATA_REF: string     # reference to a deposited dataset that has no DOI; not a DOI substitute

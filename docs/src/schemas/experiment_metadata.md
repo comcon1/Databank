@@ -8,6 +8,7 @@
 | ARTICLE_DOI | DOI of the original publication of the experimental data. Becomes the citation when no DATA_DOI is given, and the parent work either way |
 | DATA_DOI | DOI of the dataset deposition with raw NMR data. When present, this is the DOI that becomes the citation |
 | DATA_REF | Reference to a deposited dataset that has no DOI. Free text, not resolved and not a substitute for a DOI |
+| DOI | **Deprecated** — the original single DOI field. Use ARTICLE_DOI or DATA_DOI instead; see [below](deprecateddoi) |
 | DATE | Date when the data was recorded or published |
 | TEMPERATURE | Temperature (K) of the experiment |
 | MEMBRANE_COMPOSITION | Dictionary of molar fractions of membrane phase |
@@ -76,10 +77,32 @@ The article DOI is also the one *looked up* in the registries when both are give
 carries the authors, the journal and the publication date that a raw-data deposition record
 usually lacks, and those become `creator`, `datePublished` and `publisher`.
 
-A handful of entries under `experiments/*/unpublished/` predate this requirement and carry no
-DOI at all. The enrichment tooling still describes them — their `description` ends *"Unpublished
+A handful of entries under `experiments/*/unpublished/` predate this requirement and have no
+DOI to give: they carry a `DOI: unpublished/<slug>` placeholder, which is not a DOI and is not
+resolved. The enrichment tooling still describes them — their `description` ends *"Unpublished
 data contributed to the NMRlipids Databank"* and they get no `citation`, `sameAs` or `isPartOf` —
 but they do not validate against the schema, and new entries must give a DOI.
+
+(deprecateddoi)=
+**The deprecated `DOI` field.** `DOI` was the original single DOI field, and it is **deprecated
+in favour of `ARTICLE_DOI` and `DATA_DOI`**. It says only that the entry has a DOI, not whether
+that DOI is the paper or the data — which is exactly the distinction the two fields above are
+there to make. The schema does not declare `DOI` and sets `additionalProperties: false`, so an
+entry still carrying it does not validate. Rename it:
+
+| what the `DOI` value names | rename it to |
+|----------------------------|--------------|
+| the publication the values were digitised from | `ARTICLE_DOI` |
+| a deposition of the raw data (Zenodo, nmrXiv, DataverseNO, …) | `DATA_DOI` |
+
+Until an entry is renamed the enrichment tooling goes on reading `DOI` as `ARTICLE_DOI`, so the
+entry keeps its citation in the meantime; both an enrichment run and `--check` name the key when
+they read it, so the entries still to be migrated are listed rather than searched for. Do not use
+it in a new entry.
+
+This deprecation is experiment-only. A simulation `README.yaml` uses `DOI` for the Zenodo
+deposition holding its trajectory, and that remains the correct key there — see
+[Simulation metadata](readmesimu).
 
 1. **ARTICLE_DOI**  
 DOI of the original publication where the experimental data originates.

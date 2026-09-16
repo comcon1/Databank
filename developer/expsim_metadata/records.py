@@ -19,7 +19,7 @@ import yaml
 
 from .constants import BLOCK_KEY_RE, BLOCK_ORDER, DATE_FIELDS, LEGACY_SENTINEL
 from .bioschema import enrich
-from .fields import record_dois, record_kind
+from .fields import deprecated_keys, record_dois, record_kind
 from .helpers import parse_publication
 from .licenses import compact_license, dataset_license
 from .registries import from_crossref, from_datacite, resolve_doi, with_dataset_license
@@ -120,11 +120,39 @@ def normalize_dates(text, kind):
     return "".join(lines), changed
 
 
+def _node_end(lines, start):
+    """Index just past the top-level YAML node whose key line is ``lines[start]``.
+
+    Everything indented below the key belongs to the node -- the text of a block
+    scalar, the items of a list -- and so do blank lines sitting between those.
+    A blank line before the next top-level key does not, and neither does a
+    comment written at column 0, so both are left where the author put them.
+    """
+    end = index = start + 1
+    while index < len(lines):
+        line = lines[index]
+        if not line.strip():
+            index += 1
+            continue
+        if line[:1] not in (" ", "\t"):
+            break
+        index += 1
+        end = index
+    return end
+
+
 def drop_publication(text, block):
     """Retire ``PUBLICATION`` once ``citation`` demonstrably covers it.
 
     Refuses to remove anything the citation list does not already carry, so a
     hand-written reference cannot be lost to a parsing slip.
+
+    What goes is the whole top-level node, not the key line alone. The schemas
+    type ``PUBLICATION`` as a string, and YAML lets a string be written as a
+    block scalar whose text sits on the indented lines below the key: dropping
+    only ``PUBLICATION:`` would strand those lines at top level, leaving a
+    README that no longer parses -- or, worse, one that parses with the stranded
+    text swallowed by whichever key follows.
     """
     doc = yaml.safe_load(text) or {}
     if "PUBLICATION" not in doc:
@@ -134,8 +162,13 @@ def drop_publication(text, block):
         if item not in cites:
             print(f"  keeping PUBLICATION: {item!r} is not in citation")
             return text, False
-    kept = [ln for ln in text.splitlines(keepends=True) if not ln.startswith("PUBLICATION:")]
-    return "".join(kept), True
+    lines = text.splitlines(keepends=True)
+    start = next((i for i, line in enumerate(lines) if line.startswith("PUBLICATION:")), None)
+    if start is None:
+        # Declared some other way than a plain top-level key -- quoted, say.
+        # Rewriting that is guesswork, so the field stays and --check reports it.
+        return text, False
+    return "".join(lines[:start] + lines[_node_end(lines, start):]), True
 
 
 def process(path, spdx, names, cache_dir, dry_run=False):
@@ -147,6 +180,9 @@ def process(path, spdx, names, cache_dir, dry_run=False):
 
     dois = record_dois(readme, kind)
     doi = dois.lookup
+
+    for key, replacement in deprecated_keys(readme, kind).items():
+        print(f"  deprecated: {key} is no longer accepted; rename it to {replacement}")
 
     existing = readme.get("bioschema_properties")
 

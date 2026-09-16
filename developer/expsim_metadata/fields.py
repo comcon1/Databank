@@ -22,6 +22,7 @@ from .constants import (
     CHMO_PDLF_R,
     CHMO_SAXS,
     CHMO_SSNMR,
+    DEPRECATED_EXPERIMENT_KEYS,
     DOI_RE,
     KEYWORD_SKIP,
 )
@@ -111,9 +112,10 @@ def record_dois(readme, kind):
     ``deposition``  the raw data deposition, the parent work for a simulation
                     and for an experiment that has no article.
 
-    ``DOI`` is the deprecated experiment spelling of ``ARTICLE_DOI``; 29 records
-    still carry it, and it also holds ``unpublished/<slug>`` values, which
-    ``normalize_doi`` rejects.
+    ``DOI`` is deprecated for an experiment, in favour of ``ARTICLE_DOI`` and
+    ``DATA_DOI``. It is still read so that the records carrying it keep their
+    citation, but it is no longer a spelling a record may use: see
+    ``deprecated_keys`` below, which is what reports it.
     """
     if kind == "simulations":
         # A simulation has one DOI, the Zenodo deposition holding the
@@ -123,10 +125,33 @@ def record_dois(readme, kind):
         return Dois(lookup=deposition, cited=deposition,
                     article=None, deposition=deposition)
 
+    # readme.get("DOI") is the deprecated spelling, kept only until the records
+    # carrying it are migrated.
     article = normalize_doi(readme.get("ARTICLE_DOI") or readme.get("DOI"))
     deposition = normalize_doi(readme.get("DATA_DOI"))
     return Dois(lookup=article or deposition, cited=deposition or article,
                 article=article, deposition=deposition)
+
+
+def deprecated_keys(readme, kind):
+    """Deprecated spellings this record still uses, as ``{key: replacement}``.
+
+    Reported rather than rewritten. ``experiment_schema.json`` declares none of
+    these while setting ``additionalProperties: false``, so a record still
+    carrying one does not validate, and the fix is to rename the key in the
+    record -- an edit to hand-written content, which this tool does not make.
+    What it does instead is name the key every time it reads one, so a run over
+    the databank lists exactly which records are still to be migrated.
+
+    A simulation has none: ``DOI`` is the deprecated *experiment* spelling, and
+    the same key on a simulation is the Zenodo deposition that
+    ``readme_yaml_schema.json`` declares.
+    """
+    if kind != "experiments":
+        return {}
+    return {key: replacement
+            for key, replacement in DEPRECATED_EXPERIMENT_KEYS.items()
+            if readme.get(key) is not None}
 
 
 # ---------------------------------------------------------------------------

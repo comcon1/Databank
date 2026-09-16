@@ -12,7 +12,7 @@ from pathlib import Path
 import yaml
 
 from .constants import DATE_RE, ORCID_RE
-from .fields import record_dois, record_kind
+from .fields import deprecated_keys, record_dois, record_kind
 from .helpers import clean_text, normalize_doi
 
 
@@ -76,11 +76,20 @@ def check(path, spdx, strict=False):
         elif creator.get("identifier") and not ORCID_RE.search(str(creator["identifier"])):
             error(f"creator[{index}].identifier {creator['identifier']!r} is not an ORCID URI")
 
+    kind = record_kind(path)
+
+    # A deprecated key warns rather than fails: the block generated from it is
+    # correct, and what is wrong is the record around it, which
+    # experiment_schema.json will not accept until the key is renamed. --check is
+    # therefore also the sweep that lists which records are still to be migrated.
+    for key, replacement in deprecated_keys(readme, kind).items():
+        warn(f"{key} is deprecated and not accepted by experiment_schema.json; "
+             f"rename it to {replacement}")
+
     # The data-first rule, checked against the record's own DOI fields rather
     # than re-derived: a block written before the rule, or hand-edited since,
     # still cites the article, and --check is how a whole databank is swept for
     # the records a rerun has to visit.
-    kind = record_kind(path)
     dois = record_dois(readme, kind)
     cites = {normalize_doi(c) for c in (block.get("citation") or [])}
     if kind == "experiments":

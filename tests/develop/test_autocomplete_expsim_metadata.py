@@ -355,13 +355,53 @@ def test_doi_roles_are_resolved_per_record():
     data_only = mod.record_dois({"DATA_DOI": DATA_DOI}, "experiments")
     assert (data_only.lookup, data_only.cited, data_only.article) == (DATA_DOI, DATA_DOI, None)
 
-    # The deprecated experiment spelling of ARTICLE_DOI, still on 29 records.
+    # The deprecated experiment spelling of ARTICLE_DOI, still on 29 records: it
+    # is read so those records keep their citation until they are renamed.
     legacy = mod.record_dois({"DOI": ARTICLE_DOI}, "experiments")
     assert (legacy.article, legacy.cited) == (ARTICLE_DOI, ARTICLE_DOI)
 
     # ... which also holds unpublished/<slug> values that are not DOIs at all.
     unpublished = mod.record_dois({"DOI": "unpublished/ferreira2023"}, "experiments")
     assert unpublished == (None, None, None, None)
+
+
+def test_the_deprecated_doi_key_is_reported_not_rewritten():
+    """DOI is deprecated for experiments, and named wherever it is read."""
+    mod = load_expsim_module("expsim_metadata.fields")
+
+    reported = mod.deprecated_keys({"DOI": ARTICLE_DOI}, "experiments")
+    assert set(reported) == {"DOI"}
+    assert "ARTICLE_DOI" in reported["DOI"] and "DATA_DOI" in reported["DOI"]
+
+    # An unresolvable placeholder is still the deprecated key.
+    assert set(mod.deprecated_keys({"DOI": "unpublished/ferreira2023"}, "experiments")) == {"DOI"}
+
+    # Renamed records have nothing to report.
+    assert mod.deprecated_keys({"ARTICLE_DOI": ARTICLE_DOI, "DATA_DOI": DATA_DOI},
+                               "experiments") == {}
+
+    # A simulation's DOI is the Zenodo deposition, which readme_yaml_schema.json
+    # declares: the same key is not deprecated there.
+    assert mod.deprecated_keys({"DOI": SIMULATION_DOI}, "simulations") == {}
+
+
+def test_a_record_still_using_doi_keeps_its_citation_and_is_flagged(tmp_path, capsys):
+    """Enrichment does not rewrite the key, so --check keeps reporting it."""
+    legacy = base_record()
+    legacy["DOI"] = legacy.pop("ARTICLE_DOI")
+    mod, paths, blocks = run_generator(tmp_path, [legacy])
+
+    # Nothing is lost while the record waits to be renamed.
+    assert blocks[0]["citation"] == [ARTICLE_DOI]
+    assert "deprecated: DOI" in capsys.readouterr().out
+
+    # The key is still in the record: renaming it is an edit to hand-written
+    # content, made in the data repository rather than by this tool.
+    assert "DOI" in yaml.safe_load(paths[0].read_text(encoding="utf-8"))
+
+    spdx = mod.load_spdx(tmp_path / "cache")
+    warnings = [message for level, message in mod.check(paths[0], spdx) if level == "WARNING"]
+    assert any("DOI is deprecated" in m for m in warnings)
 
 
 def test_dois_are_normalised_before_use():
@@ -752,6 +792,44 @@ def test_a_publication_the_citation_rule_removed_is_kept(tmp_path):
     )
     assert blocks[0]["citation"] == [DATA_DOI]
     assert "PUBLICATION" in paths[0].read_text(encoding="utf-8")
+
+
+def test_a_block_scalar_publication_is_removed_whole(tmp_path):
+    """A string may be written over several lines, and all of them have to go.
+
+    Removing the ``PUBLICATION:`` line alone strands its indented text at top
+    level, which either fails to parse or is swallowed by the next key.
+    """
+    records = load_expsim_module("expsim_metadata.records")
+    readme = (
+        "TEMPERATURE: 314\n"
+        "PUBLICATION: |\n"
+        f"  Dvinskikh et al., PCCP 7 (2005) 3255.\n"
+        f"  https://doi.org/{ARTICLE_DOI}\n"
+        "\n"
+        "TOTAL_HYDRATION: 95\n"
+    )
+    out, removed = records.drop_publication(readme, {"citation": [ARTICLE_DOI]})
+
+    assert removed
+    parsed = yaml.safe_load(out)
+    assert "PUBLICATION" not in parsed
+    # The stranded lines did not attach themselves to the surviving keys.
+    assert parsed == {"TEMPERATURE": 314, "TOTAL_HYDRATION": 95}
+
+
+def test_a_multi_line_publication_the_rule_kept_is_left_intact(tmp_path):
+    """Nothing is touched when the citation does not cover the field."""
+    records = load_expsim_module("expsim_metadata.records")
+    readme = (
+        "PUBLICATION: |\n"
+        "  Dvinskikh et al., PCCP 7 (2005) 3255\n"
+        "TOTAL_HYDRATION: 95\n"
+    )
+    out, removed = records.drop_publication(readme, {"citation": [DATA_DOI]})
+
+    assert not removed
+    assert out == readme
 
 
 # ---------------------------------------------------------------------------

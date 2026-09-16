@@ -140,6 +140,21 @@ DATE_RE = re.compile(r"^\d{4}(-\d{2}(-\d{2})?)?$")
 TRAILING = ".,;:)]}’\"'"
 
 
+# Experiment README keys that are no longer accepted, mapped to the spelling
+# that replaces them. They are still read, so a record that has not been
+# migrated keeps its citation, but every read is reported: experiment_schema.json
+# declares none of them while setting additionalProperties: false, so a record
+# still carrying one does not validate. Renaming the key is an edit to
+# hand-written content, which this tool does not make -- it is done in the data
+# repository.
+#
+# DOI is deprecated for experiments only: readme_yaml_schema.json declares DOI
+# for a simulation, where it names the Zenodo deposition and is the right key.
+DEPRECATED_EXPERIMENT_KEYS = {
+    "DOI": "ARTICLE_DOI, or DATA_DOI where the value is a data deposition",
+}
+
+
 # Water is in every system and says nothing about it; ions do carry meaning.
 KEYWORD_SKIP = frozenset({"SOL"})
 
