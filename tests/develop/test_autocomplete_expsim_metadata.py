@@ -1,3 +1,4 @@
+import importlib
 import importlib.util
 import json
 import sys
@@ -21,12 +22,27 @@ DATA_DOI = "10.18710/ETWNCU"
 ARTICLE_TITLE = "Structure and dynamics of DMPC bilayers"
 
 
+DEVELOPER_DIR = Path(__file__).resolve().parents[2] / "developer"
+
+
 def load_autocomplete_module():
-    module_path = Path(__file__).resolve().parents[2] / "developer" / "autocomplete_expsim_metadata.py"
+    """The CLI script, loaded by path: developer/ is not an installed package."""
+    module_path = DEVELOPER_DIR / "autocomplete_expsim_metadata.py"
+    # The script imports the expsim_metadata package beside it the way it does when run
+    # from that folder, so the folder has to be importable here.
+    if str(DEVELOPER_DIR) not in sys.path:
+        sys.path.insert(0, str(DEVELOPER_DIR))
     spec = importlib.util.spec_from_file_location("autocomplete_expsim_metadata", module_path)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
+
+
+def load_expsim_module(name):
+    """One of the modules the script is split across, e.g. ``expsim_metadata.fields``."""
+    if str(DEVELOPER_DIR) not in sys.path:
+        sys.path.insert(0, str(DEVELOPER_DIR))
+    return importlib.import_module(name)
 
 
 SCHEMA_DIR = Path(__file__).resolve().parents[2] / "src" / "fairmd" / "lipids" / "schema_validation" / "schema"
@@ -323,7 +339,7 @@ def test_data_ref_is_not_treated_as_a_doi(tmp_path):
 
 def test_doi_roles_are_resolved_per_record():
     """record_dois() is the one place the precedence is decided."""
-    mod = load_autocomplete_module()
+    mod = load_expsim_module("expsim_metadata.fields")
 
     both = mod.record_dois({"ARTICLE_DOI": ARTICLE_DOI, "DATA_DOI": DATA_DOI}, "experiments")
     assert (both.lookup, both.cited) == (ARTICLE_DOI, DATA_DOI)
@@ -342,7 +358,7 @@ def test_doi_roles_are_resolved_per_record():
 
 def test_dois_are_normalised_before_use():
     """A DOI given as a URL or with a doi: prefix still resolves and is cited bare."""
-    mod = load_autocomplete_module()
+    mod = load_expsim_module("expsim_metadata.fields")
     prefixed = mod.record_dois(
         {"ARTICLE_DOI": f"doi:{ARTICLE_DOI}", "DATA_DOI": f"https://doi.org/{DATA_DOI}"},
         "experiments",
