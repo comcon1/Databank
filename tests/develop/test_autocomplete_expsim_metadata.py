@@ -714,8 +714,7 @@ def test_a_deposition_licence_is_not_called_an_article_licence(tmp_path):
     assert parent["identifier"] == DEPOSITION_ONLY_DOI
     assert parent["license"]["spdx"] == "CC0-1.0"
 
-    errors = sorted(Draft7Validator(block_schema("experiment_schema.json")).iter_errors(block),
-                    key=lambda e: e.path)
+    errors = sorted(Draft7Validator(block_schema("experiment_schema.json")).iter_errors(block), key=lambda e: e.path)
     assert not errors, [e.message for e in errors]
 
 
@@ -735,9 +734,7 @@ def test_publication_is_retired_for_experiments_too(tmp_path):
 
 def test_free_text_in_publication_moves_to_citation_before_the_field_goes(tmp_path):
     """A reference with no DOI is kept verbatim, so nothing is lost with the field."""
-    _, paths, blocks = run_generator(
-        tmp_path, [base_record(PUBLICATION="Dvinskikh et al., PCCP 7 (2005) 3255")]
-    )
+    _, paths, blocks = run_generator(tmp_path, [base_record(PUBLICATION="Dvinskikh et al., PCCP 7 (2005) 3255")])
     assert "Dvinskikh et al., PCCP 7 (2005) 3255" in blocks[0]["citation"]
     assert "PUBLICATION" not in paths[0].read_text(encoding="utf-8")
 
