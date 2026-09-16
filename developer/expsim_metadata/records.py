@@ -21,7 +21,7 @@ from .constants import BLOCK_KEY_RE, BLOCK_ORDER, DATE_FIELDS, LEGACY_SENTINEL
 from .bioschema import enrich
 from .fields import record_dois, record_kind
 from .helpers import parse_publication
-from .licenses import dataset_license
+from .licenses import compact_license, dataset_license
 from .registries import from_crossref, from_datacite, resolve_doi, with_dataset_license
 
 
@@ -42,9 +42,7 @@ def prune(block):
     pruned = {}
     for key, value in block.items():
         if key in ("license", "articleLicense") and isinstance(value, dict):
-            licence = {k: v for k, v in value.items() if v is not None}
-            licence.setdefault("spdx", None)
-            pruned[key] = licence
+            pruned[key] = compact_license(value)
         elif value not in (None, [], {}):
             pruned[key] = value
     return pruned
@@ -150,11 +148,20 @@ def process(path, spdx, names, cache_dir, dry_run=False):
     dois = record_dois(readme, kind)
     doi = dois.lookup
 
+    existing = readme.get("bioschema_properties")
+
     block, notes = None, []
     if doi:
         payload, api = resolve_doi(doi, kind, cache_dir)
         if payload is None:
             print(f"  warning: DOI not found: {doi}")
+            if ((existing or {}).get("_source") or {}).get("api"):
+                # A registry answered on an earlier run and is not answering
+                # now. Rewriting the block from what is left would drop the
+                # creators, dates, licence, publisher and parent work it already
+                # holds, so leave the last good metadata where it is.
+                print("  keeping the block a previous run fetched; nothing rewritten")
+                return False
         else:
             mapper = from_datacite if api == "datacite" else from_crossref
             block, notes = mapper(payload, doi, readme, spdx)
@@ -167,14 +174,15 @@ def process(path, spdx, names, cache_dir, dry_run=False):
 
     block = enrich(block, readme, path, kind, dois, names)
     if kind == "experiments":
-        block = with_dataset_license(block, dataset_license(spdx))
+        block = with_dataset_license(block, dataset_license(spdx), dois.article)
     block = ordered(prune(block))
 
     text, dates_changed = normalize_dates(original, kind)
-    if kind == "simulations":
-        text, _ = drop_publication(text, block)
+    # Both kinds: the field is retired once ``citation`` carries its content, and
+    # experiment_schema.json does not declare PUBLICATION at all while it sets
+    # additionalProperties: false, so a record keeping it would not validate.
+    text, _ = drop_publication(text, block)
 
-    existing = readme.get("bioschema_properties")
     if volatile_stripped(existing) == volatile_stripped(block):
         block.setdefault("_source", {})["retrieved"] = (
             ((existing or {}).get("_source") or {}).get("retrieved") or date.today().isoformat()

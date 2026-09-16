@@ -76,9 +76,9 @@
         { "type": "number", "minimum": 0, "maximum": 14 },
         { "type": "string", "enum": ["UNKNOWN"] },
         {
-          "$comment": "A pH range, e.g. 8-10. Anchored and bounded to 0-14, like the numeric branch above.",
+          "$comment": "A pH range, e.g. 8-10 or 1.3-13.2. Anchored, and each endpoint is bounded to 0-14 like the numeric branch above: a decimal part is allowed everywhere below 14, and at 14 only when it is zero, so 14.5 is rejected the way the numeric branch rejects it.",
           "type": "string",
-          "pattern": "^(?:1[0-4]|[0-9])(?:\\.[0-9]+)?-(?:1[0-4]|[0-9])(?:\\.[0-9]+)?$"
+          "pattern": "^(?:14(?:\\.0+)?|1[0-3](?:\\.[0-9]+)?|[0-9](?:\\.[0-9]+)?)-(?:14(?:\\.0+)?|1[0-3](?:\\.[0-9]+)?|[0-9](?:\\.[0-9]+)?)$"
         }
       ],
       "description": "pH of the system"
@@ -307,7 +307,7 @@
   ],
   "allOf": [
     {
-      "$comment": "At least one of the two DOIs has to be given. DATA_REF does not count: it is free text rather than a resolvable identifier. Where both DOIs are given, DATA_DOI wins as the DOI to cite and ARTICLE_DOI stays the parent work - see docs/src/schemas/experiment_metadata.md and record_dois() in developer/autocomplete_expsim_metadata.py.",
+      "$comment": "At least one of the two DOIs has to be given. DATA_REF does not count: it is free text rather than a resolvable identifier. Where both DOIs are given, DATA_DOI wins as the DOI to cite and ARTICLE_DOI stays the parent work - see docs/src/schemas/experiment_metadata.md and record_dois() in developer/expsim_metadata/fields.py.",
       "anyOf": [
         { "required": ["ARTICLE_DOI"] },
         { "required": ["DATA_DOI"] }
@@ -335,7 +335,7 @@
   ],
   "definitions": {
     "doi": {
-      "$comment": "Bare DOI: no doi: prefix and no https://doi.org/ URL. Mirrors DOI_RE in developer/autocomplete_expsim_metadata.py. Experiment-local - not part of the bioschema_properties block mirrored in readme_yaml_schema.json.",
+      "$comment": "Bare DOI: no doi: prefix and no https://doi.org/ URL. Mirrors DOI_RE in developer/expsim_metadata/constants.py. Experiment-local - not part of the bioschema_properties block mirrored in readme_yaml_schema.json.",
       "type": "string",
       "pattern": "^10\\.\\d{4,9}/\\S+$"
     },

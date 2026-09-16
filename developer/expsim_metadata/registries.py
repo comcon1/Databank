@@ -33,7 +33,7 @@ from .helpers import (
     parse_publication,
     strip_markup,
 )
-from .licenses import access_rights, license_block, resolve_license
+from .licenses import access_rights, compact_license, license_block, resolve_license
 
 def _publisher_name(publisher):
     """DataCite 4.5 allows publisher to be an object rather than a string."""
@@ -189,21 +189,40 @@ def from_crossref(payload, doi, readme, spdx):
     return block, notes
 
 
-def with_dataset_license(block, licence):
-    """Move a fetched licence to ``articleLicense`` and set the dataset licence.
+def with_dataset_license(block, licence, article=None):
+    """State the databank's licence, and move the fetched one where it belongs.
+
+    An experiment record digitises values out of a source: the source carries
+    its own terms, while what this repository distributes is the digitised
+    values, under its own licence. Where the fetched licence goes depends on
+    what answered for it, not on which registry did: it is an ``articleLicense``
+    only when the DOI that was looked up is the article the values came from.
+    The four nmrXiv records give a ``DATA_DOI`` and no article, and their
+    deposition's licence is a property of that deposition -- so it lands on
+    ``isPartOf``, which is the deposition, rather than being labelled as the
+    licence of an article that does not exist.
 
     Rebuilt rather than mutated so the two stay adjacent and ordered.
     """
-    article = block.get("license")
+    fetched = block.get("license")
+    source_doi = (block.get("_source") or {}).get("doi")
+    describes_article = bool(article) and source_doi == article
+
     rebuilt = {}
     for key, value in block.items():
         if key == "license":
             rebuilt["license"] = licence
-            if article:
-                rebuilt["articleLicense"] = article
+            if fetched and describes_article:
+                rebuilt["articleLicense"] = fetched
         else:
             rebuilt[key] = value
     rebuilt.setdefault("license", licence)
+
+    parent = rebuilt.get("isPartOf")
+    if (fetched and not describes_article and isinstance(parent, dict)
+            and parent.get("identifier") == source_doi):
+        nested = compact_license(fetched) if isinstance(fetched, dict) else fetched
+        rebuilt["isPartOf"] = {**parent, "license": nested}
     return rebuilt
 
 
@@ -231,6 +250,10 @@ def resolve_doi(doi, kind, cache_dir):
             api = candidate
             break
 
-    cache_dir.mkdir(parents=True, exist_ok=True)
-    cached.write_text(json.dumps([payload, api]), encoding="utf-8")
+    # Only an answer is cached. A failed lookup is a fact about today -- an
+    # outage, an exhausted retry budget -- and caching it would suppress every
+    # later attempt until someone deleted the file by hand.
+    if payload is not None:
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        cached.write_text(json.dumps([payload, api]), encoding="utf-8")
     return payload, api

@@ -83,7 +83,15 @@ def seed_cache(cache_dir):
                         "name": "Creative Commons Attribution 4.0 International",
                         "reference": "https://spdx.org/licenses/CC-BY-4.0.html",
                         "seeAlso": ["https://creativecommons.org/licenses/by/4.0/legalcode"],
-                    }
+                    },
+                    # A second licence, so a fetched one can be told apart from
+                    # the dataset licence this repository asserts.
+                    {
+                        "licenseId": "CC0-1.0",
+                        "name": "Creative Commons Zero v1.0 Universal",
+                        "reference": "https://spdx.org/licenses/CC0-1.0.html",
+                        "seeAlso": ["https://creativecommons.org/publicdomain/zero/1.0/legalcode"],
+                    },
                 ],
             }
         ),
@@ -591,3 +599,197 @@ def test_documented_example_shows_a_composed_name(page):
     assert block["name"].rstrip().endswith("]"), block["name"]
     # The composed description ends by naming where the record came from.
     assert block["description"].rstrip().endswith("."), block["description"]
+
+
+# ---------------------------------------------------------------------------
+# What a run must not destroy
+#
+# A registry that answered yesterday and times out today must cost a record
+# nothing: the block it already carries is the only copy of the creators, dates
+# and licence that were fetched, and a rewritten block cannot get them back.
+# ---------------------------------------------------------------------------
+
+
+DEPOSITION_ONLY_DOI = "10.57992/nmrxiv.p157.s1600"
+
+
+def seed_deposition_cache(cache_dir, doi=DEPOSITION_ONLY_DOI):
+    """An nmrXiv-style deposition: DataCite answers, and there is no article."""
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "data": {
+            "attributes": {
+                "titles": [{"title": "Raw NMR data for a cardiolipin bilayer"}],
+                "publisher": "nmrXiv",
+                "publicationYear": 2023,
+                "dates": [{"dateType": "Issued", "date": "2023-05-04"}],
+                "creators": [{"name": "Hörstel, Marie"}],
+                # Deliberately not the licence this repository distributes under,
+                # so the two cannot be confused in the assertions below.
+                "rightsList": [
+                    {
+                        "rights": "Creative Commons Zero v1.0 Universal",
+                        "rightsUri": "https://creativecommons.org/publicdomain/zero/1.0/legalcode",
+                    }
+                ],
+                "subjects": [],
+                "relatedIdentifiers": [],
+            }
+        }
+    }
+    slug = doi.replace("/", "%2F")
+    (cache_dir / f"{slug}.json").write_text(json.dumps([payload, "datacite"]), encoding="utf-8")
+
+
+def test_a_failed_lookup_leaves_the_last_good_block_alone(generated, tmp_path, monkeypatch):
+    """A transient outage must not strip an already enriched record."""
+    mod, paths, _ = generated
+    registries = load_expsim_module("expsim_metadata.registries")
+    before = [p.read_text(encoding="utf-8") for p in paths]
+
+    root = paths[0].resolve().parents[5]
+    names = mod.molecule_names(root)
+    spdx = mod.load_spdx(root / "cache")
+
+    # An empty cache and a registry that answers nothing: the lookup fails the
+    # way an outage makes it fail.
+    monkeypatch.setattr(registries, "fetch_json", lambda *args, **kwargs: None)
+    empty_cache = tmp_path / "empty-cache"
+    for path in paths:
+        assert mod.process(path, spdx, names, empty_cache) is False
+
+    assert [p.read_text(encoding="utf-8") for p in paths] == before
+
+
+def test_a_failed_lookup_is_not_cached(tmp_path, monkeypatch):
+    """Caching a failure would suppress every later attempt at that DOI."""
+    registries = load_expsim_module("expsim_metadata.registries")
+    cache = tmp_path / "cache"
+
+    monkeypatch.setattr(registries, "fetch_json", lambda *args, **kwargs: None)
+    assert registries.resolve_doi(ARTICLE_DOI, "experiments", cache)[0] is None
+    assert list(cache.glob("*.json")) == []
+
+    payload = {"message": {"title": [ARTICLE_TITLE]}}
+    monkeypatch.setattr(registries, "fetch_json", lambda *args, **kwargs: payload)
+    assert registries.resolve_doi(ARTICLE_DOI, "experiments", cache)[0] == payload
+    assert len(list(cache.glob("*.json"))) == 1
+
+
+# ---------------------------------------------------------------------------
+# Which licence belongs to what
+# ---------------------------------------------------------------------------
+
+
+def test_a_deposition_licence_is_not_called_an_article_licence(tmp_path):
+    """With only a DATA_DOI there is no article, so nothing may claim one.
+
+    The four nmrXiv records in BilayerData are exactly this case: DataCite
+    answers for a deposition, and its licence is a property of that deposition
+    rather than of a paper that was never written.
+    """
+    mod = load_autocomplete_module()
+    paths = build_databank(tmp_path, [base_record(DATA_DOI=DEPOSITION_ONLY_DOI, ARTICLE_DOI=None)])
+    record = yaml.safe_load(paths[0].read_text(encoding="utf-8"))
+    del record["ARTICLE_DOI"]
+    paths[0].write_text(yaml.safe_dump(record, sort_keys=False), encoding="utf-8")
+
+    cache = tmp_path / "cache"
+    seed_cache(cache)
+    seed_deposition_cache(cache)
+    argv = ["autocomplete_expsim_metadata.py", "--cache", str(cache), str(paths[0])]
+    original_argv = sys.argv
+    sys.argv = argv
+    try:
+        mod.main()
+    finally:
+        sys.argv = original_argv
+
+    block = yaml.safe_load(paths[0].read_text(encoding="utf-8"))["bioschema_properties"]
+    assert "articleLicense" not in block
+    # What this repository distributes stays the dataset licence ...
+    assert block["license"]["spdx"] == "CC-BY-4.0"
+    # ... and the deposition keeps its own, on the deposition.
+    parent = block["isPartOf"]
+    assert parent["identifier"] == DEPOSITION_ONLY_DOI
+    assert parent["license"]["spdx"] == "CC0-1.0"
+
+    errors = sorted(Draft7Validator(block_schema("experiment_schema.json")).iter_errors(block),
+                    key=lambda e: e.path)
+    assert not errors, [e.message for e in errors]
+
+
+# ---------------------------------------------------------------------------
+# Retiring PUBLICATION
+# ---------------------------------------------------------------------------
+
+
+def test_publication_is_retired_for_experiments_too(tmp_path):
+    """experiment_schema.json does not declare PUBLICATION and forbids extras."""
+    _, paths, blocks = run_generator(
+        tmp_path, [base_record(PUBLICATION=f"Dvinskikh et al., https://doi.org/{ARTICLE_DOI}")]
+    )
+    assert blocks[0]["citation"] == [ARTICLE_DOI]
+    assert "PUBLICATION" not in paths[0].read_text(encoding="utf-8")
+
+
+def test_free_text_in_publication_moves_to_citation_before_the_field_goes(tmp_path):
+    """A reference with no DOI is kept verbatim, so nothing is lost with the field."""
+    _, paths, blocks = run_generator(
+        tmp_path, [base_record(PUBLICATION="Dvinskikh et al., PCCP 7 (2005) 3255")]
+    )
+    assert "Dvinskikh et al., PCCP 7 (2005) 3255" in blocks[0]["citation"]
+    assert "PUBLICATION" not in paths[0].read_text(encoding="utf-8")
+
+
+def test_a_publication_the_citation_rule_removed_is_kept(tmp_path):
+    """The field only goes once ``citation`` demonstrably carries its content.
+
+    With both DOIs given the article is deliberately *not* cited -- it is the
+    parent work instead -- so a PUBLICATION naming it is not represented there
+    and stays where it is rather than being dropped on the strength of a rule
+    that removed it.
+    """
+    _, paths, blocks = run_generator(
+        tmp_path, [base_record(DATA_DOI=DATA_DOI, PUBLICATION=f"https://doi.org/{ARTICLE_DOI}")]
+    )
+    assert blocks[0]["citation"] == [DATA_DOI]
+    assert "PUBLICATION" in paths[0].read_text(encoding="utf-8")
+
+
+# ---------------------------------------------------------------------------
+# Where a record sits
+# ---------------------------------------------------------------------------
+
+
+def test_the_toy_data_simulation_folders_count_as_simulations(tmp_path):
+    """ToyData splits trajectories across Simulations.1, .2 and .AddData."""
+    fields = load_expsim_module("expsim_metadata.fields")
+    for folder in ("Simulations", "Simulations.1", "Simulations.2", "Simulations.AddData"):
+        path = tmp_path / folder / "aa0" / "README.yaml"
+        assert fields.record_kind(path) == "simulations", folder
+    assert fields.record_kind(tmp_path / "experiments" / "OrderParameters" / "1" / "README.yaml") == "experiments"
+
+
+def test_the_databank_root_is_found_in_the_toy_layout(tmp_path):
+    fields = load_expsim_module("expsim_metadata.fields")
+    root = tmp_path / "ToyData"
+    (root / "Molecules" / "membrane").mkdir(parents=True)
+    (root / "Simulations.1" / "aa0").mkdir(parents=True)
+    assert fields.data_root_of(root / "Simulations.1" / "aa0" / "README.yaml") == root.resolve()
+
+
+# ---------------------------------------------------------------------------
+# The pH scale
+# ---------------------------------------------------------------------------
+
+
+def test_a_ph_range_is_bounded_to_the_ph_scale():
+    """Both endpoints obey the bound the numeric branch states, decimals included."""
+    schema = json.loads((SCHEMA_DIR / "experiment_schema.json").read_text(encoding="utf-8"))
+    validator = Draft7Validator(schema["properties"]["PH"])
+
+    for value in (7, 7.4, 0, 14, "UNKNOWN", "8-10", "1.3-13.2", "0-14", "14.0-14.0", "3.0-9.25"):
+        assert validator.is_valid(value), value
+    for value in ("14.5-14.5", "15-16", "-1-5", "10-", "7,4", "8 - 10"):
+        assert not validator.is_valid(value), value

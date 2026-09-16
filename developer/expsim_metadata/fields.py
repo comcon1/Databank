@@ -33,8 +33,24 @@ from .helpers import clean_text, normalize_doi
 # ---------------------------------------------------------------------------
 
 
+SIMULATIONS_DIR = "Simulations"
+
+
+def _is_simulations_dir(name):
+    """``Simulations``, and the ``Simulations.1`` variants the toy data uses.
+
+    The databank keeps its trajectories in one ``Simulations`` folder, but the
+    test data shipped with the package splits them across ``Simulations.1``,
+    ``Simulations.2`` and ``Simulations.AddData``. Matching only the bare name
+    files every one of those records as an experiment, which then picks the
+    wrong DOI roles, the wrong description and the wrong schema.
+    """
+    return name == SIMULATIONS_DIR or name.startswith(SIMULATIONS_DIR + ".")
+
+
 def record_kind(path):
-    return "simulations" if "Simulations" in Path(path).resolve().parts else "experiments"
+    parts = Path(path).resolve().parts
+    return "simulations" if any(_is_simulations_dir(part) for part in parts) else "experiments"
 
 
 def experiment_kind(path):
@@ -44,7 +60,10 @@ def experiment_kind(path):
 def data_root_of(path):
     """Walk up from a README.yaml to the databank root."""
     for parent in Path(path).resolve().parents:
-        if (parent / "Molecules").is_dir() and (parent / "Simulations").is_dir():
+        if not (parent / "Molecules").is_dir():
+            continue
+        if any(child.is_dir() and _is_simulations_dir(child.name)
+               for child in parent.glob(f"{SIMULATIONS_DIR}*")):
             return parent
     # Both layouts put README.yaml five levels below the root.
     return Path(path).resolve().parents[5]

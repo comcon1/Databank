@@ -96,6 +96,18 @@ def license_block(licence, asserted_uri):
     return block
 
 
+def compact_license(licence):
+    """A licence block without its absent values.
+
+    An unresolved licence keeps an explicit ``spdx: null`` beside the URI that
+    failed to resolve, so the gap stays visible rather than looking like a
+    licence nobody asserted; everything else absent is simply dropped.
+    """
+    compact = {key: value for key, value in licence.items() if value is not None}
+    compact.setdefault("spdx", None)
+    return compact
+
+
 def dataset_license(spdx):
     """This repository's own licence, resolved through the SPDX list."""
     if spdx is not None:
