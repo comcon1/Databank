@@ -28,14 +28,13 @@ from .constants import NULLISH
 from .fields import chmo_for_method, composition_items, experiment_kind, solution_ids
 from .helpers import clean_text, iso_date, number
 
-
 # ---------------------------------------------------------------------------
 # Phrases the name and the description are built from
 # ---------------------------------------------------------------------------
 
 
-def format_ratio(items):
-    """``POPC`` for one component, ``POPC/POPE (95:5)`` for a mixture."""
+def format_ratio(items) -> str:
+    """Give human-readable composition: ``POPC`` for one component, ``POPC/POPE (95:5)`` for a mixture."""
     if not items:
         return "lipid"
     if len(items) == 1:
@@ -190,7 +189,7 @@ def source_tag(block, readme, path, kind):
 
 
 def compose_name(readme, path, kind, block):
-    """The record's title, pasted together from the record's own values."""
+    """Compose the record's title, pasted together from the record's own values."""
     items = composition_items(readme, kind)
     system = f"{format_ratio(items)} bilayer"
     temperature = number(readme.get("TEMPERATURE"))

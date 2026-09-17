@@ -17,8 +17,8 @@ from pathlib import Path
 
 import yaml
 
-from .constants import BLOCK_KEY_RE, BLOCK_ORDER, DATE_FIELDS, LEGACY_SENTINEL
 from .bioschema import enrich
+from .constants import BLOCK_KEY_RE, BLOCK_ORDER, DATE_FIELDS, LEGACY_SENTINEL
 from .fields import deprecated_keys, record_dois, record_kind
 from .helpers import parse_publication
 from .licenses import compact_license, dataset_license

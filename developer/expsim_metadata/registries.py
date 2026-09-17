@@ -11,17 +11,12 @@ each answer on disk so a re-run over the databank asks once per DOI.
 """
 
 import json
-import re
 import urllib.parse
-from pathlib import Path
 
 from .constants import (
     CITATION_RELATIONS,
     CROSSREF_URL,
     DATACITE_URL,
-    DATASET_LICENSE_SPDX,
-    DATASET_LICENSE_URI,
-    DOI_RE,
 )
 from .helpers import (
     clean_text,
@@ -34,6 +29,7 @@ from .helpers import (
     strip_markup,
 )
 from .licenses import access_rights, compact_license, license_block, resolve_license
+
 
 def _publisher_name(publisher):
     """DataCite 4.5 allows publisher to be an object rather than a string."""

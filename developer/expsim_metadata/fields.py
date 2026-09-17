@@ -10,7 +10,6 @@ Nothing in this module composes prose or Bioschemas properties: it is the layer
 ``expsim_metadata.descriptions`` and ``expsim_metadata.bioschema`` both read the record through.
 """
 
-import re
 from collections import namedtuple
 from pathlib import Path
 
@@ -23,11 +22,9 @@ from .constants import (
     CHMO_SAXS,
     CHMO_SSNMR,
     DEPRECATED_EXPERIMENT_KEYS,
-    DOI_RE,
     KEYWORD_SKIP,
 )
-from .helpers import clean_text, normalize_doi
-
+from .helpers import normalize_doi
 
 # ---------------------------------------------------------------------------
 # Where a record sits and what it points at
@@ -89,7 +86,7 @@ Dois = namedtuple("Dois", DOI_ROLES)
 
 
 def record_dois(readme, kind):
-    """The record's DOIs, split by the role each one plays.
+    """Get record's DOIs, split by the role each one plays.
 
     One record can carry two DOIs that mean different things, and they are not
     interchangeable, so they are resolved once here rather than re-picked at
@@ -174,7 +171,7 @@ def _molecule_count(entry):
     return float(count or 0)
 
 
-def composition_items(readme, kind):
+def composition_items(readme, kind: str) -> list:
     """Membrane components as ``(id, amount)``, largest share first.
 
     Amounts are molecule counts for simulations and molar fractions for
@@ -202,7 +199,7 @@ def composition_items(readme, kind):
     return items
 
 
-def solution_ids(readme):
+def solution_ids(readme) -> list:
     """Ions actually present, by databank id. Zero-valued entries are padding."""
     out = []
     for mol, amount in (readme.get("SOLUTION_COMPOSITION") or {}).items():
@@ -215,7 +212,7 @@ def solution_ids(readme):
     return sorted(out)
 
 
-def chmo_for_method(readme, path):
+def chmo_for_method(readme, path: str) -> str:
     """Map the record onto the most specific CHMO term.
 
     The directory decides NMR vs X-ray, not the presence of an ``NMR:`` block:

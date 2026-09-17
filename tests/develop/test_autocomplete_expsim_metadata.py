@@ -377,8 +377,7 @@ def test_the_deprecated_doi_key_is_reported_not_rewritten():
     assert set(mod.deprecated_keys({"DOI": "unpublished/ferreira2023"}, "experiments")) == {"DOI"}
 
     # Renamed records have nothing to report.
-    assert mod.deprecated_keys({"ARTICLE_DOI": ARTICLE_DOI, "DATA_DOI": DATA_DOI},
-                               "experiments") == {}
+    assert mod.deprecated_keys({"ARTICLE_DOI": ARTICLE_DOI, "DATA_DOI": DATA_DOI}, "experiments") == {}
 
     # A simulation's DOI is the Zenodo deposition, which readme_yaml_schema.json
     # declares: the same key is not deprecated there.
@@ -821,11 +820,7 @@ def test_a_block_scalar_publication_is_removed_whole(tmp_path):
 def test_a_multi_line_publication_the_rule_kept_is_left_intact(tmp_path):
     """Nothing is touched when the citation does not cover the field."""
     records = load_expsim_module("expsim_metadata.records")
-    readme = (
-        "PUBLICATION: |\n"
-        "  Dvinskikh et al., PCCP 7 (2005) 3255\n"
-        "TOTAL_HYDRATION: 95\n"
-    )
+    readme = "PUBLICATION: |\n  Dvinskikh et al., PCCP 7 (2005) 3255\nTOTAL_HYDRATION: 95\n"
     out, removed = records.drop_publication(readme, {"citation": [DATA_DOI]})
 
     assert not removed

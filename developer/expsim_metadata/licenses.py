@@ -10,7 +10,6 @@ it up rather than fetching it per record.
 
 import json
 import re
-from pathlib import Path
 
 from .constants import (
     ACCESS_RIGHTS_PREFIX,
@@ -18,9 +17,10 @@ from .constants import (
     DATASET_LICENSE_URI,
     SPDX_LICENSES_URL,
 )
-from .helpers import clean_text, fetch_json
+from .helpers import fetch_json
 
-def canonical_license_url(url):
+
+def canonical_license_url(url: str) -> str:
     """Reduce a licence URL to a form comparable across sources.
 
     DataCite returns ``.../by/4.0``, ``.../by/4.0/`` and ``.../by/4.0/legalcode``
@@ -50,7 +50,7 @@ class SpdxIndex:
             for see_also in licence.get("seeAlso") or []:
                 self.by_url.setdefault(canonical_license_url(see_also), []).append(licence)
 
-    def resolve(self, uri):
+    def resolve(self, uri: str):
         """Return ``(licence, ambiguous)`` for a licence URI, or ``(None, False)``.
 
         Dozens of URLs in the SPDX list map to more than one identifier
@@ -96,8 +96,8 @@ def license_block(licence, asserted_uri):
     return block
 
 
-def compact_license(licence):
-    """A licence block without its absent values.
+def compact_license(licence) -> dict:
+    """Get licence block without its absent values.
 
     An unresolved licence keeps an explicit ``spdx: null`` beside the URI that
     failed to resolve, so the gap stays visible rather than looking like a
@@ -148,7 +148,7 @@ def resolve_license(rights_list, spdx):
     return fallback, ambiguous
 
 
-def access_rights(rights_list):
+def access_rights(rights_list: list) -> str | None:
     """Keep the COAR access status ``resolve_license`` skips, rather than lose it."""
     for entry in rights_list or []:
         uri = (entry.get("rightsUri") or "").strip()

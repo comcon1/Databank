@@ -186,7 +186,7 @@ def is_based_on(readme, kind):
 
 
 def part_of(block, dois, kind):
-    """What this dataset is part of.
+    """Return what this dataset is part of.
 
     For an experiment, preferably the article the values were digitised from,
     with the journal nested one level down as the article's own parent. Where
@@ -278,7 +278,7 @@ def experiment_citations(block, dois):
     return dedupe(cites + [dois.cited])
 
 
-def enrich(block, readme, path, kind, dois, names):
+def enrich(block: dict, readme, path, kind, dois, names) -> dict:
     """Add every Bioschemas property derivable from local data."""
     subjects = block.pop("_subjects", [])
     # Composed, never fetched: a registry title names the paper or deposition, and

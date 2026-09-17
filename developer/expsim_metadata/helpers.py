@@ -12,7 +12,6 @@ import random
 import re
 import time
 import urllib.error
-import urllib.parse
 import urllib.request
 
 from .constants import (
@@ -27,7 +26,6 @@ from .constants import (
     TRAILING,
     USER_AGENT,
 )
-
 
 # ---------------------------------------------------------------------------
 # Talking to a registry
@@ -82,7 +80,7 @@ def fetch_json(url, timeout=DEFAULT_TIMEOUT):
 # ---------------------------------------------------------------------------
 
 
-def iso_date(value):
+def iso_date(value: any) -> str | None:
     """Longest valid ISO prefix: ``YYYY-MM-DD``, ``YYYY-MM`` or ``YYYY``.
 
     Registry dates are usually complete but degrade to a year, and storing a
@@ -98,7 +96,7 @@ def iso_date(value):
     return None
 
 
-def clean_text(value):
+def clean_text(value: any) -> str | None:
     """Collapse whitespace in an API-supplied string."""
     if value is None:
         return None
