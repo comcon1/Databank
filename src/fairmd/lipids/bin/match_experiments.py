@@ -173,7 +173,10 @@ def log_pairs(pairs, fd: IO[str]) -> None:
         simp = sim["path"]
 
         expp = exp.path
-        expd = exp.readme.get("ARTICLE_DOI", "[no article DOI]")
+        # The two DOI fields an experiment may give. The deprecated plain `DOI:`
+        # key is deliberately not read here: renaming it is what the deprecation
+        # asks for, and a log line is not a reason to keep it alive.
+        expd = exp.readme.get("ARTICLE_DOI") or exp.readme.get("DATA_DOI") or "[no DOI]"
 
         fd.write(f"""
 --------------------------------------------------------------------------------

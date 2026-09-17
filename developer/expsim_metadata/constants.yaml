@@ -1,0 +1,122 @@
+# The values the autocomplete writes that are data rather than logic: a term can
+# be checked against its ontology, a filename corrected, a list extended, none of
+# it by reading any Python. `constants.py` loads this file once and exposes each
+# entry as a module-level constant; nothing else reads it.
+#
+# The file has two parts, and they are not the same kind of thing:
+#
+#   ONTOLOGY TERMS   -- `sets`, `chmo`, `edam_keywords`, `edam_techniques` and
+#                       `units`. Each entry is a term some external vocabulary
+#                       defines, and changing one changes what the published
+#                       metadata claims. They are checkable against EDAM, CHMO,
+#                       UO and QUDT, and should be checked before being edited.
+#
+#   DATABANK FACTS   -- `variables` and `trajectory_formats`. Nothing external
+#                       defines these: they are what this databank happens to
+#                       name its analysis outputs and its trajectory files, and
+#                       they change when the databank does.
+#
+#
+# ===========================================================================
+# Ontology terms
+# ===========================================================================
+#
+# CHMO is exact for the experimental methods and EDAM sits alongside it; neither
+# covers this databank alone, since EDAM has no scattering term and CHMO no
+# molecular-dynamics term. EDAM-Bioimaging was evaluated as a fallback and is
+# not citable: it declares itself 1.0alpha_pre-pre-release and only 36 of its
+# 505 classes carry stable numeric ids, those being EDAM terms it re-uses.
+
+# The term sets themselves, used both to build a term's URL and to state which
+# vocabulary it came from.
+sets:
+  edam: http://edamontology.org
+  obo: http://purl.obolibrary.org/obo
+  qudt_unit: http://qudt.org/vocab/unit
+
+# Methods, most specific first: the record is mapped onto the narrowest term its
+# NMR METHOD field supports, and onto SAXS when it sits under FormFactors.
+chmo:
+  saxs: [CHMO_0000204, small-angle X-ray scattering]
+  nmr: [CHMO_0000591, nuclear magnetic resonance spectroscopy]
+  ssnmr: [CHMO_0000614, solid-state nuclear magnetic resonance spectroscopy]
+  pdlf: [CHMO_0001067, proton detected separated local field spectroscopy]
+  pdlf_r: [CHMO_0001068, R-type recoupling proton detected separated local field spectroscopy]
+
+# Keywords per kind of record. The first entry of each list is the one that says
+# what the record is; the rest place it in its field.
+edam_keywords:
+  simulation:
+    - [topic_3892, Biomolecular simulation]
+    - [topic_0176, Molecular dynamics]
+    - [topic_0820, Membrane and lipoproteins]
+    - [topic_3306, Biophysics]
+    - [data_3870, Trajectory data]
+  nmr:
+    - [topic_0593, NMR]
+    - [topic_0820, Membrane and lipoproteins]
+    - [topic_3306, Biophysics]
+  # EDAM has no small-angle-scattering term; X-ray diffraction is the closest.
+  xray:
+    - [topic_2828, X-ray diffraction]
+    - [topic_0820, Membrane and lipoproteins]
+    - [topic_3306, Biophysics]
+
+# Single terms naming the technique itself, used in `measurementTechnique`.
+edam_techniques:
+  md_operation: [operation_2476, Molecular dynamics]
+  nmr_topic: [topic_0593, NMR]
+  xray_topic: [topic_2828, X-ray diffraction]
+
+# Units of the measured quantities, as `<set>/<code>` against the sets above.
+#
+# UO is preferred -- it is OBO, resolves through the same OLS endpoint as EDAM
+# and CHMO, and has a square-angstrom term QUDT lacks -- but it has no
+# reciprocal units, so the form factor's q axis falls back to QUDT.
+#
+# The density profile is a number density in nm^-3 and stays symbol-only on
+# purpose: UO has nothing suitable (UO_0000177 is a solution-concentration
+# grouping, UO_0000182 is mass density) and QUDT has no PER-NanoM3. QUDT's
+# PER-M3 has the right dimension but is wrong by 10^27 at this scale, and a
+# precise-looking wrong code is worse than an honest plain-text symbol.
+units:
+  area per lipid:
+    term: obo/UO_0000324
+    symbol: Å²
+  membrane thickness:
+    term: obo/UO_0000018
+    symbol: nm
+  C-H bond order parameter:
+    term: obo/UO_0000186
+    symbol: dimensionless
+  equilibration time:
+    term: obo/UO_0000150
+    symbol: ns
+  X-ray scattering form factor:
+    term: qudt_unit/PER-ANGSTROM
+    symbol: Å⁻¹
+  total density profile:
+    term: null
+    symbol: nm⁻³
+
+
+# ===========================================================================
+# Databank facts -- no ontology defines these
+# ===========================================================================
+
+# Which analysis output beside a README corresponds to which measured quantity.
+# The quantity names are the keys of `units` above.
+variables:
+  apl.json: area per lipid
+  thickness.json: membrane thickness
+  TotalDensity.json: total density profile
+  FormFactor.json: X-ray scattering form factor
+  eq_times.json: equilibration time
+
+# Media types for the trajectory formats the databank carries. None of these is
+# registered with IANA, so they are the conventional `x-` names.
+trajectory_formats:
+  ".xtc": application/x-xtc
+  ".trr": application/x-trr
+  ".dcd": application/x-dcd
+  ".nc": application/x-netcdf
