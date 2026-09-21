@@ -476,32 +476,33 @@ def seed_datacite_cache(cache_dir):
     (cache_dir / f"{slug}.json").write_text(json.dumps([payload, "datacite"]), encoding="utf-8")
 
 
-@pytest.fixture
-def generated_simulation(tmp_path):
-    """One enriched simulation README, and the whole file it was written into."""
+SIMULATION_RECORD = {
+    "DOI": SIMULATION_DOI,
+    "TRJ": [["run.xtc"]],
+    "TPR": [["run.tpr"]],
+    "PREEQTIME": 100,
+    "TIMELEFTOUT": 10,
+    "SOFTWARE": "gromacs",
+    "SYSTEM": "128DMPC_5000SOL_303K",
+    "COMPOSITION": {
+        "DMPC": {"NAME": "DMPC", "MAPPING": "mappingDMPCcharmm.yaml", "COUNT": [64, 64]},
+    },
+    "FF": "CHARMM36",
+    "AUTHORS_CONTACT": "Ollila, O. H. Samuli",
+    "ID": 566,
+    "TRAJECTORY_SIZE": 3979765856,
+    "TRJLENGTH": 200000.0,
+    "NUMBER_OF_ATOMS": 40000,
+    "DATEOFRUNNING": "2020-09-21",
+    "TEMPERATURE": 303,
+    "SOFTWARE_VERSION": "5.0.4",
+}
+
+
+def run_simulation(tmp_path, **overrides):
+    """Enrich one simulation README; returns the module, its path and its content."""
     mod = load_autocomplete_module()
-    record = {
-        "DOI": SIMULATION_DOI,
-        "TRJ": [["run.xtc"]],
-        "TPR": [["run.tpr"]],
-        "PREEQTIME": 100,
-        "TIMELEFTOUT": 10,
-        "SOFTWARE": "gromacs",
-        "SYSTEM": "128DMPC_5000SOL_303K",
-        "COMPOSITION": {
-            "DMPC": {"NAME": "DMPC", "MAPPING": "mappingDMPCcharmm.yaml", "COUNT": [64, 64]},
-        },
-        "FF": "CHARMM36",
-        "AUTHORS_CONTACT": "Ollila, O. H. Samuli",
-        "ID": 566,
-        "TRAJECTORY_SIZE": 3979765856,
-        "TRJLENGTH": 200000.0,
-        "NUMBER_OF_ATOMS": 40000,
-        "DATEOFRUNNING": "2020-09-21",
-        "TEMPERATURE": 303,
-        "SOFTWARE_VERSION": "5.0.4",
-    }
-    path = build_simulation(tmp_path, record)
+    path = build_simulation(tmp_path, {**SIMULATION_RECORD, **overrides})
     cache = tmp_path / "cache"
     seed_cache(cache)
     seed_datacite_cache(cache)
@@ -515,6 +516,12 @@ def generated_simulation(tmp_path):
         sys.argv = original_argv
 
     return mod, path, yaml.safe_load(path.read_text(encoding="utf-8"))
+
+
+@pytest.fixture
+def generated_simulation(tmp_path):
+    """One enriched simulation README, and the whole file it was written into."""
+    return run_simulation(tmp_path)
 
 
 def readme_schema():
@@ -762,7 +769,22 @@ def test_a_deposition_licence_is_not_called_an_article_licence(tmp_path):
 # ---------------------------------------------------------------------------
 
 
-def test_publication_is_retired_for_experiments_too(tmp_path):
+def test_publication_is_retired_for_simulations(tmp_path):
+    """A simulation retires the field as well, and still validates without it.
+
+    ``readme_yaml_schema.json`` declares ``PUBLICATION`` but does not require it,
+    so a record that has given it up is still a valid simulation. Keeping it
+    would leave a superseded field alive beside the ``citation`` list that
+    replaced it, free to drift out of step with it.
+    """
+    _, path, readme = run_simulation(tmp_path, PUBLICATION=f"https://doi.org/{ARTICLE_DOI}")
+    assert "PUBLICATION" not in path.read_text(encoding="utf-8")
+    assert ARTICLE_DOI in readme["bioschema_properties"]["citation"]
+    errors = sorted(Draft7Validator(readme_schema()).iter_errors(readme), key=lambda e: e.path)
+    assert not errors, [f"{list(e.absolute_path)}: {e.message}" for e in errors]
+
+
+def test_publication_is_retired_for_experiments(tmp_path):
     """experiment_schema.json does not declare PUBLICATION and forbids extras."""
     _, paths, blocks = run_generator(
         tmp_path, [base_record(PUBLICATION=f"Dvinskikh et al., https://doi.org/{ARTICLE_DOI}")]
