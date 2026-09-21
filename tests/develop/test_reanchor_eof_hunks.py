@@ -26,7 +26,10 @@ mod = load_module()
 def git(repo, *args):
     return subprocess.run(
         ["git", "-c", "user.email=t@t", "-c", "user.name=t", *args],
-        cwd=repo, capture_output=True, text=True, check=True,
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=True,
     ).stdout
 
 
@@ -42,8 +45,11 @@ def repo(tmp_path):
 
 def anchors(diff):
     """The ``@@`` headers, plus every changed line, as reviewdog would read them."""
-    return [line for line in diff.splitlines() if line[:1] in "@-+" and not line.startswith("+++")
-            and not line.startswith("---")]
+    return [
+        line
+        for line in diff.splitlines()
+        if line[:1] in "@-+" and not line.startswith("+++") and not line.startswith("---")
+    ]
 
 
 # ---------------------------------------------------------------------------
@@ -84,8 +90,9 @@ def test_hunk_line_counts_stay_correct(repo):
     (repo / "README.yaml").write_text("A: 1\nB: 2\nC: 3\nD: 4\n", encoding="utf-8")
     before = git(repo, "diff")
     after = mod.reanchor(before)
-    assert [x for x in before.splitlines() if x.startswith("@@")] == \
-           [x for x in after.splitlines() if x.startswith("@@")]
+    assert [x for x in before.splitlines() if x.startswith("@@")] == [
+        x for x in after.splitlines() if x.startswith("@@")
+    ]
 
 
 # ---------------------------------------------------------------------------
@@ -122,9 +129,7 @@ def test_a_missing_final_newline_is_left_alone(repo):
 
 def test_only_the_last_hunk_of_a_file_is_considered(repo):
     """An earlier hunk ending in additions is followed by context, not by the end."""
-    (repo / "README.yaml").write_text(
-        "A: 1\n" + "pad\n" * 10 + "B: 2\nC: 3\n", encoding="utf-8"
-    )
+    (repo / "README.yaml").write_text("A: 1\n" + "pad\n" * 10 + "B: 2\nC: 3\n", encoding="utf-8")
     out = mod.reanchor(git(repo, "diff"))
     # The padding hunk is untouched; only the file's final hunk may be rewritten.
     assert out.count("@@") == git(repo, "diff").count("@@")
@@ -157,6 +162,9 @@ def test_it_works_as_a_stdin_to_stdout_filter(repo):
     (repo / "README.yaml").write_text("A: 1\nB: 2\nC: 3\nD: 4\n", encoding="utf-8")
     result = subprocess.run(
         [sys.executable, str(DEVELOPER_DIR / "reanchor_eof_hunks.py")],
-        input=git(repo, "diff"), capture_output=True, text=True, check=True,
+        input=git(repo, "diff"),
+        capture_output=True,
+        text=True,
+        check=True,
     )
     assert "-C: 3" in result.stdout
