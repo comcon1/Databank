@@ -15,20 +15,58 @@
   ],
   "allOf": [
     {
-      "if": { "properties": { "SOFTWARE": { "const": "gromacs" } } },
-      "then": { "required": ["TPR"] }
+      "if": {
+        "properties": {
+          "SOFTWARE": {
+            "const": "gromacs"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "TPR"
+        ]
+      }
     },
     {
-      "if": { "properties": { "SOFTWARE": { "const": "NAMD" } } },
-      "then": { "required": ["PSF"] }
+      "if": {
+        "properties": {
+          "SOFTWARE": {
+            "const": "NAMD"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "PSF"
+        ]
+      }
     },
     {
-      "if": { "properties": { "SOFTWARE": { "const": "openMM" } } },
+      "if": {
+        "properties": {
+          "SOFTWARE": {
+            "const": "openMM"
+          }
+        }
+      },
       "then": {
         "anyOf": [
-          { "required": ["PDB"] },
-          { "required": ["PSF"] },
-          { "required": ["AMBERTOP"] }
+          {
+            "required": [
+              "PDB"
+            ]
+          },
+          {
+            "required": [
+              "PSF"
+            ]
+          },
+          {
+            "required": [
+              "AMBERTOP"
+            ]
+          }
         ]
       }
     }
@@ -38,7 +76,10 @@
       "type": "string"
     },
     "DATE": {
-      "type": ["string", "null"],
+      "type": [
+        "string",
+        "null"
+      ],
       "pattern": "^\\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\\d|3[01])$",
       "description": "Date of the dataset publication in YYYY-MM-DD format"
     },
@@ -51,7 +92,11 @@
     },
     "SOFTWARE": {
       "type": "string",
-      "enum": ["gromacs", "openMM", "NAMD"]
+      "enum": [
+        "gromacs",
+        "openMM",
+        "NAMD"
+      ]
     },
     "PREEQTIME": {
       "type": "number",
@@ -62,19 +107,33 @@
       "minimum": 0
     },
     "TEMPERATURE": {
-      "type": ["number", "null"]
+      "type": [
+        "number",
+        "null"
+      ]
     },
     "DIR_WRK": {
-      "type": ["string", "null"]
+      "type": [
+        "string",
+        "null"
+      ]
     },
     "UNITEDATOM_DICT": {
-      "type": ["object", "null"],
+      "type": [
+        "object",
+        "null"
+      ],
       "additionalProperties": {
-        "type": ["string"]
+        "type": [
+          "string"
+        ]
       }
     },
     "TYPEOFSYSTEM": {
-      "type": ["string", "null"]
+      "type": [
+        "string",
+        "null"
+      ]
     },
     "SYSTEM": {
       "type": "string"
@@ -86,59 +145,108 @@
         "type": "object",
         "additionalProperties": false,
         "properties": {
-          "NAME": { "type": "string" },
-          "MAPPING": { "type": "string" }
+          "NAME": {
+            "type": "string"
+          },
+          "MAPPING": {
+            "type": "string"
+          }
         },
-        "required": ["NAME", "MAPPING"]
+        "required": [
+          "NAME",
+          "MAPPING"
+        ]
       }
     },
     "PUBLICATION": {
-      "type": ["string", "null"]
+      "type": [
+        "string",
+        "null"
+      ]
     },
     "AUTHORS_CONTACT": {
-      "type": ["string"]
+      "type": [
+        "string"
+      ]
     },
     "SOFTWARE_VERSION": {
-      "type": ["string", "number", "null"]
+      "type": [
+        "string",
+        "number",
+        "null"
+      ]
     },
     "FF": {
-      "type": ["string"]
+      "type": [
+        "string"
+      ]
     },
     "FF_SOURCE": {
-      "type": ["string", "null"]
+      "type": [
+        "string",
+        "null"
+      ]
     },
     "FF_DATE": {
-      "type": ["string", "number", "null"]
+      "type": [
+        "string",
+        "number",
+        "null"
+      ]
     },
     "CPT": {
-      "type": ["string", "null"],
+      "type": [
+        "string",
+        "null"
+      ],
       "pattern": "\\.cpt$"
     },
     "LOG": {
-      "type": ["string", "null"]
+      "type": [
+        "string",
+        "null"
+      ]
     },
     "TOP": {
-      "type": ["string", "null"],
+      "type": [
+        "string",
+        "null"
+      ],
       "pattern": "\\.top$"
     },
     "AMBERTOP": {
-      "type": ["string", "null"],
+      "type": [
+        "string",
+        "null"
+      ],
       "pattern": "\\.(prmtop|parm7|top)$"
     },
     "GRO": {
-      "type": ["string", "null"],
+      "type": [
+        "string",
+        "null"
+      ],
       "pattern": "\\.gro$"
     },
     "PSF": {
-      "type": ["string", "null"],
+      "type": [
+        "string",
+        "null"
+      ],
       "pattern": "\\.psf$"
     },
     "PDB": {
-      "type": ["string", "null"],
+      "type": [
+        "string",
+        "null"
+      ],
       "pattern": "\\.pdb$"
     },
     "EDR": {
-      "type": ["string", "null"],
+      "type": [
+        "string",
+        "null"
+      ],
       "pattern": "\\.edr$"
     }
   }
