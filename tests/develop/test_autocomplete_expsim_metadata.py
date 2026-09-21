@@ -379,7 +379,7 @@ def test_the_deprecated_doi_key_is_reported_not_rewritten():
     # Renamed records have nothing to report.
     assert mod.deprecated_keys({"ARTICLE_DOI": ARTICLE_DOI, "DATA_DOI": DATA_DOI}, "experiments") == {}
 
-    # A simulation's DOI is the Zenodo deposition, which readme_yaml_schema.json
+    # A simulation's DOI is the Zenodo deposition, which simulation_schema.json
     # declares: the same key is not deprecated there.
     assert mod.deprecated_keys({"DOI": SIMULATION_DOI}, "simulations") == {}
 
@@ -417,7 +417,7 @@ def test_dois_are_normalised_before_use():
 # The generated file, not just the generated block
 #
 # The block schema is mirrored in two files: experiment_schema.json describes an
-# experiment README and readme_yaml_schema.json a simulation one. The generator
+# experiment README and simulation_schema.json a simulation one. The generator
 # writes both kinds, so both contracts are checked against real output rather
 # than against a hand-written fixture.
 # ---------------------------------------------------------------------------
@@ -525,7 +525,7 @@ def generated_simulation(tmp_path):
 
 
 def readme_schema():
-    return json.loads((SCHEMA_DIR / "readme_yaml_schema.json").read_text(encoding="utf-8"))
+    return json.loads((SCHEMA_DIR / "simulation_schema.json").read_text(encoding="utf-8"))
 
 
 def test_generated_simulation_readme_validates(generated_simulation):
@@ -629,7 +629,7 @@ def block_schema(filename):
     ("page", "schema_file"),
     [
         ("experiment_metadata.md", "experiment_schema.json"),
-        ("simulation_metadata.md", "readme_yaml_schema.json"),
+        ("simulation_metadata.md", "simulation_schema.json"),
     ],
 )
 def test_documented_example_validates(page, schema_file):
@@ -772,7 +772,7 @@ def test_a_deposition_licence_is_not_called_an_article_licence(tmp_path):
 def test_publication_is_retired_for_simulations(tmp_path):
     """A simulation retires the field as well, and still validates without it.
 
-    ``readme_yaml_schema.json`` declares ``PUBLICATION`` but does not require it,
+    ``simulation_schema.json`` declares ``PUBLICATION`` but does not require it,
     so a record that has given it up is still a valid simulation. Keeping it
     would leave a superseded field alive beside the ``citation`` list that
     replaced it, free to drift out of step with it.
