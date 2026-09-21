@@ -6,7 +6,6 @@ import argparse
 import json
 from pathlib import Path
 
-
 SCHEMA_DIRECTORY = Path(__file__).parents[1] / "src/fairmd/lipids/schema_validation/schema"
 
 
