@@ -81,7 +81,10 @@ naming convention is the same between different force fields, you can use more g
 
    Every atom must be uniquely identifiable by its simulation-specific ``ATOMNAME`` and ``RESIDUE``
    combination. This requirement is especially important for mappings used with lipid force fields
-   that split a molecule into several residues. If you are adding a new molecule, and it has name collisions, we don't accept this molecule and this simulation into the databank. You will need to change the names and resubmit.
+   that split a molecule into several residues. If a new molecule is added, and it has atoms with
+   identical names, we don't accept this molecule and this simulation into the databank. We require
+   in this case that the names are changed in the topology file, the file is reuploaded, and the
+   system is resubmitted.
 
 Specific cases:
 - TODO: mapping for UA
