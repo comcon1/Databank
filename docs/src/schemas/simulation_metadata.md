@@ -126,9 +126,10 @@ Give description of system in free format. For example ''POPC with cholesterol a
 12. **PUBLICATION**  
 Give reference to a publication(s) related to the data.
 This is a legacy field, accepted on upload and then retired: enrichment moves the
-references into `bioschema_properties.citation` as a list of bare DOIs and removes
-the top-level field, so an enriched record carries them in one place only. The field
-is removed only once `citation` demonstrably carries everything it held.
+references into `bioschema_properties.citation` (bare DOIs where extractable, otherwise
+preserved citation text) and removes the top-level field, so an enriched record carries
+them in one place only. The field is removed only once `citation` demonstrably carries
+everything it held.
 
 13. **AUTHORS\_CONTACT** (compulsory) 
 Give the name and email of the main author(s) of the data.
