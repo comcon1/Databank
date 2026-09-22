@@ -1,248 +1,392 @@
 {
-  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$schema": "https://json-schema.org/draft-07/schema",
   "type": "object",
-  "additionalProperties": false,
-  "properties": {
-    "ARTICLE_DOI": {
-      "$comment": "Wrapped in allOf rather than a bare $ref: in draft-07 a $ref makes its sibling keywords, description included, be ignored.",
-      "allOf": [
-        {
-          "$ref": "#/definitions/doi"
-        }
-      ],
-      "description": "DOI of the original publication of the experimental data. Becomes bioschema_properties.citation when no DATA_DOI is given, and bioschema_properties.isPartOf either way"
-    },
-    "DATA_DOI": {
-      "allOf": [
-        {
-          "$ref": "#/definitions/doi"
-        }
-      ],
-      "description": "DOI of the dataset deposition with raw NMR data. When present, this is the DOI that becomes bioschema_properties.citation and sameAs - cite the data, not the article. The article is not lost: it stays the parent work in bioschema_properties.isPartOf"
-    },
-    "DATA_REF": {
-      "type": "string",
-      "minLength": 1,
-      "description": "Reference to a deposited dataset that has no DOI. Free text, never resolved, and not a substitute for a DOI: an entry giving only DATA_REF still fails the requirement below"
-    },
-    "DATE": {
-      "type": "string",
-      "format": "date",
-      "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$",
-      "description": "Date of the dataset publication (YYYY-MM-DD), retrievable from CrossRef or DataCite"
-    },
-    "TEMPERATURE": {
-      "type": "number",
-      "exclusiveMinimum": 0,
-      "description": "Temperature (K) of the experiment. Absolute temperature, so strictly positive"
-    },
-    "MEMBRANE_COMPOSITION": {
-      "type": "object",
-      "description": "Dictionary of molar fractions of membrane phase",
-      "minProperties": 1,
-      "propertyNames": {
-        "$comment": "Shape check only. Membership of the molecule inventory (Molecules/membrane) is a directory listing, so it is checked in code (fairmd.lipids.molecules.lipids_set), not here.",
-        "pattern": "^[A-Z0-9_]+$"
-      },
-      "additionalProperties": {
-        "type": "number",
-        "exclusiveMinimum": 0,
-        "maximum": 1
-      }
-    },
-    "SOLUTION_COMPOSITION": {
-      "type": "object",
-      "description": "Dictionary of ion concentrations in the system",
-      "minProperties": 1,
-      "propertyNames": {
-        "$comment": "Shape check only, as for MEMBRANE_COMPOSITION; the inventory here is Molecules/solution (fairmd.lipids.molecules.solubles_set).",
-        "pattern": "^[A-Z0-9_]+$"
-      },
-      "additionalProperties": {
-        "$comment": "A concentration, not a fraction - no upper bound.",
-        "type": "number",
-        "exclusiveMinimum": 0
-      }
-    },
-    "ADDITIONAL_MOLECULES": {
-      "type": "object",
-      "description": "Dictionary of molecules which are not in the databank, as free text naming the molecule and its concentration",
-      "minProperties": 1,
-      "additionalProperties": {
-        "type": "string",
-        "minLength": 1
-      }
-    },
-    "TOTAL_HYDRATION": {
-      "type": "number",
-      "exclusiveMinimum": 0,
-      "maximum": 100,
-      "description": "Total hydration of the system (water mass %), so within (0, 100]"
-    },
-    "PH": {
-      "anyOf": [
-        {
-          "type": "number",
-          "minimum": 0,
-          "maximum": 14
-        },
-        {
-          "type": "string",
-          "enum": [
-            "UNKNOWN"
-          ]
-        },
-        {
-          "$comment": "A pH range, e.g. 8-10 or 1.3-13.2. Anchored, and each endpoint is bounded to 0-14 like the numeric branch above: a decimal part is allowed everywhere below 14, and at 14 only when it is zero, so 14.5 is rejected the way the numeric branch rejects it.",
-          "type": "string",
-          "pattern": "^(?:14(?:\\.0+)?|1[0-3](?:\\.[0-9]+)?|[0-9](?:\\.[0-9]+)?)-(?:14(?:\\.0+)?|1[0-3](?:\\.[0-9]+)?|[0-9](?:\\.[0-9]+)?)$"
-        }
-      ],
-      "description": "pH of the system"
-    },
-    "PH_METHOD": {
-      "type": "string",
-      "minLength": 1,
-      "description": "Method of pH setting or measurement (buffer / measurement)"
-    },
-    "REAGENT_SOURCES": {
-      "type": "object",
-      "description": "Description of lipid reagents. Source, purity, etc.",
-      "additionalProperties": {
-        "type": "string",
-        "minLength": 1
-      }
-    },
-    "SAMPLE_PROTOCOL": {
-      "type": "string",
-      "minLength": 1,
-      "description": "Protocol for sample preparation (in free format, references are welcome)"
-    },
-    "NMR": {
-      "type": "object",
-      "description": "NMR-Specific Metadata",
-      "additionalProperties": false,
-      "required": [
-        "METHOD",
-        "INSTRUMENT",
-        "SIGN_MEASURED",
-        "T_RF_HEATING"
-      ],
-      "allOf": [
-        {
-          "$comment": "The docs make an explanation obligatory when METHOD uses see_comments for SUBMETHOD.",
-          "if": {
-            "required": [
-              "METHOD"
-            ],
-            "properties": {
-              "METHOD": {
-                "pattern": "see_comments$"
-              }
-            }
-          },
-          "then": {
-            "required": [
-              "DETAILS"
-            ]
+  "additionalProperties": true,
+  "required": [
+    "DOI",
+    "TRJ",
+    "PREEQTIME",
+    "TIMELEFTOUT",
+    "SOFTWARE",
+    "SYSTEM",
+    "COMPOSITION",
+    "FF",
+    "AUTHORS_CONTACT",
+    "ID",
+    "TRAJECTORY_SIZE",
+    "TRJLENGTH",
+    "NUMBER_OF_ATOMS",
+    "DATEOFRUNNING"
+  ],
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "SOFTWARE": {
+            "const": "gromacs"
           }
         }
+      },
+      "then": {
+        "required": [
+          "TPR"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "SOFTWARE": {
+            "const": "NAMD"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "PSF"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "SOFTWARE": {
+            "const": "openMM"
+          }
+        }
+      },
+      "then": {
+        "anyOf": [
+          {
+            "required": [
+              "PDB"
+            ]
+          },
+          {
+            "required": [
+              "PSF"
+            ]
+          },
+          {
+            "required": [
+              "AMBERTOP"
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "properties": {
+    "DOI": {
+      "type": "string"
+    },
+    "TRJ": {
+      "type": "array",
+      "items": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "minItems": 1
+      },
+      "minItems": 1
+    },
+    "TPR": {
+      "type": "array",
+      "items": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "pattern": "\\.tpr$"
+        },
+        "minItems": 1
+      },
+      "minItems": 1
+    },
+    "SOFTWARE": {
+      "type": "string",
+      "enum": [
+        "gromacs",
+        "openMM",
+        "NAMD"
+      ]
+    },
+    "PREEQTIME": {
+      "type": "number",
+      "minimum": 0
+    },
+    "TIMELEFTOUT": {
+      "type": "number",
+      "minimum": 0
+    },
+    "TEMPERATURE": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "DIR_WRK": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "UNITEDATOM_DICT": {
+      "type": [
+        "object",
+        "null"
       ],
-      "properties": {
-        "T_RF_HEATING": {
-          "$comment": "UNKNOWN / measured / guessed, or a free-text description of how the heating was checked - deliberately not an enum.",
-          "type": "string",
-          "minLength": 1
+      "additionalProperties": {
+        "type": [
+          "string"
+        ]
+      }
+    },
+    "TYPEOFSYSTEM": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "SYSTEM": {
+      "type": "string"
+    },
+    "COMPOSITION": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "NAME": {
+            "type": "string"
+          },
+          "MAPPING": {
+            "type": "string"
+          },
+          "COUNT": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0
+              },
+              {
+                "type": "array",
+                "items": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "minItems": 1
+              }
+            ]
+          }
         },
-        "INSTRUMENT": {
+        "required": [
+          "NAME",
+          "MAPPING",
+          "COUNT"
+        ]
+      }
+    },
+    "PUBLICATION": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "AUTHORS_CONTACT": {
+      "type": [
+        "string"
+      ]
+    },
+    "SOFTWARE_VERSION": {
+      "type": [
+        "string",
+        "number",
+        "null"
+      ]
+    },
+    "FF": {
+      "type": [
+        "string"
+      ]
+    },
+    "FF_SOURCE": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "FF_DATE": {
+      "type": [
+        "string",
+        "number",
+        "null"
+      ]
+    },
+    "CPT": {
+      "type": [
+        "array",
+        "null"
+      ],
+      "minItems": 1,
+      "items": {
+        "type": "array",
+        "minItems": 1,
+        "items": {
           "type": "string",
-          "minLength": 1
-        },
-        "METHOD": {
-          "type": "string",
-          "description": "Field identifying the NMR method used (formatted as METHOD:SUBMETHOD, e.g., '2H:QE').",
-          "examples": [
-            "2H:SP",
-            "2H:QE",
-            "CDLF:REDOR",
-            "CDLF:DIPSHIFT",
-            "CDLF:recDIPSHIFT",
-            "PDLF:DROSS",
-            "PDLF:R18_1^7",
-            "PDLF:see_comments"
-          ],
-          "pattern": "^(2H:(SP|QE|see_comments)|CDLF:(REDOR|DIPSHIFT|recDIPSHIFT|see_comments)|PDLF:(DROSS|R[0-9]+(_[0-9]+)?\\^[0-9]+|see_comments))$"
-        },
-        "SIGN_MEASURED": {
-          "$comment": "The method name if the order parameter sign was measured, NONE otherwise - deliberately not an enum.",
-          "type": "string",
-          "minLength": 1
-        },
-        "DETAILS": {
-          "type": "string",
-          "minLength": 1
+          "pattern": "\\.cpt$"
         }
       }
     },
-    "XRAY": {
-      "type": "object",
-      "description": "X-ray Specific Metadata",
-      "additionalProperties": false,
-      "required": [
-        "SOURCE",
-        "LAMBDA",
-        "SAMPLE_TYPE"
+    "LOG": {
+      "type": [
+        "array",
+        "null"
       ],
-      "properties": {
-        "SOURCE": {
-          "type": "string",
-          "minLength": 1
-        },
-        "LAMBDA": {
-          "type": "number",
-          "exclusiveMinimum": 0
-        },
-        "QRANGE": {
-          "type": "string",
-          "minLength": 1
-        },
-        "DETECTOR": {
-          "type": "string",
-          "minLength": 1
-        },
-        "DISTANCE": {
-          "type": "number",
-          "exclusiveMinimum": 0
-        },
-        "DATATYPE": {
-          "type": "string",
-          "enum": [
-            "batch",
-            "SEC"
-          ]
-        },
-        "EXPOSURE": {
-          "type": "number",
-          "exclusiveMinimum": 0
-        },
-        "FRAMES": {
-          "type": "integer",
-          "minimum": 1
-        },
-        "SAMPLE_TYPE": {
-          "type": "string",
-          "enum": [
-            "MLV",
-            "SUV",
-            "GUV",
-            "OS",
-            "BIC"
-          ]
+      "minItems": 1,
+      "items": {
+        "type": "array",
+        "minItems": 1,
+        "items": {
+          "type": "string"
         }
       }
+    },
+    "TOP": {
+      "type": [
+        "array",
+        "null"
+      ],
+      "minItems": 1,
+      "items": {
+        "type": "array",
+        "minItems": 1,
+        "items": {
+          "type": "string",
+          "pattern": "\\.top$"
+        }
+      }
+    },
+    "AMBERTOP": {
+      "type": [
+        "array",
+        "null"
+      ],
+      "minItems": 1,
+      "items": {
+        "type": "array",
+        "minItems": 1,
+        "items": {
+          "type": "string",
+          "pattern": "\\.(prmtop|parm7|top)$"
+        }
+      }
+    },
+    "GRO": {
+      "type": [
+        "array",
+        "null"
+      ],
+      "minItems": 1,
+      "items": {
+        "type": "array",
+        "minItems": 1,
+        "items": {
+          "type": "string",
+          "pattern": "\\.gro$"
+        }
+      }
+    },
+    "PSF": {
+      "type": [
+        "array",
+        "null"
+      ],
+      "minItems": 1,
+      "items": {
+        "type": "array",
+        "minItems": 1,
+        "items": {
+          "type": "string",
+          "pattern": "\\.psf$"
+        }
+      }
+    },
+    "PDB": {
+      "type": [
+        "array",
+        "null"
+      ],
+      "items": {
+        "type": "array",
+        "minItems": 1,
+        "items": {
+          "type": "string",
+          "pattern": "\\.pdb$"
+        }
+      }
+    },
+    "EDR": {
+      "type": [
+        "array",
+        "null"
+      ],
+      "minItems": 1,
+      "items": {
+        "type": "array",
+        "minItems": 1,
+        "items": {
+          "type": "string",
+          "pattern": "\\.edr$"
+        }
+      }
+    },
+    "ID": {
+      "type": "integer"
+    },
+    "TRAJECTORY_SIZE": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "TRJLENGTH": {
+      "type": "number",
+      "minimum": 0
+    },
+    "NUMBER_OF_ATOMS": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "DATEOFRUNNING": {
+      "type": "string"
+    },
+    "EXPERIMENT": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "properties": {
+        "ORDERPARAMETER": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array"
+          }
+        },
+        "FORMFACTOR": {
+          "type": "array"
+        }
+      }
+    },
+    "WARNINGS": {
+      "additionalProperties": true,
+      "type": [
+        "null",
+        "object",
+        "string"
+      ]
     },
     "bioschema_properties": {
-      "$comment": "Bioschemas Dataset profile 1.0-RELEASE (https://bioschemas.org/profiles/Dataset/1.0-RELEASE). Written by the metadata enrichment tooling, not user-given. Only properties of that profile are accepted, plus dct:-prefixed DCMI terms and the local _source key. Not required, because the profile Minimum properties @context, @type, @id, dct:conformsTo, url and identifier are not emitted yet. Kept in sync with the same block in simulation_schema.json, articleLicense aside, which is experiment-only; test_the_two_schemas_agree_on_the_bioschema_block enforces it.",
+      "$comment": "Bioschemas Dataset profile 1.0-RELEASE (https://bioschemas.org/profiles/Dataset/1.0-RELEASE). Written by the metadata enrichment tooling, not user-given. Only properties of that profile are accepted, plus dct:-prefixed DCMI terms and the local _source key. Not required, because the profile Minimum properties @context, @type, @id, dct:conformsTo, url and identifier are not emitted yet (identifier was dropped from the data in BilayerData 03b09b394 although the profile lists it as Minimum). Kept in sync with the same block in experiment_schema.json, whose experiment-only articleLicense is the one accepted difference; test_the_two_schemas_agree_on_the_bioschema_block enforces it.",
       "type": "object",
       "required": [
         "name",
@@ -395,80 +539,13 @@
           "$comment": "Not a schema.org term (this is DCMI dct:accessRights). Accepted for now; migrate to dct:accessRights, or to schema.org conditionsOfAccess / isAccessibleForFree.",
           "type": "string"
         },
-        "articleLicense": {
-          "$comment": "Not a schema.org term. The licence of the article the data belongs to should live on isPartOf.license - remap when the enrichment tooling is next touched.",
-          "$ref": "#/definitions/creativeWorkRef"
-        },
         "_source": {
           "$ref": "#/definitions/sourceProvenance"
         }
       }
     }
   },
-  "required": [
-    "TEMPERATURE",
-    "MEMBRANE_COMPOSITION",
-    "TOTAL_HYDRATION",
-    "PH"
-  ],
-  "allOf": [
-    {
-      "$comment": "At least one of the two DOIs has to be given. DATA_REF does not count: it is free text rather than a resolvable identifier. Where both DOIs are given, DATA_DOI wins as the DOI to cite and ARTICLE_DOI stays the parent work - see docs/src/schemas/experiment_metadata.md and record_dois() in developer/expsim_metadata/fields.py.",
-      "anyOf": [
-        {
-          "required": [
-            "ARTICLE_DOI"
-          ]
-        },
-        {
-          "required": [
-            "DATA_DOI"
-          ]
-        }
-      ]
-    },
-    {
-      "$comment": "An entry describes exactly one kind of measurement.",
-      "oneOf": [
-        {
-          "required": [
-            "NMR"
-          ]
-        },
-        {
-          "required": [
-            "XRAY"
-          ]
-        }
-      ]
-    },
-    {
-      "$comment": "How the pH was set or measured has to be stated whenever the pH itself is known.",
-      "if": {
-        "required": [
-          "PH"
-        ],
-        "properties": {
-          "PH": {
-            "not": {
-              "const": "UNKNOWN"
-            }
-          }
-        }
-      },
-      "then": {
-        "required": [
-          "PH_METHOD"
-        ]
-      }
-    }
-  ],
   "definitions": {
-    "doi": {
-      "$comment": "Bare DOI: no doi: prefix and no https://doi.org/ URL. Mirrors DOI_RE in developer/expsim_metadata/constants.py. Experiment-local - not part of the bioschema_properties block mirrored in simulation_schema.json.",
-      "type": "string",
-      "pattern": "^10\\.\\d{4,9}/\\S+$"
-    },
     "definedTerm": {
       "type": "object",
       "additionalProperties": false,
