@@ -3,13 +3,12 @@
 Package for plotting FAIRMD Lipids simulation and experimental data.
 """
 
-import json
-import os
+import warnings
 
 import matplotlib.pyplot as plt
 import numpy as np
 
-from fairmd.lipids import FMDL_SIMU_PATH
+from fairmd.lipids.api import get_FF, get_OP, get_quality
 from fairmd.lipids.experiment import ExperimentCollection
 
 
@@ -256,41 +255,37 @@ def plotOrderParameters(OPsim, OPexp):  # noqa
     plt.show()
 
 
-def plotSimulation(system, lipid: str):  # noqa: N802
-    """
-    Create plots of form factor and C-H bond order parameters for the selected
-    ``lipid`` from a simulation given by system.
-
-    :param system: FAIRMD Lipids ID number of the simulation
-    :param lipid: universal molecul name of the lipid
-
-    """
-    path = os.path.join(FMDL_SIMU_PATH, system["path"])
-    ff_path_sim = os.path.join(path, "FormFactor.json")
-    op_path_sim = os.path.join(path, lipid + "OrderParameters.json")
-    ffqual_fpath = os.path.join(path, "FormFactorQuality.json")
-
+def plot_simulation_FF(system):  # noqa: N802
+    """Plot the simulated and experimental form factors for ``system``."""
     print("DOI: ", system["DOI"])
 
     try:
-        with open(ffqual_fpath) as json_file:
-            ff_quality = json.load(json_file)
-        print("Form factor quality: ", ff_quality[0])
+        ff_quality = get_quality(system, experiment="FF")
+        print("Form factor quality: ", ff_quality)
         ff_experiments = ExperimentCollection.load_from_data("FFExperiment")
         ff_exp = None
-        form_factors = system["EXPERIMENT"]["FORMFACTOR"]
-        for form_factor in form_factors:
+        for form_factor in system["EXPERIMENT"]["FORMFACTOR"]:
             experiment = ff_experiments.get(form_factor)
             if experiment is not None:
                 ff_exp = experiment.data
                 break
         if ff_exp is None:
             raise FileNotFoundError("No form factor experiment was found")
+        ff_sim = get_FF(system)
+        plotFormFactor(ff_sim, 1, "Simulation", "red")
+        plotFormFactor(ff_exp, ff_quality, "Experiment", "black")
+        plt.show()
     except Exception:
-        print("Force field quality not found")
+        plt.show()
+        print("Form factor plotting failed")
 
-    with open(op_path_sim) as json_file:
-        op_sim = json.load(json_file)
+
+def plot_simulation_OP(system, lipid: str):
+    """Plot simulated and experimental C-H bond order parameters."""
+    op_sim = get_OP(system).get(lipid)
+    if op_sim is None:
+        msg = f"Order parameter data not found for {lipid}"
+        raise FileNotFoundError(msg)
 
     op_exp = {}
     op_experiments = ExperimentCollection.load_from_data("OPExperiment")
@@ -299,14 +294,16 @@ def plotSimulation(system, lipid: str):  # noqa: N802
         if experiment is not None:
             op_exp.update(experiment.data.get(lipid, {}))
 
-    try:
-        with open(ff_path_sim) as json_file:
-            ff_sim = json.load(json_file)
-        plotFormFactor(ff_sim, 1, "Simulation", "red")
-        plotFormFactor(ff_exp, ff_quality[1], "Experiment", "black")
-        plt.show()
-    except Exception:
-        plt.show()
-        print("Form factor plotting failed")
-
     plotOrderParameters(op_sim, op_exp)
+
+
+def plotSimulation(system, lipid: str):  # noqa: N802
+    """Deprecated wrapper for plotting form factors and order parameters."""
+    warnings.warn(
+        "plotSimulation is deprecated; use plot_simulation_FF and "
+        "plot_simulation_OP instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    plot_simulation_FF(system)
+    plot_simulation_OP(system, lipid)
