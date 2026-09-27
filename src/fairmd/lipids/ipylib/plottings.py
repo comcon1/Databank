@@ -1,6 +1,6 @@
 """
 @DRAFT
-Network communication. Downloading files. Checking links etc.
+Package for plotting FAIRMD Lipids simulation and experimental data.
 """
 
 import json
@@ -9,7 +9,8 @@ import os
 import matplotlib.pyplot as plt
 import numpy as np
 
-from fairmd.lipids import FMDL_EXP_PATH, FMDL_SIMU_PATH
+from fairmd.lipids import FMDL_SIMU_PATH
+from fairmd.lipids.experiment import ExperimentCollection
 
 
 def plotFormFactor(  # noqa: N802
@@ -257,7 +258,7 @@ def plotOrderParameters(OPsim, OPexp):  # noqa
 
 def plotSimulation(system, lipid: str):  # noqa: N802
     """
-    Creates plots of form factor and C-H bond order parameters for the selected
+    Create plots of form factor and C-H bond order parameters for the selected
     ``lipid`` from a simulation given by system.
 
     :param system: FAIRMD Lipids ID number of the simulation
@@ -275,13 +276,16 @@ def plotSimulation(system, lipid: str):  # noqa: N802
         with open(ffqual_fpath) as json_file:
             ff_quality = json.load(json_file)
         print("Form factor quality: ", ff_quality[0])
-        ffdir = os.path.join(FMDL_EXP_PATH, "FormFactors", system["EXPERIMENT"]["FORMFACTOR"])
-        for subdir, _, files in os.walk(ffdir):
-            for filename in files:
-                if filename.endswith("_FormFactor.json"):
-                    ff_path_exp = subdir + "/" + filename
-        with open(ff_path_exp) as json_file:
-            ff_exp = json.load(json_file)
+        ff_experiments = ExperimentCollection.load_from_data("FFExperiment")
+        ff_exp = None
+        form_factors = system["EXPERIMENT"]["FORMFACTOR"]
+        for form_factor in form_factors:
+            experiment = ff_experiments.get(form_factor)
+            if experiment is not None:
+                ff_exp = experiment.data
+                break
+        if ff_exp is None:
+            raise FileNotFoundError("No form factor experiment was found")
     except Exception:
         print("Force field quality not found")
 
@@ -289,10 +293,11 @@ def plotSimulation(system, lipid: str):  # noqa: N802
         op_sim = json.load(json_file)
 
     op_exp = {}
-    for exp_op_folder in list(system["EXPERIMENT"]["ORDERPARAMETER"][lipid].values()):
-        op_path_exp = os.path.join(FMDL_EXP_PATH, "OrderParameters", exp_op_folder, lipid + "_OrderParameters.json")
-        with open(op_path_exp) as json_file:
-            op_exp.update(json.load(json_file))
+    op_experiments = ExperimentCollection.load_from_data("OPExperiment")
+    for exp_op_id in list(system["EXPERIMENT"]["ORDERPARAMETER"][lipid].values()):
+        experiment = op_experiments.get(exp_op_id)
+        if experiment is not None:
+            op_exp.update(experiment.data.get(lipid, {}))
 
     try:
         with open(ff_path_sim) as json_file:
