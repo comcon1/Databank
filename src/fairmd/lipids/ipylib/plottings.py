@@ -7,9 +7,43 @@ import warnings
 
 import matplotlib.pyplot as plt
 import numpy as np
+from matplotlib.figure import Figure
 
+import fairmd.lipids.analib.formfactor as ff
 from fairmd.lipids.api import get_FF, get_OP, get_quality
+from fairmd.lipids.core import System
 from fairmd.lipids.experiment import ExperimentCollection
+
+
+def plot_simulation_FF(system: System) -> Figure:  # noqa: N802
+    """Plot the simulated and experimental form factors for ``system``.
+
+    NOTE: Currently, it plots only the first form factor experiment found in the system's metadata.
+
+    :return: The Matplotlib figure containing the form-factor plot.
+    """
+    print("DOI: ", system["DOI"])
+    ff_quality = get_quality(system, experiment="FF")
+    print("Form factor quality: ", ff_quality)
+
+    ff_experiments = ExperimentCollection.load_from_data("FFExperiment")
+    ff_exp = None
+    for form_factor in system["EXPERIMENT"]["FORMFACTOR"]:
+        experiment = ff_experiments.get(form_factor)
+        if experiment is not None:
+            ff_exp = experiment.data
+            break
+    if ff_exp is None:
+        msg = "No form factor experiment was found"
+        raise FileNotFoundError(msg)
+    ff_exp = np.asarray(ff_exp, dtype=float)
+    ff_sim = np.asarray(get_FF(system), dtype=float)
+    scf = ff.calc_ff_scaling_distance(ff_exp, ff_sim)[0]  # compute scaling factor
+
+    figure = plt.figure()
+    plotFormFactor(ff_sim, 1, "Simulation", "red")
+    plotFormFactor(ff_exp, scf, "Experiment", "black")
+    return figure
 
 
 def plotFormFactor(  # noqa: N802
@@ -32,7 +66,6 @@ def plotFormFactor(  # noqa: N802
     plt.xlim([0, 0.69])
     plt.ylim([-10, 250])
     plt.legend(loc="upper right")
-    plt.savefig("FormFactor.pdf")
 
 
 def plotOrderParameters(OPsim, OPexp):  # noqa
@@ -255,31 +288,6 @@ def plotOrderParameters(OPsim, OPexp):  # noqa
     plt.show()
 
 
-def plot_simulation_FF(system):  # noqa: N802
-    """Plot the simulated and experimental form factors for ``system``."""
-    print("DOI: ", system["DOI"])
-
-    try:
-        ff_quality = get_quality(system, experiment="FF")
-        print("Form factor quality: ", ff_quality)
-        ff_experiments = ExperimentCollection.load_from_data("FFExperiment")
-        ff_exp = None
-        for form_factor in system["EXPERIMENT"]["FORMFACTOR"]:
-            experiment = ff_experiments.get(form_factor)
-            if experiment is not None:
-                ff_exp = experiment.data
-                break
-        if ff_exp is None:
-            raise FileNotFoundError("No form factor experiment was found")
-        ff_sim = get_FF(system)
-        plotFormFactor(ff_sim, 1, "Simulation", "red")
-        plotFormFactor(ff_exp, ff_quality, "Experiment", "black")
-        plt.show()
-    except Exception:
-        plt.show()
-        print("Form factor plotting failed")
-
-
 def plot_simulation_OP(system, lipid: str):
     """Plot simulated and experimental C-H bond order parameters."""
     op_sim = get_OP(system).get(lipid)
@@ -300,8 +308,7 @@ def plot_simulation_OP(system, lipid: str):
 def plotSimulation(system, lipid: str):  # noqa: N802
     """Deprecated wrapper for plotting form factors and order parameters."""
     warnings.warn(
-        "plotSimulation is deprecated; use plot_simulation_FF and "
-        "plot_simulation_OP instead.",
+        "plotSimulation is deprecated; use plot_simulation_FF and plot_simulation_OP instead.",
         DeprecationWarning,
         stacklevel=2,
     )
