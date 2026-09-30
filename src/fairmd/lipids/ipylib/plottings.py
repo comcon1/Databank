@@ -1,7 +1,4 @@
-"""
-@DRAFT
-Package for plotting FAIRMD Lipids simulation and experimental data.
-"""
+"""Implementation of plotting routines for IPython/Jupyter notebooks."""
 
 import warnings
 
@@ -68,7 +65,7 @@ def plotFormFactor(  # noqa: N802
     plt.legend(loc="upper right")
 
 
-def plotOrderParameters(OPsim, OPexp):  # noqa
+def plotOrderParameters(op_sim: dict, op_exp: dict) -> tuple[Figure, Figure, Figure]:
     """:meta private:"""
     xValuesHG = []  # noqa: N806
     xValuesSN1 = []  # noqa: N806
@@ -182,31 +179,32 @@ def plotOrderParameters(OPsim, OPexp):  # noqa
         "M_G1_M M_G1H2_M": 6,
     }
 
-    for key in OPsim:
+    fig_hg = plt.figure()
+    for key in op_sim:
         if "M_G1C" in key:
             try:
                 xValuesSN1.append(sn1carbons[key])
-                yValuesSN1sim.append(float(OPsim[key][0][0]))
-                yValuesSN1simERR.append(float(OPsim[key][0][2]))
-                yValuesSN1exp.append(OPexp[key][0][0])
+                yValuesSN1sim.append(float(op_sim[key][0][0]))
+                yValuesSN1simERR.append(float(op_sim[key][0][2]))
+                yValuesSN1exp.append(op_exp[key][0][0])
                 xValuesSN1exp.append(sn1carbons[key])
             except Exception:
                 pass
         elif "M_G2C" in key:
             try:
                 xValuesSN2.append(sn2carbons[key])
-                yValuesSN2sim.append(float(OPsim[key][0][0]))
-                yValuesSN2simERR.append(float(OPsim[key][0][2]))
-                yValuesSN2exp.append(OPexp[key][0][0])
+                yValuesSN2sim.append(float(op_sim[key][0][0]))
+                yValuesSN2simERR.append(float(op_sim[key][0][2]))
+                yValuesSN2exp.append(op_exp[key][0][0])
                 xValuesSN2exp.append(sn2carbons[key])
             except Exception:
                 pass
         elif "M_G3" in key or "M_G2_M" in key or "M_G1_M" in key:
             try:
                 xValuesHG.append(HGcarbons[key])
-                yValuesHGsim.append(float(OPsim[key][0][0]))
-                yValuesHGsimERR.append(float(OPsim[key][0][2]))
-                yValuesHGexp.append(OPexp[key][0][0])
+                yValuesHGsim.append(float(op_sim[key][0][0]))
+                yValuesHGsimERR.append(float(op_sim[key][0][2]))
+                yValuesHGexp.append(op_exp[key][0][0])
                 xValuesHGexp.append(HGcarbons[key])
             except Exception:
                 pass
@@ -231,9 +229,8 @@ def plotOrderParameters(OPsim, OPexp):  # noqa
     plt.xticks([1, 2, 3, 4, 5, 6], my_xticks, size=20)
     plt.yticks(size=20)
     plt.ylabel(r"$S_{CH}$", size=25)
-    plt.savefig("HG.pdf")
-    plt.show()
 
+    fig_sn1 = plt.figure()
     plt.text(2, -0.04, "sn-1", fontsize=25)
     plt.xticks(np.arange(min(xValuesSN1), max(xValuesSN1) + 1, 2.0))
     plt.plot(xValuesSN1, yValuesSN1sim, color="red")
@@ -257,9 +254,8 @@ def plotOrderParameters(OPsim, OPexp):  # noqa
     plt.ylabel(r"$S_{CH}$", size=25)
     plt.xticks(size=20)
     plt.yticks(size=20)
-    plt.savefig("sn-1.pdf")
-    plt.show()
 
+    fig_sn2 = plt.figure()
     plt.text(2, -0.04, "sn-2", fontsize=25)
     plt.xticks(np.arange(min(xValuesSN2), max(xValuesSN2) + 1, 2.0))
     plt.plot(xValuesSN2, yValuesSN2sim, color="red")
@@ -284,11 +280,11 @@ def plotOrderParameters(OPsim, OPexp):  # noqa
     plt.ylabel(r"$S_{CH}$", size=25)
     plt.xticks(size=20)
     plt.yticks(size=20)
-    plt.savefig("sn-2.pdf")
-    plt.show()
+
+    return fig_hg, fig_sn1, fig_sn2
 
 
-def plot_simulation_OP(system, lipid: str):
+def plot_simulation_OP(system: System, lipid: str) -> tuple[Figure, Figure, Figure]:  # noqa: N802
     """Plot simulated and experimental C-H bond order parameters."""
     op_sim = get_OP(system).get(lipid)
     if op_sim is None:
@@ -302,11 +298,11 @@ def plot_simulation_OP(system, lipid: str):
         if experiment is not None:
             op_exp.update(experiment.data.get(lipid, {}))
 
-    plotOrderParameters(op_sim, op_exp)
+    return plotOrderParameters(op_sim, op_exp)
 
 
-def plotSimulation(system, lipid: str):  # noqa: N802
-    """Deprecated wrapper for plotting form factors and order parameters."""
+def plotSimulation(system: System, lipid: str) -> None:  # noqa: N802
+    """Plot form factors and order parameters (deprecated)."""
     warnings.warn(
         "plotSimulation is deprecated; use plot_simulation_FF and plot_simulation_OP instead.",
         DeprecationWarning,
