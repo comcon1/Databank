@@ -113,6 +113,7 @@ More detailed instructions are coming soon.
    :caption: Python Interface
 
    gettingstarted
+   plottings
    dbprograms
    Overview
 

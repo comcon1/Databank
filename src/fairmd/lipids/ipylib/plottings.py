@@ -63,6 +63,7 @@ def plotFormFactor(  # noqa: N802
     plt.xlim([0, 0.69])
     plt.ylim([-10, 250])
     plt.legend(loc="upper right")
+    plt.tight_layout()
 
 
 def plotOrderParameters(op_sim: dict, op_exp: dict) -> tuple[Figure, Figure, Figure]:
