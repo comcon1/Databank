@@ -1,15 +1,46 @@
-"""
-@DRAFT
-Network communication. Downloading files. Checking links etc.
-"""
+"""Implementation of plotting routines for IPython/Jupyter notebooks."""
 
-import json
-import os
+import warnings
 
 import matplotlib.pyplot as plt
 import numpy as np
+from matplotlib.figure import Figure
 
-from fairmd.lipids import FMDL_EXP_PATH, FMDL_SIMU_PATH
+import fairmd.lipids.analib.formfactor as ff
+from fairmd.lipids.api import get_FF, get_OP, get_quality
+from fairmd.lipids.core import System
+from fairmd.lipids.experiment import ExperimentCollection
+
+
+def plot_simulation_FF(system: System) -> Figure:  # noqa: N802
+    """Plot the simulated and experimental form factors for ``system``.
+
+    NOTE: Currently, it plots only the first form factor experiment found in the system's metadata.
+
+    :return: The Matplotlib figure containing the form-factor plot.
+    """
+    print("DOI: ", system["DOI"])
+    ff_quality = get_quality(system, experiment="FF")
+    print("Form factor quality: ", ff_quality)
+
+    ff_experiments = ExperimentCollection.load_from_data("FFExperiment")
+    ff_exp = None
+    for form_factor in system["EXPERIMENT"]["FORMFACTOR"]:
+        experiment = ff_experiments.get(form_factor)
+        if experiment is not None:
+            ff_exp = experiment.data
+            break
+    if ff_exp is None:
+        msg = "No form factor experiment was found"
+        raise FileNotFoundError(msg)
+    ff_exp = np.asarray(ff_exp, dtype=float)
+    ff_sim = np.asarray(get_FF(system), dtype=float)
+    scf = ff.calc_ff_scaling_distance(ff_exp, ff_sim)[0]  # compute scaling factor
+
+    figure = plt.figure()
+    plotFormFactor(ff_sim, 1, "Simulation", "red")
+    plotFormFactor(ff_exp, scf, "Experiment", "black")
+    return figure
 
 
 def plotFormFactor(  # noqa: N802
@@ -32,10 +63,10 @@ def plotFormFactor(  # noqa: N802
     plt.xlim([0, 0.69])
     plt.ylim([-10, 250])
     plt.legend(loc="upper right")
-    plt.savefig("FormFactor.pdf")
+    plt.tight_layout()
 
 
-def plotOrderParameters(OPsim, OPexp):  # noqa
+def plotOrderParameters(op_sim: dict, op_exp: dict) -> tuple[Figure, Figure, Figure]:
     """:meta private:"""
     xValuesHG = []  # noqa: N806
     xValuesSN1 = []  # noqa: N806
@@ -149,31 +180,32 @@ def plotOrderParameters(OPsim, OPexp):  # noqa
         "M_G1_M M_G1H2_M": 6,
     }
 
-    for key in OPsim:
+    fig_hg = plt.figure()
+    for key in op_sim:
         if "M_G1C" in key:
             try:
                 xValuesSN1.append(sn1carbons[key])
-                yValuesSN1sim.append(float(OPsim[key][0][0]))
-                yValuesSN1simERR.append(float(OPsim[key][0][2]))
-                yValuesSN1exp.append(OPexp[key][0][0])
+                yValuesSN1sim.append(float(op_sim[key][0][0]))
+                yValuesSN1simERR.append(float(op_sim[key][0][2]))
+                yValuesSN1exp.append(op_exp[key][0][0])
                 xValuesSN1exp.append(sn1carbons[key])
             except Exception:
                 pass
         elif "M_G2C" in key:
             try:
                 xValuesSN2.append(sn2carbons[key])
-                yValuesSN2sim.append(float(OPsim[key][0][0]))
-                yValuesSN2simERR.append(float(OPsim[key][0][2]))
-                yValuesSN2exp.append(OPexp[key][0][0])
+                yValuesSN2sim.append(float(op_sim[key][0][0]))
+                yValuesSN2simERR.append(float(op_sim[key][0][2]))
+                yValuesSN2exp.append(op_exp[key][0][0])
                 xValuesSN2exp.append(sn2carbons[key])
             except Exception:
                 pass
         elif "M_G3" in key or "M_G2_M" in key or "M_G1_M" in key:
             try:
                 xValuesHG.append(HGcarbons[key])
-                yValuesHGsim.append(float(OPsim[key][0][0]))
-                yValuesHGsimERR.append(float(OPsim[key][0][2]))
-                yValuesHGexp.append(OPexp[key][0][0])
+                yValuesHGsim.append(float(op_sim[key][0][0]))
+                yValuesHGsimERR.append(float(op_sim[key][0][2]))
+                yValuesHGexp.append(op_exp[key][0][0])
                 xValuesHGexp.append(HGcarbons[key])
             except Exception:
                 pass
@@ -198,9 +230,8 @@ def plotOrderParameters(OPsim, OPexp):  # noqa
     plt.xticks([1, 2, 3, 4, 5, 6], my_xticks, size=20)
     plt.yticks(size=20)
     plt.ylabel(r"$S_{CH}$", size=25)
-    plt.savefig("HG.pdf")
-    plt.show()
 
+    fig_sn1 = plt.figure()
     plt.text(2, -0.04, "sn-1", fontsize=25)
     plt.xticks(np.arange(min(xValuesSN1), max(xValuesSN1) + 1, 2.0))
     plt.plot(xValuesSN1, yValuesSN1sim, color="red")
@@ -224,9 +255,8 @@ def plotOrderParameters(OPsim, OPexp):  # noqa
     plt.ylabel(r"$S_{CH}$", size=25)
     plt.xticks(size=20)
     plt.yticks(size=20)
-    plt.savefig("sn-1.pdf")
-    plt.show()
 
+    fig_sn2 = plt.figure()
     plt.text(2, -0.04, "sn-2", fontsize=25)
     plt.xticks(np.arange(min(xValuesSN2), max(xValuesSN2) + 1, 2.0))
     plt.plot(xValuesSN2, yValuesSN2sim, color="red")
@@ -251,57 +281,33 @@ def plotOrderParameters(OPsim, OPexp):  # noqa
     plt.ylabel(r"$S_{CH}$", size=25)
     plt.xticks(size=20)
     plt.yticks(size=20)
-    plt.savefig("sn-2.pdf")
-    plt.show()
+
+    return fig_hg, fig_sn1, fig_sn2
 
 
-def plotSimulation(system, lipid: str):  # noqa: N802
-    """
-    Creates plots of form factor and C-H bond order parameters for the selected
-    ``lipid`` from a simulation given by system.
-
-    :param system: FAIRMD Lipids ID number of the simulation
-    :param lipid: universal molecul name of the lipid
-
-    """
-    path = os.path.join(FMDL_SIMU_PATH, system["path"])
-    ff_path_sim = os.path.join(path, "FormFactor.json")
-    op_path_sim = os.path.join(path, lipid + "OrderParameters.json")
-    ffqual_fpath = os.path.join(path, "FormFactorQuality.json")
-
-    print("DOI: ", system["DOI"])
-
-    try:
-        with open(ffqual_fpath) as json_file:
-            ff_quality = json.load(json_file)
-        print("Form factor quality: ", ff_quality[0])
-        ffdir = os.path.join(FMDL_EXP_PATH, "FormFactors", system["EXPERIMENT"]["FORMFACTOR"])
-        for subdir, _, files in os.walk(ffdir):
-            for filename in files:
-                if filename.endswith("_FormFactor.json"):
-                    ff_path_exp = subdir + "/" + filename
-        with open(ff_path_exp) as json_file:
-            ff_exp = json.load(json_file)
-    except Exception:
-        print("Force field quality not found")
-
-    with open(op_path_sim) as json_file:
-        op_sim = json.load(json_file)
+def plot_simulation_OP(system: System, lipid: str) -> tuple[Figure, Figure, Figure]:  # noqa: N802
+    """Plot simulated and experimental C-H bond order parameters."""
+    op_sim = get_OP(system).get(lipid)
+    if op_sim is None:
+        msg = f"Order parameter data not found for {lipid}"
+        raise FileNotFoundError(msg)
 
     op_exp = {}
-    for exp_op_folder in list(system["EXPERIMENT"]["ORDERPARAMETER"][lipid].values()):
-        op_path_exp = os.path.join(FMDL_EXP_PATH, "OrderParameters", exp_op_folder, lipid + "_OrderParameters.json")
-        with open(op_path_exp) as json_file:
-            op_exp.update(json.load(json_file))
+    op_experiments = ExperimentCollection.load_from_data("OPExperiment")
+    for exp_op_id in list(system["EXPERIMENT"]["ORDERPARAMETER"][lipid].values()):
+        experiment = op_experiments.get(exp_op_id)
+        if experiment is not None:
+            op_exp.update(experiment.data.get(lipid, {}))
 
-    try:
-        with open(ff_path_sim) as json_file:
-            ff_sim = json.load(json_file)
-        plotFormFactor(ff_sim, 1, "Simulation", "red")
-        plotFormFactor(ff_exp, ff_quality[1], "Experiment", "black")
-        plt.show()
-    except Exception:
-        plt.show()
-        print("Form factor plotting failed")
+    return plotOrderParameters(op_sim, op_exp)
 
-    plotOrderParameters(op_sim, op_exp)
+
+def plotSimulation(system: System, lipid: str) -> None:  # noqa: N802
+    """Plot form factors and order parameters (deprecated)."""
+    warnings.warn(
+        "plotSimulation is deprecated; use plot_simulation_FF and plot_simulation_OP instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    plot_simulation_FF(system)
+    plot_simulation_OP(system, lipid)
