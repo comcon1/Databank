@@ -53,8 +53,8 @@ obtain most of the other metadata from the `PubChem API
 <https://pubchem.ncbi.nlm.nih.gov/docs/pug-rest>`_ and the `UniChem API
 <https://www.ebi.ac.uk/unichem/api/docs>`_ using the InChIKey.
 
-The `AutocompleteMetadata workflow
-<https://github.com/NMRLipids/BilayerData/actions/workflows/AutocompleteMetadata.yml>`_
+The `AutocompleteMolMetadata workflow
+<https://github.com/NMRLipids/BilayerData/actions/workflows/AutocompleteMolMetadata.yml>`_
 will add information from these APIs to your PR, as long as you provide an ``InChIKey`` as
 a suggestion.
 
@@ -68,7 +68,7 @@ Mapping file creation
 The easiest way is to take similar already existing mapping file and modify that. If
 atoms in a lipid belong to different residues, which is typical situation in Amber force
 fields, for example see `here
-<https://github.com/NMRLipids/BilayerData/blob/main/Molecules/membrane/POPC/mappingPOPClipid17.yaml>`_,
+<https://github.com/NMRLipids/BilayerData/blob/main/Molecules/membrane/POPC/mappingPOPC_AmberLipid.yaml>`_,
 add the residue name to ``RESIDUE`` key of each atom in the mapping file. In this case,
 give the name of the head group residue in the ``COMPOSITION`` dictionary in
 :ref:`the README.yaml file <readmesimu>`.
