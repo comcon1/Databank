@@ -16,17 +16,18 @@ from fairmd.lipids.molecules import Lipid
 from .plotff import plot_simulation_FF
 
 
-def plotOrderParameters(OPsim, OPexp, lipid_name):  # noqa
+def plotOrderParameters(op_sim: dict, op_exp: dict, lipid_name: str):  # noqa
     """:meta private:"""
 
-    def _build_registry_rows(op_data, lipid_obj):
+    def _build_registry_rows(op_data: dict, lipid_obj: Lipid) -> dict:
+        """Modify reg-formatteed OP dict to have ERR=0 instead of STD None."""
         formatted = build_nice_OPdict(op_data, lipid_obj)
         for fragment in formatted:
             for row in formatted[fragment]:
                 row["ERR"] = 0.0 if row["STD"] is None else float(row["STD"])
         return formatted
 
-    def _group_by_carbon(registry_rows, fragments):
+    def _group_by_carbon(registry_rows: list, fragments: list) -> dict:
         grouped = {}
         for fragment in fragments:
             for row in registry_rows.get(fragment, []):
@@ -68,8 +69,8 @@ def plotOrderParameters(OPsim, OPexp, lipid_name):  # noqa
         return x_vals, y_sim_vals, y_sim_errs, y_exp_vals, x_exp_vals
 
     lipid_obj = Lipid(lipid_name)
-    sim_rows = _build_registry_rows(OPsim, lipid_obj)
-    exp_rows = _build_registry_rows(OPexp, lipid_obj)
+    sim_rows = _build_registry_rows(op_sim, lipid_obj)
+    exp_rows = _build_registry_rows(op_exp, lipid_obj)
 
     xValuesHG = []  # noqa: N806
     xValuesSN1 = []  # noqa: N806
@@ -203,8 +204,8 @@ def plotOrderParameters(OPsim, OPexp, lipid_name):  # noqa
         plt.show()
 
 
-def plotGenOrderParameter(OPsim, OPexp, lipid_name):  # noqa: N802
-    """Generic OP plotter driven by fragment naming registry.
+def plotGenOrderParameter(op_sim: dict, op_exp: dict, lipid_name: str):  # noqa: N802
+    """Plot generic OP data by using fragment naming registry.
 
     Builds registry-formatted OP dictionaries for simulation and experiment
     and renders one panel per fragment shared by both datasets.
@@ -261,8 +262,8 @@ def plotGenOrderParameter(OPsim, OPexp, lipid_name):  # noqa: N802
         return re.sub(r"[^A-Za-z0-9._-]+", "_", name).strip("_")
 
     lipid_obj = Lipid(lipid_name)
-    sim_rows = _build_registry_rows(OPsim, lipid_obj)
-    exp_rows = _build_registry_rows(OPexp, lipid_obj)
+    sim_rows = _build_registry_rows(op_sim, lipid_obj)
+    exp_rows = _build_registry_rows(op_exp, lipid_obj)
 
     common_fragments = sorted(set(sim_rows).intersection(exp_rows))
     for fragment in common_fragments:
