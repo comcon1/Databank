@@ -32,25 +32,6 @@ jobs:
       if: runner.os == 'macOS'
       run: brew install gromacs
 
-    - name: Install GROMACS (Windows)
-      if: runner.os == 'Windows'
-      shell: pwsh
-      run: |
-        $version = '2024.4'
-        $installer = Join-Path $env:RUNNER_TEMP "GROMACS-$version-AMD64.exe"
-        $url = "https://ftp.gromacs.org/gromacs/windows/GROMACS-$version-AMD64.exe"
-        Invoke-WebRequest -Uri $url -OutFile $installer
-        if ((Get-Item $installer).Length -lt 1MB) {
-          throw "The GROMACS installer download is unexpectedly small."
-        }
-        Start-Process -FilePath $installer -ArgumentList '/S' -Wait -NoNewWindow
-        $gmx = Get-ChildItem 'C:\Program Files\Gromacs*\bin\gmx.exe' -ErrorAction SilentlyContinue |
-          Select-Object -First 1
-        if (-not $gmx) {
-          throw 'GROMACS was not installed in the expected location.'
-        }
-        Split-Path $gmx.FullName | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-
     - name: setup Python
       uses: actions/setup-python@v7
       with:
@@ -59,9 +40,13 @@ jobs:
 
     - run: python -m pip install tox coverage[toml]
 
-    - name: run Python tests
-      run: |
-        tox -e tests-package
+    - name: run package tests
+      if: runner.os != 'Windows'
+      run: tox -e tests-package
+
+    - name: run unit tests
+      if: runner.os == 'Windows'
+      run: tox -e tests-min
 
   tests-develop:
     runs-on: ${{ matrix.os }}
