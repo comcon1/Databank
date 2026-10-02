@@ -9,6 +9,7 @@ import os
 import shutil
 import subprocess
 import time
+from collections.abc import Generator
 from tempfile import TemporaryDirectory
 
 import pytest
@@ -19,7 +20,8 @@ pytestmark = pytest.mark.adddata
 
 
 @pytest.fixture(scope="module")
-def tmp_work_dir():
+def tmp_work_dir() -> Generator[str, None, None]:
+    """Create/clean temporary working directory"""
     with TemporaryDirectory(prefix="dbtestWD_", dir=os.path.dirname(__file__)) as wdir:
         print(f"Will use following directory for loadings: {wdir}")
         yield wdir
@@ -27,7 +29,7 @@ def tmp_work_dir():
 
 class TestAddData:
     @classmethod
-    def setup_class(cls):
+    def setup_class(cls) -> None:
         from fairmd import lipids  # noqa: PLC0415
 
         if os.path.isfile(os.path.join(lipids.FMDL_DATA_PATH, ".notest")):
@@ -44,11 +46,11 @@ class TestAddData:
         os.mkdir(cls.out_dir)
 
     @classmethod
-    def teardown_class(cls):
+    def teardown_class(cls) -> None:
         if os.path.exists(cls.out_dir):
             shutil.rmtree(cls.out_dir, ignore_errors=True)
 
-    def test_add_data_h(self):
+    def test_add_data_h(self) -> None:
         """Test `add_simulation.py -h` behavior"""
         result = subprocess.run(
             [
@@ -64,7 +66,14 @@ class TestAddData:
         assert result.returncode == 0
 
     @pytest.mark.parametrize(("infofn", "debug"), [("info566.yaml", False), ("info566.yaml", True)])
-    def test_add_data_addgood(self, infofn: str, debug: bool, tmp_work_dir, capsys, request) -> None:
+    def test_add_data_addgood(
+        self,
+        infofn: str,
+        debug: bool,
+        tmp_work_dir,  # noqa: ANN001
+        capsys,  # noqa: ANN001
+        request,  # noqa: ANN001
+    ) -> None:
         """Test `add_simulation.py -f <filename> -w <dirname> -o <dirname>` which should end correctly"""
         fn = os.path.join(os.path.dirname(os.path.dirname(__file__)), "ToyData", "info", infofn)
         run_list = [
