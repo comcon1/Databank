@@ -5,6 +5,7 @@ import warnings
 
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 from matplotlib.figure import Figure
 
 from fairmd.lipids.api import get_OP
@@ -15,192 +16,34 @@ from fairmd.lipids.molecules import Lipid
 
 from .plotff import plot_simulation_FF
 
-
-def plotOrderParameters(op_sim: dict, op_exp: dict, lipid_obj: Lipid):  # noqa
-    """:meta private:"""
-
-    def _build_registry_rows(op_data: dict, lipid_obj: Lipid) -> dict:
-        """Modify reg-formatteed OP dict to have ERR=0 instead of STD None."""
-        formatted = build_nice_OPdict(op_data, lipid_obj)
-        for fragment in formatted:
-            for row in formatted[fragment]:
-                row["ERR"] = 0.0 if row["STD"] is None else float(row["STD"])
-        return formatted
-
-    def _group_by_carbon(registry_rows: list, fragments: list) -> dict:
-        grouped = {}
-        for fragment in fragments:
-            for row in registry_rows.get(fragment, []):
-                carbon = row["C"]
-                grouped.setdefault(carbon, {"OP": [], "ERR": []})
-                grouped[carbon]["OP"].append(float(row["OP"]))
-                grouped[carbon]["ERR"].append(float(row["ERR"]))
-        reduced = {}
-        for carbon, values in grouped.items():
-            reduced[carbon] = {
-                "OP": float(np.mean(values["OP"])),
-                "ERR": float(np.mean(values["ERR"])),
-            }
-        return reduced
-
-    def _collect_aligned_points(sim_grouped, exp_grouped, xpos_getter):
-        x_vals = []
-        y_sim_vals = []
-        y_sim_errs = []
-        y_exp_vals = []
-        x_exp_vals = []
-
-        aligned = []
-        for carbon in set(sim_grouped).intersection(exp_grouped):
-            xpos = xpos_getter(carbon)
-            if xpos is None:
-                continue
-            aligned.append((xpos, carbon))
-
-        aligned.sort(key=lambda x: x[0])
-
-        for xpos, carbon in aligned:
-            x_vals.append(xpos)
-            y_sim_vals.append(sim_grouped[carbon]["OP"])
-            y_sim_errs.append(sim_grouped[carbon]["ERR"])
-            y_exp_vals.append(exp_grouped[carbon]["OP"])
-            x_exp_vals.append(xpos)
-
-        return x_vals, y_sim_vals, y_sim_errs, y_exp_vals, x_exp_vals
-
-    sim_rows = _build_registry_rows(op_sim, lipid_obj)
-    exp_rows = _build_registry_rows(op_exp, lipid_obj)
-
-    xValuesHG = []  # noqa: N806
-    xValuesSN1 = []  # noqa: N806
-    xValuesSN2 = []  # noqa: N806
-
-    yValuesHGsim = []  # noqa: N806
-    yValuesSN1sim = []  # noqa: N806
-    yValuesSN2sim = []  # noqa: N806
-    yValuesHGsimERR = []  # noqa: N806
-    yValuesSN1simERR = []  # noqa: N806
-    yValuesSN2simERR = []  # noqa: N806
-    yValuesHGexp = []  # noqa: N806
-    yValuesSN1exp = []  # noqa: N806
-    yValuesSN2exp = []  # noqa: N806
-    xValuesHGexp = []  # noqa: N806
-    xValuesSN1exp = []  # noqa: N806
-    xValuesSN2exp = []  # noqa: N806
-
-    sim_sn1_grouped = _group_by_carbon(sim_rows, ["sn-1"])
-    exp_sn1_grouped = _group_by_carbon(exp_rows, ["sn-1"])
-    sim_sn2_grouped = _group_by_carbon(sim_rows, ["sn-2"])
-    exp_sn2_grouped = _group_by_carbon(exp_rows, ["sn-2"])
-    sim_hg_grouped = _group_by_carbon(sim_rows, ["headgroup", "glycerol backbone"])
-    exp_hg_grouped = _group_by_carbon(exp_rows, ["headgroup", "glycerol backbone"])
-
-    hg_positions = {
-        "γ": 1,
-        "β": 2,
-        "α": 3,
-        "g1": 4,
-        "g2": 5,
-        "g3": 6,
-    }
-
-    xValuesSN1, yValuesSN1sim, yValuesSN1simERR, yValuesSN1exp, xValuesSN1exp = _collect_aligned_points(
-        sim_sn1_grouped,
-        exp_sn1_grouped,
-        lambda c: int(c),
-    )
-    xValuesSN2, yValuesSN2sim, yValuesSN2simERR, yValuesSN2exp, xValuesSN2exp = _collect_aligned_points(
-        sim_sn2_grouped,
-        exp_sn2_grouped,
-        lambda c: int(c),
-    )
-    xValuesHG, yValuesHGsim, yValuesHGsimERR, yValuesHGexp, xValuesHGexp = _collect_aligned_points(
-        sim_hg_grouped,
-        exp_hg_grouped,
-        lambda c: hg_positions.get(c),
-    )
-    plt.rc("font", size=15)
-    if xValuesHG:
-        plt.errorbar(
-            xValuesHGexp,
-            yValuesHGexp,
-            yerr=0.02,
-            fmt=".",
-            color="black",
-            markersize=25,
-        )
-        plt.errorbar(
-            xValuesHG,
-            yValuesHGsim,
-            yerr=yValuesHGsimERR,
-            fmt=".",
-            color="red",
-            markersize=20,
-        )
-        my_xticks = ["\u03b3", "\u03b2", "\u03b1", "$g_{1}$", "$g_{2}$", "$g_{3}$"]
-        plt.xticks([1, 2, 3, 4, 5, 6], my_xticks, size=20)
-        plt.yticks(size=20)
-        plt.ylabel(r"$S_{CH}$", size=25)
-        plt.title(lipid_obj.name, size=20)
-        plt.savefig("HG.pdf")
-        plt.show()
-
-    if xValuesSN1:
-        plt.text(2, -0.04, "sn-1", fontsize=25)
-        plt.xticks(np.arange(min(xValuesSN1), max(xValuesSN1) + 1, 2.0))
-        plt.plot(xValuesSN1, yValuesSN1sim, color="red")
-        plt.plot(xValuesSN1exp, yValuesSN1exp, color="black")
-        plt.errorbar(
-            xValuesSN1,
-            yValuesSN1sim,
-            yerr=yValuesSN1simERR,
-            fmt=".",
-            color="red",
-            markersize=25,
-        )
-        plt.errorbar(
-            xValuesSN1exp,
-            yValuesSN1exp,
-            yerr=0.02,
-            fmt=".",
-            color="black",
-            markersize=20,
-        )
-        plt.ylabel(r"$S_{CH}$", size=25)
-        plt.title(lipid_obj.name, size=20)
-        plt.xticks(size=20)
-        plt.yticks(size=20)
-        plt.savefig("sn-1.pdf")
-        plt.show()
-
-    if xValuesSN2:
-        plt.text(2, -0.04, "sn-2", fontsize=25)
-        plt.xticks(np.arange(min(xValuesSN2), max(xValuesSN2) + 1, 2.0))
-        plt.plot(xValuesSN2, yValuesSN2sim, color="red")
-        plt.plot(xValuesSN2exp, yValuesSN2exp, color="black")
-        plt.errorbar(
-            xValuesSN2,
-            yValuesSN2sim,
-            yValuesSN2simERR,
-            fmt=".",
-            color="red",
-            markersize=25,
-        )
-        plt.errorbar(
-            xValuesSN2exp,
-            yValuesSN2exp,
-            yerr=0.02,
-            fmt=".",
-            color="black",
-            markersize=20,
-        )
-        plt.xlabel("Carbon", size=25)
-        plt.ylabel(r"$S_{CH}$", size=25)
-        plt.title(lipid_obj.name, size=20)
-        plt.xticks(size=20)
-        plt.yticks(size=20)
-        plt.savefig("sn-2.pdf")
-        plt.show()
+# Define a default plotting style for OP
+fmdl_plot_style = {
+    "font.size": 13,
+    "figure.figsize": (8.5, 5.5),
+    "figure.dpi": 180,
+    "label_size": 16,
+    "tick_size": 13,
+    "tick_width": 1.2,
+    "tick_length": 6,
+    "simulation": {
+        "fmt": "s",
+        "label": "Simulation",
+        "color": "red",
+        "markersize": 9,
+        "markeredgecolor": "black",
+        "markeredgewidth": 0.7,
+        "capsize": 2,
+    },
+    "experimental": {
+        "fmt": "o",
+        "label": "Experimental",
+        "color": "blue",
+        "markersize": 9,
+        "markeredgecolor": "black",
+        "markeredgewidth": 0.7,
+        "capsize": 2,
+    },
+}
 
 
 def plotGenOrderParameter(op_sim: dict, op_exp: dict, lipid_name: str):  # noqa: N802
@@ -320,6 +163,66 @@ def plotGenOrderParameter(op_sim: dict, op_exp: dict, lipid_name: str):  # noqa:
         plt.show()
 
 
+def plot_regular_phospholipid_op(op_sim: dict, op_exp: dict | None, lipid_obj: Lipid) -> tuple[Figure, Figure, Figure]:
+    """Plot simulation and experimental order parameters by fragment."""
+
+    def _prep_df(op_dict: dict) -> dict:
+        dfdic = build_nice_OPdict(op_dict, lipid_obj)
+        # unite glcerol + head into head
+        dfdic["head"] = dfdic.get("glycerol backbone", []) + dfdic.get("headgroup", [])
+        dfdic.pop("glycerol backbone", None)
+        dfdic.pop("headgroup", None)
+        for frag in dfdic:
+            _df = pd.DataFrame(dfdic[frag])
+            if _df.empty:
+                dfdic[frag] = None
+                continue
+            _df.index = _df.index.astype(int)
+            _df = _df.sort_index()
+            dfdic[frag] = _df
+        return dfdic
+
+    sim_nice_opdict = _prep_df(op_sim)
+    exp_nice_opdict = _prep_df(op_exp) if op_exp else {}
+
+    plt.rcParams.update({"font.size": fmdl_plot_style["font.size"]})
+    fig_list = []
+    for frag in sim_nice_opdict:
+        simdf = sim_nice_opdict[frag]
+        expdf = exp_nice_opdict.get(frag, None)
+        figure, axis = plt.subplots(
+            figsize=fmdl_plot_style["figure.figsize"],
+            dpi=fmdl_plot_style["figure.dpi"],
+        )
+        axis.set_title(f"{lipid_obj.name} : {frag}", fontsize=fmdl_plot_style["label_size"])
+        axis.errorbar(
+            simdf["C"],
+            simdf["OP"],
+            yerr=simdf["STD"],
+            **fmdl_plot_style["simulation"],
+        )
+        if expdf is not None:
+            axis.errorbar(
+                expdf["C"],
+                expdf["OP"],
+                yerr=expdf["STD"],
+                **fmdl_plot_style["experimental"],
+            )
+        axis.set_xticks(simdf.C)
+        axis.set_xlabel("Carbon", fontsize=fmdl_plot_style["label_size"])
+        axis.set_ylabel(r"$S_{CH}$", fontsize=fmdl_plot_style["label_size"])
+        axis.tick_params(
+            axis="both",
+            which="major",
+            labelsize=fmdl_plot_style["tick_size"],
+            width=fmdl_plot_style["tick_width"],
+            length=fmdl_plot_style["tick_length"],
+        )
+        figure.tight_layout()
+        fig_list.append(figure)
+    return tuple(fig_list)
+
+
 def plot_simulation_OP(system: System, lipid: str) -> tuple[Figure, Figure, Figure]:  # noqa: N802
     """Plot simulated and experimental C-H bond order parameters."""
     op_sim = get_OP(system).get(lipid)
@@ -334,9 +237,7 @@ def plot_simulation_OP(system: System, lipid: str) -> tuple[Figure, Figure, Figu
         if experiment is not None:
             op_exp.update(experiment.data.get(lipid, {}))
 
-    plotGenOrderParameter(op_sim, op_exp, system.lipids[lipid])
-
-    return None, None, None
+    return plot_regular_phospholipid_op(op_sim, op_exp, system.lipids[lipid])
 
 
 def plotSimulation(system: System, lipid: str) -> None:  # noqa: N802
