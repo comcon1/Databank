@@ -16,7 +16,7 @@ from fairmd.lipids.molecules import Lipid
 from .plotff import plot_simulation_FF
 
 
-def plotOrderParameters(op_sim: dict, op_exp: dict, lipid_name: str):  # noqa
+def plotOrderParameters(op_sim: dict, op_exp: dict, lipid_obj: Lipid):  # noqa
     """:meta private:"""
 
     def _build_registry_rows(op_data: dict, lipid_obj: Lipid) -> dict:
@@ -68,7 +68,6 @@ def plotOrderParameters(op_sim: dict, op_exp: dict, lipid_name: str):  # noqa
 
         return x_vals, y_sim_vals, y_sim_errs, y_exp_vals, x_exp_vals
 
-    lipid_obj = Lipid(lipid_name)
     sim_rows = _build_registry_rows(op_sim, lipid_obj)
     exp_rows = _build_registry_rows(op_exp, lipid_obj)
 
@@ -142,7 +141,7 @@ def plotOrderParameters(op_sim: dict, op_exp: dict, lipid_name: str):  # noqa
         plt.xticks([1, 2, 3, 4, 5, 6], my_xticks, size=20)
         plt.yticks(size=20)
         plt.ylabel(r"$S_{CH}$", size=25)
-        plt.title(lipid_name, size=20)
+        plt.title(lipid_obj.name, size=20)
         plt.savefig("HG.pdf")
         plt.show()
 
@@ -168,7 +167,7 @@ def plotOrderParameters(op_sim: dict, op_exp: dict, lipid_name: str):  # noqa
             markersize=20,
         )
         plt.ylabel(r"$S_{CH}$", size=25)
-        plt.title(lipid_name, size=20)
+        plt.title(lipid_obj.name, size=20)
         plt.xticks(size=20)
         plt.yticks(size=20)
         plt.savefig("sn-1.pdf")
@@ -197,7 +196,7 @@ def plotOrderParameters(op_sim: dict, op_exp: dict, lipid_name: str):  # noqa
         )
         plt.xlabel("Carbon", size=25)
         plt.ylabel(r"$S_{CH}$", size=25)
-        plt.title(lipid_name, size=20)
+        plt.title(lipid_obj.name, size=20)
         plt.xticks(size=20)
         plt.yticks(size=20)
         plt.savefig("sn-2.pdf")
@@ -330,12 +329,14 @@ def plot_simulation_OP(system: System, lipid: str) -> tuple[Figure, Figure, Figu
 
     op_exp = {}
     op_experiments = ExperimentCollection.load_from_data("OPExperiment")
-    for exp_op_id in list(system["EXPERIMENT"]["ORDERPARAMETER"][lipid].values()):
+    for exp_op_id in system["EXPERIMENT"]["ORDERPARAMETER"][lipid]:
         experiment = op_experiments.get(exp_op_id)
         if experiment is not None:
             op_exp.update(experiment.data.get(lipid, {}))
 
-    return plotOrderParameters(op_sim, op_exp)
+    plotGenOrderParameter(op_sim, op_exp, system.lipids[lipid])
+
+    return None, None, None
 
 
 def plotSimulation(system: System, lipid: str) -> None:  # noqa: N802
