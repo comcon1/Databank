@@ -33,7 +33,12 @@ class TestAddData:
         if os.path.isfile(os.path.join(lipids.FMDL_DATA_PATH, ".notest")):
             pytest.exit("Test are corrupted. I see '.notest' file in the data folder.")
         cls.exe = os.path.join(
-            os.path.dirname(os.path.dirname(__file__)), "src", "fairmd", "lipids", "bin", "add_simulation.py"
+            os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
+            "src",
+            "fairmd",
+            "lipids",
+            "bin",
+            "add_simulation.py",
         )
         cls.out_dir = lipids.FMDL_SIMU_PATH
         os.mkdir(cls.out_dir)
@@ -66,7 +71,7 @@ class TestAddData:
         Testing `add_simulation.py -f <filename> -w <dirname> -o <dirname>` which should
         end correctly
         """
-        fn = os.path.join(os.path.dirname(__file__), "ToyData", "info", infofn)
+        fn = os.path.join(os.path.dirname(os.path.dirname(__file__)), "ToyData", "info", infofn)
         run_list = [
             self.exe,
             "-f",
@@ -97,7 +102,7 @@ class TestAddData:
 
     @pytest.mark.parametrize("infofn", ["info566_uf.yaml"])
     def test_add_data_fail(self, infofn, tmp_work_dir, capsys):
-        fn = os.path.join(os.path.dirname(__file__), "ToyData", "info", infofn)
+        fn = os.path.join(os.path.dirname(os.path.dirname(__file__)), "ToyData", "info", infofn)
         result = subprocess.run(
             [
                 self.exe,
