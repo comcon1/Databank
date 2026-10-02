@@ -34,11 +34,22 @@ jobs:
 
     - name: Install GROMACS (Windows)
       if: runner.os == 'Windows'
-      shell: bash
+      shell: pwsh
       run: |
-        curl -L https://github.com/gromacs/gromacs/releases/download/v2024.4/GROMACS-2024.4-AMD64.exe -o gromacs-installer.exe
-        ./gromacs-installer.exe /SILENT /NORESTART
-        echo 'C:\Program Files\GROMACS\bin' >> "$GITHUB_PATH"
+        $version = '2024.4'
+        $installer = Join-Path $env:RUNNER_TEMP "GROMACS-$version-AMD64.exe"
+        $url = "https://ftp.gromacs.org/gromacs/windows/GROMACS-$version-AMD64.exe"
+        Invoke-WebRequest -Uri $url -OutFile $installer
+        if ((Get-Item $installer).Length -lt 1MB) {
+          throw "The GROMACS installer download is unexpectedly small."
+        }
+        Start-Process -FilePath $installer -ArgumentList '/S' -Wait -NoNewWindow
+        $gmx = Get-ChildItem 'C:\Program Files\Gromacs*\bin\gmx.exe' -ErrorAction SilentlyContinue |
+          Select-Object -First 1
+        if (-not $gmx) {
+          throw 'GROMACS was not installed in the expected location.'
+        }
+        Split-Path $gmx.FullName | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
     - name: setup Python
       uses: actions/setup-python@v7
