@@ -12,5 +12,7 @@ ignore = ["TD", "FIX002",
           "S603", "S607", # subprocess security issues
           "CPY001" # we don't enforce copyright headers
          ]
+[lint.per-file-ignores]
+"**/{tests}/*" = ["S101"]
 [lint.pydocstyle]
 convention = "pep257"
