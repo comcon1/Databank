@@ -55,6 +55,7 @@ def _plot_general_lipid(op_nice_sim: dict, op_nice_exp: dict | None, lipid_obj: 
                 continue
             _df.index = _df.index.astype(int)
             _df = _df.sort_index()
+            _df["STD"] = pd.to_numeric(_df["STD"], errors="coerce") # nan-ificate
             nicedic[frag] = _df
         return nicedic
 
