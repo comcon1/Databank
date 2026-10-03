@@ -9,6 +9,8 @@ from fairmd.lipids.api import get_FF, get_quality
 from fairmd.lipids.core import System
 from fairmd.lipids.experiment import ExperimentCollection
 
+from .style import fmdl_plot_style
+
 
 def plot_simulation_FF(system: System) -> Figure:  # noqa: N802
     """Plot the simulated and experimental form factors for ``system``.
@@ -36,7 +38,11 @@ def plot_simulation_FF(system: System) -> Figure:  # noqa: N802
     ff_sim = np.asarray(get_FF(system), dtype=float)
     scf = ff.calc_ff_scaling_distance(ff_exp, ff_sim)[0]
 
-    figure = plt.figure()
+    plt.rcParams.update({"font.size": fmdl_plot_style["font.size"]})
+    figure, _ = plt.subplots(
+        figsize=fmdl_plot_style["figure.figsize"],
+        dpi=fmdl_plot_style["figure.dpi"],
+    )
     plotFormFactor(ff_sim, 1, "Simulation", "red")
     plotFormFactor(ff_exp, scf, "Experiment", "black")
     return figure
