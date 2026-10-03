@@ -11,11 +11,6 @@ NOTE: globally import of fairmd-lipids is **STRICTLY FORBIDDEN** because it
       breaks the substitution of global path folders
 """
 
-import copy
-import os
-import sys
-import warnings
-import numpy as np
 import pytest
 import pytest_check as check
 
