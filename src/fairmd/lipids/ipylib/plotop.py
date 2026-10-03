@@ -34,41 +34,32 @@ def _plot_general_lipid(op_nice_sim: dict, op_nice_exp: dict | None, lipid_obj: 
     sim_df_dict = _prep_df(op_nice_sim)
     exp_df_dict = _prep_df(op_nice_exp) if op_nice_exp is not None else {}
 
-    plt.rcParams.update({"font.size": fmdl_plot_style["font.size"]})
     fig_list = []
-    for frag in sim_df_dict:
-        simdf = sim_df_dict[frag]
-        expdf = exp_df_dict.get(frag, None)
-        figure, axis = plt.subplots(
-            figsize=fmdl_plot_style["figure.figsize"],
-            dpi=fmdl_plot_style["figure.dpi"],
-        )
-        axis.set_title(f"{lipid_obj.name} : {frag}", fontsize=fmdl_plot_style["label_size"])
-        axis.errorbar(
-            simdf["C"],
-            simdf["OP"],
-            yerr=simdf["STD"],
-            **fmdl_plot_style["simulation"],
-        )
-        if expdf is not None:
+    with plt.rc_context(fmdl_plot_style["common"]):
+        for frag in sim_df_dict:
+            simdf = sim_df_dict[frag]
+            expdf = exp_df_dict.get(frag, None)
+            figure, axis = plt.subplots()
+            axis.set_title(f"{lipid_obj.name} : {frag}")
             axis.errorbar(
-                expdf["C"],
-                expdf["OP"],
-                yerr=expdf["STD"],
-                **fmdl_plot_style["experimental"],
+                simdf["C"],
+                simdf["OP"],
+                yerr=simdf["STD"],
+                **fmdl_plot_style["simulation"],
             )
-        axis.set_xticks(simdf.C)
-        axis.set_xlabel("Carbon", fontsize=fmdl_plot_style["label_size"])
-        axis.set_ylabel(r"$S_{CH}$", fontsize=fmdl_plot_style["label_size"])
-        axis.tick_params(
-            axis="both",
-            which="major",
-            labelsize=fmdl_plot_style["tick_size"],
-            width=fmdl_plot_style["tick_width"],
-            length=fmdl_plot_style["tick_length"],
-        )
-        figure.tight_layout()
-        fig_list.append(figure)
+            if expdf is not None:
+                axis.errorbar(
+                    expdf["C"],
+                    expdf["OP"],
+                    yerr=expdf["STD"],
+                    **fmdl_plot_style["experimental"],
+                )
+            axis.set_xticks(simdf.C)
+            axis.set_xlabel("Carbon")
+            axis.set_ylabel(r"$S_{CH}$")
+            axis.tick_params(axis="both", which="major")
+            figure.tight_layout()
+            fig_list.append(figure)
     return tuple(fig_list)
 
 

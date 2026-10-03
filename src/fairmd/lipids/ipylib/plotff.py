@@ -38,29 +38,21 @@ def plot_simulation_FF(system: System) -> Figure:  # noqa: N802
     ff_sim = np.asarray(get_FF(system), dtype=float)
     scf = ff.calc_ff_scaling_distance(ff_exp, ff_sim)[0]
 
-    plt.rcParams.update({"font.size": fmdl_plot_style["font.size"]})
-    figure, _ = plt.subplots(
-        figsize=fmdl_plot_style["figure.figsize"],
-        dpi=fmdl_plot_style["figure.dpi"],
-    )
-    plotFormFactor(ff_sim, 1, "Simulation", "red")
-    plotFormFactor(ff_exp, scf, "Experiment", "black")
-    return figure
+    with plt.rc_context(fmdl_plot_style["common"]):
+        fig, ax = plt.subplots()
+        _plot_form_factor(ax, ff_sim, 1, "Simulation", "red")
+        _plot_form_factor(ax, ff_exp, scf, "Experiment", "black")
+        fig.tight_layout()
+    return fig
 
 
-def plotFormFactor(exp_form_factor, k, legend, plot_color):  # noqa: N802
+def _plot_form_factor(ax: plt.Axes, ff_df: np.ndarray, scaling_factor: float, legend: str, plot_color: str) -> None:
     """:meta private:"""
-    x_vals = []
-    y_vals = []
-    for i in exp_form_factor:
-        x_vals.append(i[0])
-        y_vals.append(k * i[1])
-    plt.plot(x_vals, y_vals, label=legend, color=plot_color, linewidth=4.0)
-    plt.xlabel(r"$q_{z} [Å^{-1}]$", size=20)
-    plt.ylabel(r"$|F(q_{z})|$", size=20)
-    plt.xticks(size=20)
-    plt.yticks(size=20)
-    plt.xlim([0, 0.69])
-    plt.ylim([-10, 250])
-    plt.legend(loc="upper right")
-    plt.tight_layout()
+    _df = ff_df.copy()
+    _df[:, 1] *= scaling_factor
+    ax.plot(_df[:, 0], _df[:, 1], label=legend, color=plot_color, linewidth=4.0)
+    ax.set_xlabel(r"$q_{z} [Å^{-1}]$")
+    ax.set_ylabel(r"$|F(q_{z})|$")
+    ax.set_xlim([0, 0.69])
+    ax.set_ylim([-10, 250])
+    ax.legend(loc="upper right")
