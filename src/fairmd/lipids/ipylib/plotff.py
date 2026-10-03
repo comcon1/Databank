@@ -16,7 +16,7 @@ def plot_simulation_FF(system: System) -> Figure:  # noqa: N802
     """Plot the simulated and experimental form factors for ``system``.
 
     NOTE: Currently, it plots only the first form factor experiment found in
-    the system's metadata.
+    the system's metadata (if found).
 
     :return: The Matplotlib figure containing the form-factor plot.
     """
@@ -24,24 +24,24 @@ def plot_simulation_FF(system: System) -> Figure:  # noqa: N802
     ff_quality = get_quality(system, experiment="FF")
     print("Form factor quality: ", ff_quality)
 
-    ff_experiments = ExperimentCollection.load_from_data("FFExperiment")
-    ff_exp = None
-    for form_factor in system["EXPERIMENT"]["FORMFACTOR"]:
-        experiment = ff_experiments.get(form_factor)
-        if experiment is not None:
-            ff_exp = experiment.data
-            break
-    if ff_exp is None:
-        msg = "No form factor experiment was found"
-        raise FileNotFoundError(msg)
-    ff_exp = np.asarray(ff_exp, dtype=float)
     ff_sim = np.asarray(get_FF(system), dtype=float)
-    scf = ff.calc_ff_scaling_distance(ff_exp, ff_sim)[0]
+    if len(system["EXPERIMENT"]["FORMFACTOR"]):
+        form_factor = system["EXPERIMENT"]["FORMFACTOR"][0]
+        ff_experiments = ExperimentCollection.load_from_data("FFExperiment")
+        experiment = ff_experiments.get(form_factor)
+        if experiment is None:
+            msg = f"Form factor experiment {form_factor} not found in the database."
+            raise FileNotFoundError(msg)
+        ff_exp = np.asarray(experiment.data, dtype=float)
+        scf = ff.calc_ff_scaling_distance(ff_exp, ff_sim)[0]
+    else:
+        ff_exp = None
 
     with plt.rc_context(fmdl_plot_style["common"]):
         fig, ax = plt.subplots()
         _plot_form_factor(ax, ff_sim, 1, "Simulation", "red")
-        _plot_form_factor(ax, ff_exp, scf, "Experiment", "black")
+        if ff_exp is not None:
+            _plot_form_factor(ax, ff_exp, scf, "Experiment", "black")
         fig.tight_layout()
     return fig
 
