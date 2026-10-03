@@ -63,7 +63,7 @@ def _plot_general_lipid(op_nice_sim: dict, op_nice_exp: dict | None, lipid_obj: 
     return tuple(fig_list)
 
 
-def plot_regular_phospholipid_op(op_sim: dict, op_exp: dict | None, lipid_obj: Lipid) -> tuple[Figure, Figure, Figure]:
+def _plot_regular_phospholipid_op(op_sim: dict, op_exp: dict | None, lipid_obj: Lipid) -> tuple[Figure, Figure, Figure]:
     """Plot simulation and experimental order parameters by fragment."""
 
     def _unite_headgroup(op_dict: dict) -> dict:
@@ -88,13 +88,17 @@ def plot_simulation_OP(system: System, lipid: str) -> tuple[Figure, Figure, Figu
         raise FileNotFoundError(msg)
 
     op_exp = {}
-    op_experiments = ExperimentCollection.load_from_data("OPExperiment")
-    for exp_op_id in system["EXPERIMENT"]["ORDERPARAMETER"][lipid]:
+    opexplist = system["EXPERIMENT"]["ORDERPARAMETER"][lipid]
+    if opexplist:
+        exp_op_id = opexplist[0]
+        op_experiments = ExperimentCollection.load_from_data("OPExperiment")
         experiment = op_experiments.get(exp_op_id)
-        if experiment is not None:
-            op_exp.update(experiment.data.get(lipid, {}))
+        if experiment is None:
+            msg = f"Order parameter experiment {exp_op_id} not found in the database."
+            raise FileNotFoundError(msg)
+        op_exp.update(experiment.data.get(lipid, {}))
 
-    return plot_regular_phospholipid_op(op_sim, op_exp, system.lipids[lipid])
+    return _plot_regular_phospholipid_op(op_sim, op_exp, system.lipids[lipid])
 
 
 def plotSimulation(system: System, lipid: str) -> None:  # noqa: N802
