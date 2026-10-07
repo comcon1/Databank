@@ -13,5 +13,10 @@ ignore = ["TD", "FIX002",
           "CPY001", # we don't enforce copyright headers
           "N813" # MDAnalysis should be imported as mda, its OK
          ]
+[lint.per-file-ignores]
+"**/{tests}/*" = [
+    "S101",   # assert in pytest
+    "FBT001"  # boolean default values in function signatures
+    ]
 [lint.pydocstyle]
 convention = "pep257"
