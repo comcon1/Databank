@@ -4,6 +4,7 @@ import warnings
 
 import matplotlib.pyplot as plt
 import pandas as pd
+from IPython.display import display
 from matplotlib.figure import Figure
 
 from fairmd.lipids.api import get_OP
@@ -16,7 +17,7 @@ from .plotff import plot_simulation_FF
 from .style import fmdl_plot_style
 
 
-def _plot_general_lipid(op_nice_sim: dict, op_nice_exp: dict | None, lipid_obj: Lipid) -> tuple[Figure, Figure, Figure]:
+def _plot_general_lipid(op_nice_sim: dict, op_nice_exp: dict | None, lipid_obj: Lipid) -> dict[str, Figure]:
     """Plot simulation and experimental order parameters by fragment."""
 
     def _prep_df(nicedic: dict) -> dict:
@@ -34,7 +35,7 @@ def _plot_general_lipid(op_nice_sim: dict, op_nice_exp: dict | None, lipid_obj: 
     sim_df_dict = _prep_df(op_nice_sim)
     exp_df_dict = _prep_df(op_nice_exp) if op_nice_exp is not None else {}
 
-    fig_list = []
+    fig_dict = {}
     with plt.rc_context(fmdl_plot_style["common"]):
         for frag in sim_df_dict:
             simdf = sim_df_dict[frag]
@@ -59,11 +60,11 @@ def _plot_general_lipid(op_nice_sim: dict, op_nice_exp: dict | None, lipid_obj: 
             axis.set_ylabel(r"$S_{CH}$")
             axis.tick_params(axis="both", which="major")
             figure.tight_layout()
-            fig_list.append(figure)
-    return tuple(fig_list)
+            fig_dict[frag] = figure
+    return fig_dict
 
 
-def _plot_regular_phospholipid_op(op_sim: dict, op_exp: dict | None, lipid_obj: Lipid) -> tuple[Figure, Figure, Figure]:
+def _plot_regular_phospholipid_op(op_sim: dict, op_exp: dict | None, lipid_obj: Lipid) -> dict[str, Figure]:
     """Plot simulation and experimental order parameters by fragment."""
 
     def _unite_headgroup(op_dict: dict) -> dict:
@@ -72,6 +73,8 @@ def _plot_regular_phospholipid_op(op_sim: dict, op_exp: dict | None, lipid_obj: 
         nicedic["head"] = nicedic.get("glycerol backbone", []) + nicedic.get("headgroup", [])
         nicedic.pop("glycerol backbone", None)
         nicedic.pop("headgroup", None)
+        if not nicedic["head"]:
+            nicedic.pop("head", None)
         return nicedic
 
     op_sim_nice = _unite_headgroup(op_sim)
@@ -80,7 +83,7 @@ def _plot_regular_phospholipid_op(op_sim: dict, op_exp: dict | None, lipid_obj: 
     return _plot_general_lipid(op_sim_nice, op_exp_nice, lipid_obj)
 
 
-def plot_simulation_OP(system: System, lipid: str) -> tuple[Figure, Figure, Figure]:  # noqa: N802
+def plot_simulation_OP(system: System, lipid: str) -> dict[str, Figure]:  # noqa: N802
     """Plot simulated and experimental C-H bond order parameters."""
     op_sim = get_OP(system).get(lipid)
     if op_sim is None:
@@ -108,5 +111,7 @@ def plotSimulation(system: System, lipid: str) -> None:  # noqa: N802
         DeprecationWarning,
         stacklevel=2,
     )
-    plot_simulation_FF(system)
-    plot_simulation_OP(system, lipid)
+    display(plot_simulation_FF(system))
+    fd = plot_simulation_OP(system, lipid)
+    for fig in fd.values():
+        display(fig)
