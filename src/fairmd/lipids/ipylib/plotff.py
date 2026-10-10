@@ -46,9 +46,7 @@ def plot_simulation_FF(system: System) -> Figure:  # noqa: N802
     return fig
 
 
-def _plot_form_factor(
-        ax: plt.Axes, ff_df: np.ndarray,
-        scaling_factor: float, plot_label: str, plot_color: str) -> None:
+def _plot_form_factor(ax: plt.Axes, ff_df: np.ndarray, scaling_factor: float, plot_label: str, plot_color: str) -> None:
     """:meta private:"""
     _df = ff_df.copy()
     _df[:, 1] *= scaling_factor
