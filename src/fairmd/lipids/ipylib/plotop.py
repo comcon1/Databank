@@ -57,6 +57,7 @@ def _plot_general_lipid(op_nice_sim: dict, op_nice_exp: dict | None, lipid_obj: 
             axis.set_xlabel("Carbon")
             axis.set_ylabel(r"$S_{CH}$")
             axis.tick_params(axis="both", which="major")
+            axis.legend(loc="upper right")
             figure.tight_layout()
             fig_dict[frag] = figure
     return fig_dict

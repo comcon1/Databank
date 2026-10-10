@@ -30,9 +30,9 @@ fmdl_plot_style = {
     "experimental": {
         "fmt": "o",
         "label": "Experimental",
-        "color": "blue",
+        "color": "black",
         "markersize": 9,
-        "markeredgecolor": "black",
+        "markeredgecolor": "gray",
         "markeredgewidth": 0.7,
         "capsize": 2,
     },

@@ -32,7 +32,7 @@ first experiment if there are multiple experiments associated.
    :align: center
 
 Plotting order parameters
-------------------------
+-------------------------
 
 .. code-block:: python
 

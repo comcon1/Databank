@@ -46,11 +46,13 @@ def plot_simulation_FF(system: System) -> Figure:  # noqa: N802
     return fig
 
 
-def _plot_form_factor(ax: plt.Axes, ff_df: np.ndarray, scaling_factor: float, legend: str, plot_color: str) -> None:
+def _plot_form_factor(
+        ax: plt.Axes, ff_df: np.ndarray,
+        scaling_factor: float, plot_label: str, plot_color: str) -> None:
     """:meta private:"""
     _df = ff_df.copy()
     _df[:, 1] *= scaling_factor
-    ax.plot(_df[:, 0], _df[:, 1], label=legend, color=plot_color, linewidth=4.0)
+    ax.plot(_df[:, 0], _df[:, 1], label=plot_label, color=plot_color, linewidth=4.0)
     ax.set_xlabel(r"$q_{z} [Å^{-1}]$")
     ax.set_ylabel(r"$|F(q_{z})|$")
     ax.set_xlim([0, 0.69])
