@@ -168,10 +168,10 @@ def build_nice_OPdict(src: dict, lipid: Lipid) -> dict:  # noqa: N802
     :return: nicely formatted OP dictionary
     """
 
-    # Helper function to convert NaN to None for better
+    # Helper function to convert NaN/None to None for better
     # JSON compatibility in output
-    def _rnan(x: float) -> float | None:
-        return None if math.isnan(x) else x
+    def _rnan(x: float | None) -> float | None:
+        return None if x is None or math.isnan(x) else x
 
     def _fragmentize(src: dict, mdict: dict) -> dict:
         r = {}
