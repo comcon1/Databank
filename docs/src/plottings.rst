@@ -39,14 +39,16 @@ Plotting order parameters
    from fairmd.lipids.ipylib import plot_simulation_OP
 
    s = ss.loc(831)
-   f1,f2,f3 = plot_simulation_OP(s, "POPC")
-   f1.savefig("op831a.png", dpi=92)
-   f2.savefig("op831b.png", dpi=92)
-   f3.savefig("op831c.png", dpi=92)
+   figures = plot_simulation_OP(s, "POPC")
+   figures["sn-1"].savefig("op831a.png", dpi=92)
+   figures["sn-2"].savefig("op831b.png", dpi=92)
+   figures["head"].savefig("op831c.png", dpi=92)
 
 
-:func:`fairmd.lipids.ipylib.plot_simulation_OP` will produce three figures with the simulated and
-experimental order parameters together. Carbons are named according to naming registry
+:func:`fairmd.lipids.ipylib.plot_simulation_OP` returns a dictionary of figures with the simulated
+and experimental order parameters together, keyed by fragment (for example, ``"sn-1"``,
+``"sn-2"``, and ``"head"``). The available keys depend on the fragments present in the selected
+lipid. Carbons are named according to naming registry
 (:class:`fairmd.lipids.auxiliary.opconvertor.NamingRegistry`) through the
 :func:`fairmd.lipids.auxiliary.opconvertor.build_nice_OPdict` function. Currently, the plotting
 function plots only first experiment if there are multiple experiments associated.
