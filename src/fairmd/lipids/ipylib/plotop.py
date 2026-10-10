@@ -64,7 +64,7 @@ def _plot_general_lipid(op_nice_sim: dict, op_nice_exp: dict | None, lipid_obj: 
     return fig_dict
 
 
-def _plot_regular_phospholipid_op(op_sim: dict, op_exp: dict | None, lipid_obj: Lipid) -> dict[str, Figure]:
+def _plot_glyhead_united(op_sim: dict, op_exp: dict | None, lipid_obj: Lipid) -> dict[str, Figure]:
     """Plot simulation and experimental order parameters by fragment."""
 
     def _unite_headgroup(op_dict: dict) -> dict:
@@ -101,7 +101,7 @@ def plot_simulation_OP(system: System, lipid: str) -> dict[str, Figure]:  # noqa
             raise FileNotFoundError(msg)
         op_exp.update(experiment.data.get(lipid, {}))
 
-    return _plot_regular_phospholipid_op(op_sim, op_exp, system.lipids[lipid])
+    return _plot_glyhead_united(op_sim, op_exp, system.lipids[lipid])
 
 
 def plotSimulation(system: System, lipid: str) -> None:  # noqa: N802
