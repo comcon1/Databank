@@ -34,3 +34,15 @@ def test_match_experiments_matching_criteria():
     assert _match_solution_composition({"SOD": 0.10}, {"SOD": 0.12})
     assert _match_temperature(303.0, 303.15)
     assert not _match_temperature(303.0, 310.0)
+
+
+def test_match_experiments_integration(tmp_path, monkeypatch):
+    """The matcher loads ToyData and writes its pair-search log."""
+    from fairmd.lipids.bin.match_experiments import match_experiments
+
+    monkeypatch.chdir(tmp_path)
+    match_experiments()
+
+    log = (tmp_path / "search-databank-pairs.log").read_text()
+    assert "=== OP PAIRS ===" in log
+    assert "=== FF PAIRS ===" in log
