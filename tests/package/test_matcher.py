@@ -20,3 +20,17 @@ def test_experiments_are_readable_through_package_api():
     assert len(ff_experiments) == 1
     assert ff_experiments[0].exp_id == "toy_ff"
     assert ff_experiments[0].data[1] == [0.05, 0.80, 0.04]
+
+
+def test_match_experiments_matching_criteria():
+    """Matching criteria accept compatible simulation and experiment values."""
+    from fairmd.lipids.bin.match_experiments import (
+        _match_membrane_composition,
+        _match_solution_composition,
+        _match_temperature,
+    )
+
+    assert _match_membrane_composition({"POPC": 1.0}, {"POPC": 1.0})
+    assert _match_solution_composition({"SOD": 0.10}, {"SOD": 0.12})
+    assert _match_temperature(303.0, 303.15)
+    assert not _match_temperature(303.0, 310.0)
