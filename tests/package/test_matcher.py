@@ -105,3 +105,11 @@ def test_match_experiments_integration(tmp_path, monkeypatch):
     log = (tmp_path / "search-databank-pairs.log").read_text()
     assert "=== OP PAIRS ===" in log
     assert "=== FF PAIRS ===" in log
+
+    from fairmd.lipids.core import initialize_databank
+
+    ss = initialize_databank()
+    s = ss.loc(281)
+
+    assert s["EXPERIMENT"]["ORDERPARAMETER"] == {"POPC": ["toy_op"]}
+    assert s["EXPERIMENT"]["FORMFACTOR"] == ["toy_ff"]
