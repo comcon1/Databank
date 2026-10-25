@@ -105,7 +105,7 @@ def _match_hydration(sim_h: float, exp_h: float) -> bool:
     return np.abs(exp_h / sim_h - 1) <= lip_rel_hydration_tol
 
 
-def find_pairs_and_change_sims(experiments: ExperimentCollection, simulations: SystemsCollection):
+def find_pairs_and_change_sims(experiments: ExperimentCollection, simulations: SystemsCollection) -> list:
     """Find matching simulation-experiment pairs and update simulations' README data."""
     pairs = []
     for simulation in progress(simulations, desc="Simulation"):

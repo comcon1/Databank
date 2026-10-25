@@ -36,6 +36,65 @@ def test_match_experiments_matching_criteria():
     assert not _match_temperature(303.0, 310.0)
 
 
+def test_find_pairs_and_change_sims_works():
+    """Matching pairs are returned and written to the simulation metadata."""
+    from fairmd.lipids.bin.match_experiments import find_pairs_and_change_sims
+
+    class FakeSimulation(dict):
+        def __init__(self, simulation_id, temperature=303.0, implicit_water=False):
+            super().__init__(
+                ID=simulation_id,
+                TEMPERATURE=temperature,
+                EXPERIMENT={"ORDERPARAMETER": {}, "FORMFACTOR": []},
+            )
+            self.implicit_water = implicit_water
+
+        def membrane_composition(self, basis):
+            assert basis == "molar"
+            return {"POPC": 1.0}
+
+        def solution_composition(self, basis):
+            assert basis == "molar"
+            if self.implicit_water:
+                raise ValueError("implicit water")
+            return {"SOD": 0.1}
+
+        def get_hydration(self, basis):
+            assert basis == "number"
+            return 20.0
+
+    class FakeExperiment(dict):
+        def __init__(self, exp_id, exptype, data, temperature=303.0):
+            super().__init__(TEMPERATURE=temperature)
+            self.exp_id = exp_id
+            self.exptype = exptype
+            self.data = data
+
+        def membrane_composition(self, basis):
+            return {"POPC": 1.0}
+
+        def solution_composition(self, basis):
+            return {"SOD": 0.1}
+
+        def get_hydration(self, basis):
+            return 20.0
+
+    simulation = FakeSimulation("matching")
+    skipped = FakeSimulation("implicit", implicit_water=True)
+    op1_experiment = FakeExperiment("op-1", "OrderParameters", {"POPC": []}, temperature=303)
+    op2_experiment = FakeExperiment("op-2", "OrderParameters", {"POPC": []}, temperature=270)
+
+    with pytest.warns(UserWarning, match="implicit water"):
+        pairs = find_pairs_and_change_sims([op1_experiment, op2_experiment], [simulation, skipped])
+
+    assert pairs == [[simulation, op1_experiment]]
+    assert simulation["EXPERIMENT"] == {
+        "ORDERPARAMETER": {"POPC": ["op-1"]},
+        "FORMFACTOR": [],
+    }
+    assert skipped["EXPERIMENT"] == {"ORDERPARAMETER": {}, "FORMFACTOR": []}
+
+
 def test_match_experiments_integration(tmp_path, monkeypatch):
     """The matcher loads ToyData and writes its pair-search log."""
     from fairmd.lipids.bin.match_experiments import match_experiments
