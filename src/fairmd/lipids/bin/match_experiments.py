@@ -105,56 +105,66 @@ def _match_hydration(sim_h: float, exp_h: float) -> bool:
     return np.abs(exp_h / sim_h - 1) <= lip_rel_hydration_tol
 
 
+def _register_paired_experiments(simulation: System, experiments: list[Experiment]) -> None:
+    """Add matched experiments to a simulation and sort their identifiers."""
+    for experiment in experiments:
+        if experiment.exptype == "OrderParameters":
+            for lipid in experiment.data:
+                if lipid not in simulation["EXPERIMENT"]["ORDERPARAMETER"]:
+                    simulation["EXPERIMENT"]["ORDERPARAMETER"][lipid] = []
+                simulation["EXPERIMENT"]["ORDERPARAMETER"][lipid].append(experiment.exp_id)
+        elif experiment.exptype == "FormFactors":
+            simulation["EXPERIMENT"]["FORMFACTOR"].append(experiment.exp_id)
+
+    cur_exp = simulation["EXPERIMENT"]
+    cur_exp["FORMFACTOR"].sort()
+    for lipid in cur_exp["ORDERPARAMETER"]:
+        cur_exp["ORDERPARAMETER"][lipid].sort()
+
+
+def _find_pairs_for_simulation(experiments: ExperimentCollection, simulation: System) -> list:
+    """Find experiment matches for one simulation and update its README data."""
+    sim_lipids_mf = simulation.membrane_composition(basis="molar")
+    try:
+        sim_ions_mf = simulation.solution_composition(basis="molar")
+        sim_hydr = simulation.get_hydration(basis="number")
+    except ValueError:
+        # implicit water - hydration is not supported currently => don't pair
+        warnings.warn(
+            f"Simulation {simulation['ID']} has implicit water; skipping experiment matching.",
+            stacklevel=2,
+        )
+        return []
+
+    pairs = []
+    for experiment in experiments:
+        exp_lipids_mf = experiment.membrane_composition(basis="molar")
+        if not _match_membrane_composition(sim_lipids_mf, exp_lipids_mf):
+            continue
+
+        exp_ions_mf = experiment.solution_composition(basis="molar")
+        if not _match_solution_composition(sim_ions_mf, exp_ions_mf):
+            continue
+
+        exp_hydr = experiment.get_hydration(basis="number")
+        if not _match_hydration(sim_hydr, exp_hydr):
+            continue
+
+        if not _match_temperature(simulation["TEMPERATURE"], experiment["TEMPERATURE"]):
+            continue
+
+        pairs.append([simulation, experiment])
+
+    _register_paired_experiments(simulation, [pair[1] for pair in pairs])
+
+    return pairs
+
+
 def find_pairs_and_change_sims(experiments: ExperimentCollection, simulations: SystemsCollection) -> list:
     """Find matching simulation-experiment pairs and update simulations' README data."""
     pairs = []
     for simulation in progress(simulations, desc="Simulation"):
-        sim_lipids_mf = simulation.membrane_composition(basis="molar")
-        try:
-            sim_ions_mf = simulation.solution_composition(basis="molar")
-            sim_hydr = simulation.get_hydration(basis="number")
-        except ValueError:
-            # implicit water - hydration is not supported currently => don't pair
-            warnings.warn(
-                f"Simulation {simulation['ID']} has implicit water; skipping experiment matching.",
-                stacklevel=2,
-            )
-            continue
-
-        for experiment in experiments:
-            exp_lipids_mf = experiment.membrane_composition(basis="molar")
-            if not _match_membrane_composition(sim_lipids_mf, exp_lipids_mf):
-                continue
-
-            exp_ions_mf = experiment.solution_composition(basis="molar")
-            if not _match_solution_composition(sim_ions_mf, exp_ions_mf):
-                continue
-
-            exp_hydr = experiment.get_hydration(basis="number")
-            if not _match_hydration(sim_hydr, exp_hydr):
-                continue
-
-            if not _match_temperature(simulation["TEMPERATURE"], experiment["TEMPERATURE"]):
-                continue
-
-            pairs.append([simulation, experiment])
-
-            # Add path to experiment into simulation README.yaml
-            # many experiment entries can match to same simulation
-            if experiment.exptype == "OrderParameters":
-                for lipid in experiment.data:
-                    if lipid not in simulation["EXPERIMENT"]["ORDERPARAMETER"]:
-                        simulation["EXPERIMENT"]["ORDERPARAMETER"][lipid] = []
-                    simulation["EXPERIMENT"]["ORDERPARAMETER"][lipid].append(experiment.exp_id)
-            elif experiment.exptype == "FormFactors":
-                simulation["EXPERIMENT"]["FORMFACTOR"].append(experiment.exp_id)
-
-        # sorting experiment lists to keep experimental order strict
-        cur_exp = simulation["EXPERIMENT"]
-        cur_exp["FORMFACTOR"].sort()
-        for _lipid in cur_exp["ORDERPARAMETER"]:
-            cur_exp["ORDERPARAMETER"][_lipid].sort()
-
+        pairs.extend(_find_pairs_for_simulation(experiments, simulation))
     return pairs
 
 
