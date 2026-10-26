@@ -122,7 +122,7 @@ def _register_paired_experiments(simulation: System, experiments: list[Experimen
         cur_exp["ORDERPARAMETER"][lipid].sort()
 
 
-def _find_pairs_for_simulation(experiments: ExperimentCollection, simulation: System) -> list:
+def _find_pairs_for_simulation(experiments: ExperimentCollection, simulation: System) -> list[Experiment]:
     """Find experiment matches for one simulation and update its README data."""
     sim_lipids_mf = simulation.membrane_composition(basis="molar")
     try:
@@ -136,7 +136,7 @@ def _find_pairs_for_simulation(experiments: ExperimentCollection, simulation: Sy
         )
         return []
 
-    pairs = []
+    paired_exps = []
     for experiment in experiments:
         exp_lipids_mf = experiment.membrane_composition(basis="molar")
         if not _match_membrane_composition(sim_lipids_mf, exp_lipids_mf):
@@ -153,19 +153,28 @@ def _find_pairs_for_simulation(experiments: ExperimentCollection, simulation: Sy
         if not _match_temperature(simulation["TEMPERATURE"], experiment["TEMPERATURE"]):
             continue
 
-        pairs.append([simulation, experiment])
+        paired_exps.append(experiment)
 
-    _register_paired_experiments(simulation, [pair[1] for pair in pairs])
+    _register_paired_experiments(simulation, paired_exps)
 
-    return pairs
+    return paired_exps
 
 
-def find_pairs_and_change_sims(experiments: ExperimentCollection, simulations: SystemsCollection) -> list:
+def pair_all_simulations(experiments: ExperimentCollection, simulations: SystemsCollection) -> list:
     """Find matching simulation-experiment pairs and update simulations' README data."""
     pairs = []
     for simulation in progress(simulations, desc="Simulation"):
-        pairs.extend(_find_pairs_for_simulation(experiments, simulation))
+        pairs.extend(pair_one_simulation(experiments, simulation))
     return pairs
+
+
+def pair_one_simulation(experiments: ExperimentCollection, simulation: System) -> list[list[System | Experiment]]:
+    """Pair one simulation with experiments and write its README to disk."""
+    paired_exps = _find_pairs_for_simulation(experiments, simulation)
+    outfile = os.path.join(FMDL_SIMU_PATH, simulation["path"], "README.yaml")
+    with open(outfile, "w", encoding="utf-8") as f:
+        f.write(encode_canonical_yaml(simulation.readme))
+    return [[simulation, experiment] for experiment in paired_exps]
 
 
 def log_pairs(pairs, fd: IO[str]) -> None:
@@ -220,24 +229,16 @@ def match_experiments() -> None:
         print("Scanning simulation-experiment pairs among order parameter experiments.")
         exps = ExperimentCollection.load_from_data("OPExperiment")
         print(f"{len(exps)} OP experiments loaded.")
-        pairs_op = find_pairs_and_change_sims(exps, simulations)
+        pairs_op = pair_all_simulations(exps, simulations)
         logf.write("=== OP PAIRS ===\n")
         log_pairs(pairs_op, logf)
 
         exps = ExperimentCollection.load_from_data("FFExperiment")
         print(f"{len(exps)} FF experiments loaded.")
         print("Scanning simulation-experiment pairs among form factor experiments.")
-        pairs_ff = find_pairs_and_change_sims(exps, simulations)
+        pairs_ff = pair_all_simulations(exps, simulations)
         logf.write("=== FF PAIRS ===\n")
         log_pairs(pairs_ff, logf)
-
-    # save changed simulations
-    for simulation in progress(simulations, desc="Saving READMEs"):
-        outfile_dict = os.path.join(FMDL_SIMU_PATH, simulation["path"], "README.yaml")
-        if "path" in simulation:
-            del simulation["path"]
-        with open(outfile_dict, "w", encoding="utf-8") as f:
-            f.write(encode_canonical_yaml(simulation.readme))
 
     print("Found order parameter data for " + str(len(pairs_op)) + " pairs")
     print("Found form factor data for " + str(len(pairs_ff)) + " pairs")

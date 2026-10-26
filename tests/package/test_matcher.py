@@ -36,18 +36,23 @@ def test_match_experiments_matching_criteria():
     assert not _match_temperature(303.0, 310.0)
 
 
-def test_find_pairs_and_change_sims_works():
+def test_find_pairs_and_change_sims_works(tmp_path):
     """Matching pairs are returned and written to the simulation metadata."""
-    from fairmd.lipids.bin.match_experiments import find_pairs_and_change_sims
+    from fairmd.lipids.bin.match_experiments import pair_all_simulations
 
     class FakeSimulation(dict):
-        def __init__(self, simulation_id, temperature=303.0, implicit_water=False):
+        def __init__(self, simulation_id, path, temperature=303.0, implicit_water=False):
             super().__init__(
                 ID=simulation_id,
                 TEMPERATURE=temperature,
                 EXPERIMENT={"ORDERPARAMETER": {}, "FORMFACTOR": []},
+                path=str(path),
             )
             self.implicit_water = implicit_water
+
+        @property
+        def readme(self):
+            return {key: value for key, value in self.items()}
 
         def membrane_composition(self, basis):
             assert basis == "molar"
@@ -79,13 +84,13 @@ def test_find_pairs_and_change_sims_works():
         def get_hydration(self, basis):
             return 20.0
 
-    simulation = FakeSimulation("matching")
-    skipped = FakeSimulation("implicit", implicit_water=True)
+    simulation = FakeSimulation("matching", path=tmp_path)
+    skipped = FakeSimulation("implicit", path=tmp_path, implicit_water=True)
     op1_experiment = FakeExperiment("op-1", "OrderParameters", {"POPC": []}, temperature=303)
     op2_experiment = FakeExperiment("op-2", "OrderParameters", {"POPC": []}, temperature=270)
 
     with pytest.warns(UserWarning, match="implicit water"):
-        pairs = find_pairs_and_change_sims([op1_experiment, op2_experiment], [simulation, skipped])
+        pairs = pair_all_simulations([op1_experiment, op2_experiment], [simulation, skipped])
 
     assert pairs == [[simulation, op1_experiment]]
     assert simulation["EXPERIMENT"] == {
