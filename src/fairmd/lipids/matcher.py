@@ -15,6 +15,7 @@ from fairmd.lipids.experiment import Experiment, ExperimentCollection
 
 logger = logging.getLogger("__name__")
 
+
 class E2SComparator:
     """Compare experiment and simulation conditions."""
 
@@ -45,7 +46,6 @@ class E2SComparator:
                 break
         return membrane_composition_ok
 
-
     @staticmethod
     def match_solution_composition(sim_mf: dict, exp_mf: dict) -> bool:
         """Compare two solution compositions given as molar fractions."""
@@ -67,13 +67,11 @@ class E2SComparator:
         solution_rel_log10_tol = 0.5
         return all(np.abs(np.log10(_exp_mf[key] / _sim_mf[key])) <= solution_rel_log10_tol for key in _sim_mf)
 
-
     @staticmethod
     def match_temperature(sim_t: float, exp_t: float) -> bool:
         """Check if two temperatures match within tolerance."""
         abs_tolerance_t = 2.5
         return np.abs(sim_t - exp_t) <= abs_tolerance_t
-
 
     @staticmethod
     def match_hydration(sim_h: float, exp_h: float) -> bool:
