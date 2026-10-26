@@ -24,21 +24,17 @@ def test_experiments_are_readable_through_package_api():
 
 def test_match_experiments_matching_criteria():
     """Matching criteria accept compatible simulation and experiment values."""
-    from fairmd.lipids.bin.match_experiments import (
-        _match_membrane_composition,
-        _match_solution_composition,
-        _match_temperature,
-    )
+    from fairmd.lipids.matcher import E2SComparator
 
-    assert _match_membrane_composition({"POPC": 1.0}, {"POPC": 1.0})
-    assert _match_solution_composition({"SOD": 0.10}, {"SOD": 0.12})
-    assert _match_temperature(303.0, 303.15)
-    assert not _match_temperature(303.0, 310.0)
+    assert E2SComparator.match_membrane_composition({"POPC": 1.0}, {"POPC": 1.0})
+    assert E2SComparator.match_solution_composition({"SOD": 0.10}, {"SOD": 0.12})
+    assert E2SComparator.match_temperature(303.0, 303.15)
+    assert not E2SComparator.match_temperature(303.0, 310.0)
 
 
 def test_find_pairs_and_change_sims_works(tmp_path):
     """Matching pairs are returned and written to the simulation metadata."""
-    from fairmd.lipids.bin.match_experiments import pair_all_simulations
+    from fairmd.lipids.matcher import pair_all_simulations
 
     class FakeSimulation(dict):
         def __init__(self, simulation_id, path, temperature=303.0, implicit_water=False):
